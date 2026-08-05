@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: interview
+          POSTGRES_USER: interview
+          POSTGRES_PASSWORD: interview
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U interview -d interview"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://interview:interview@localhost:5432/interview?schema=public
+      NEXT_PUBLIC_API_URL: http://localhost:4000/api
+      API_URL: http://localhost:4000/api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run db:generate
+      - run: npx prisma migrate deploy --schema packages/database/prisma/schema.prisma
+      - run: npm test
+      - run: npm run build

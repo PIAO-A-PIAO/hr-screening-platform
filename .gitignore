@@ -1,0 +1,10 @@
+node_modules
+.next
+dist
+coverage
+.env
+.env.local
+*.log
+var/uploads/*
+!var/uploads/.gitkeep
+packages/database/prisma/*.db

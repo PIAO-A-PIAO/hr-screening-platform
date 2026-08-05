@@ -1,0 +1,22 @@
+{
+  "name": "internal-video-interview-platform",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": ["apps/*", "packages/*"],
+  "scripts": {
+    "dev": "concurrently -n api,web -c blue,green \"npm run dev -w @interview/api\" \"npm run dev -w @interview/web\"",
+    "build": "npm run db:generate && npm run build -w @interview/contracts && npm run build -w @interview/api && npm run build -w @interview/web",
+    "test": "npm run test -w @interview/api",
+    "db:generate": "npm run generate -w @interview/database",
+    "db:migrate": "npm run migrate -w @interview/database",
+    "db:seed": "npm run seed -w @interview/database",
+    "db:studio": "npm run studio -w @interview/database"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  },
+  "engines": {
+    "node": ">=22.0.0",
+    "npm": ">=10.0.0"
+  }
+}

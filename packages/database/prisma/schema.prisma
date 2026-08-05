@@ -1,0 +1,183 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  HR
+  RECRUITER
+  REVIEWER
+}
+
+enum JobStatus {
+  DRAFT
+  OPEN
+  CLOSED
+}
+
+enum QuestionType {
+  SINGLE_CHOICE
+  MULTI_SELECT
+  TEXT
+  FILL_BLANK
+  VIDEO
+}
+
+enum PromptMediaType {
+  IMAGE
+  VIDEO
+}
+
+enum ApplicationStatus {
+  INVITED
+  IN_PROGRESS
+  SUBMITTED
+  REVIEWED
+  REJECTED
+  HIRED
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  role      UserRole
+  reviews   Review[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Job {
+  id           String             @id @default(cuid())
+  title        String
+  department   String
+  location     String?
+  description  String             @db.Text
+  status       JobStatus          @default(DRAFT)
+  template     InterviewTemplate?
+  applications Application[]
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+}
+
+model InterviewTemplate {
+  id          String     @id @default(cuid())
+  jobId       String     @unique
+  job         Job        @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  title       String
+  welcomeText String     @default("Thank you for taking the time to interview with us.") @db.Text
+  isPublished Boolean    @default(false)
+  questions   Question[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+}
+
+model Question {
+  id                 String            @id @default(cuid())
+  templateId         String
+  template           InterviewTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  type               QuestionType
+  prompt             String            @db.Text
+  helpText           String?           @db.Text
+  promptMediaUrl     String?
+  promptMediaType    PromptMediaType?
+  options            Json?
+  weight             Float             @default(1)
+  sortOrder          Int
+  required           Boolean           @default(true)
+  preparationSeconds Int?
+  answerSeconds      Int?
+  maxRetries         Int               @default(0)
+  answers            Answer[]
+  ratings            AnswerRating[]
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  @@unique([templateId, sortOrder])
+  @@index([templateId, sortOrder])
+}
+
+model Candidate {
+  id           String        @id @default(cuid())
+  firstName    String
+  lastName     String
+  email        String
+  applications Application[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@index([email])
+}
+
+model Application {
+  id          String            @id @default(cuid())
+  jobId       String
+  job         Job               @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  candidateId String
+  candidate   Candidate         @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  status      ApplicationStatus @default(INVITED)
+  inviteToken String            @unique
+  expiresAt   DateTime
+  submittedAt DateTime?
+  answers     Answer[]
+  reviews     Review[]
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  @@unique([jobId, candidateId])
+  @@index([jobId, status])
+}
+
+model Answer {
+  id            String         @id @default(cuid())
+  applicationId String
+  application   Application    @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  questionId    String
+  question      Question       @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  textValue     String?        @db.Text
+  jsonValue     Json?
+  mediaUrl      String?
+  transcript    String?        @db.Text
+  ratings       AnswerRating[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@unique([applicationId, questionId])
+}
+
+model Review {
+  id            String         @id @default(cuid())
+  applicationId String
+  application   Application    @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  reviewerId    String
+  reviewer      User           @relation(fields: [reviewerId], references: [id])
+  overallNotes  String?        @db.Text
+  submittedAt   DateTime?
+  ratings       AnswerRating[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@unique([applicationId, reviewerId])
+}
+
+model AnswerRating {
+  id         String   @id @default(cuid())
+  reviewId   String
+  review     Review   @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  answerId   String
+  answer     Answer   @relation(fields: [answerId], references: [id], onDelete: Cascade)
+  questionId String
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  rating     Float
+  note       String?  @db.Text
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([reviewId, answerId])
+  @@index([answerId])
+}
