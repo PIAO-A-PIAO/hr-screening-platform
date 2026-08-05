@@ -2,6 +2,7 @@ import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from
 import { Reflector } from "@nestjs/core";
 import { Request } from "express";
 import { PrismaService } from "../prisma/prisma.service";
+import { getEnvironment } from "../config/environment";
 import { IS_PUBLIC_KEY } from "./public.decorator";
 
 @Injectable()
@@ -16,7 +17,7 @@ export class DemoAuthGuard implements CanActivate {
     if (isPublic) return true;
 
     const request = context.switchToHttp().getRequest<Request & { user?: unknown }>();
-    const email = String(request.header("x-demo-user-email") ?? process.env.DEMO_USER_EMAIL ?? "recruiter@demo.local");
+    const email = String(request.header("x-demo-user-email") ?? getEnvironment().DEMO_USER_EMAIL);
     const user = await this.prisma.user.findUnique({ where: { email } });
     if (!user) throw new UnauthorizedException("Unknown demo user. Run the seed command first.");
     request.user = user;

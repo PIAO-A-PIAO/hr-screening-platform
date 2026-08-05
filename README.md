@@ -1,6 +1,8 @@
 # Internal Video Interview Platform
 
-A runnable MVP for asynchronous hiring interviews. It uses Next.js, NestJS, PostgreSQL, Prisma, and the browser MediaRecorder API.
+A Milestone 0 foundation and runnable prototype for asynchronous hiring interviews. It uses Next.js, NestJS, PostgreSQL, Prisma, and the browser MediaRecorder API.
+
+> Development and staging are synthetic-data environments. Do not enter real candidate names, email addresses, resumes, or recordings.
 
 ## What works
 
@@ -30,7 +32,7 @@ var/uploads/  Local-development media storage (gitignored)
 
 ## Prerequisites
 
-- Node.js 22 or newer
+- Node.js 24 LTS (the included `.nvmrc` selects it)
 - npm 10 or newer
 - Docker Desktop (only PostgreSQL is required in Docker for the standard setup)
 - Chrome, Edge, Firefox, or Safari with camera/microphone permission for recording
@@ -51,17 +53,17 @@ Run every command from the repository root.
    docker compose up -d postgres
    ```
 
-3. Install dependencies:
+3. Install exact locked dependencies:
 
    ```bash
-   npm install
+   npm ci
    ```
 
 4. Generate the Prisma client and create the database:
 
    ```bash
    npm run db:generate
-   npx prisma migrate dev --schema packages/database/prisma/schema.prisma --name init
+   npm run db:deploy
    ```
 
 5. Load the deterministic demo data:
@@ -85,9 +87,31 @@ Run every command from the repository root.
 ## Verification commands
 
 ```bash
-npm test
-npm run build
+npm run verify
 ```
+
+The command generates Prisma, lints, type-checks, tests, and creates production builds. The same checks run in CI, followed by compiled API and production web startup smoke tests.
+
+## Foundation endpoints
+
+- Liveness: `http://localhost:4000/api/health/live`
+- Readiness: `http://localhost:4000/api/health/ready`
+- OpenAPI: `http://localhost:4000/api/docs`
+
+Readiness is successful only when PostgreSQL and the configured upload directory are available.
+
+## Company repository and continued development
+
+- [Company GitHub setup](docs/company-github-setup.md): private repository creation, first push, authentication, rulesets, security controls, and developer onboarding.
+- [Development guide](docs/development-guide.md): source ownership, full-stack change order, migrations, configuration, and verification.
+- [Product scope](docs/product-scope.md): what works now, Hireflix-style parity targets, company-specific features, and production release gates.
+- [Milestones](docs/milestones.md): Milestone 0 scope, evidence, and acceptance gate.
+- [Environments](docs/environments.md): local, CI, staging, and configuration rules.
+- [Local development](docs/local-development.md): clean-machine setup and Windows commands.
+- [Troubleshooting](docs/troubleshooting.md): common Docker, Prisma, port, and configuration failures.
+- [Data handling](docs/data-handling.md): synthetic-data and secret-handling rules.
+- [Contributing](CONTRIBUTING.md): branch, commit, pull request, and definition-of-done rules.
+- [Security](SECURITY.md): sensitive-data rules and production blockers.
 
 ## Demo users
 
@@ -105,3 +129,7 @@ To view the app as the second reviewer during API testing, send `x-demo-user-ema
 This codebase is a full working development application, not yet a production deployment. Before real candidate use, complete the hardening list in `docs/architecture.md`, especially SSO/RBAC, private object storage, hashed invitations, malware scanning, transcription jobs, retention policy, audit logs, monitoring, and backups.
 
 Local media uploads are limited to 250 MB and stored under `var/uploads`. The storage boundary is isolated so it can be replaced with direct multipart S3/R2 uploads later.
+
+## Milestone 0 status
+
+The code portion is complete when `npm run verify` passes. The full milestone remains open until the repository also has a green GitHub Actions run and an HTTPS staging deployment with a successful readiness response.

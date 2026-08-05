@@ -22,9 +22,16 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     env:
+      APP_ENV: ci
+      NODE_ENV: test
       DATABASE_URL: postgresql://interview:interview@localhost:5432/interview?schema=public
       NEXT_PUBLIC_API_URL: http://localhost:4000/api
       API_URL: http://localhost:4000/api
+      API_PORT: 4000
+      WEB_ORIGIN: http://localhost:3000
+      UPLOAD_DIR: /tmp/interview-ci-uploads
+      DEMO_USER_EMAIL: recruiter@demo.local
+      LOG_LEVEL: warn
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -33,6 +40,48 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run db:generate
-      - run: npx prisma migrate deploy --schema packages/database/prisma/schema.prisma
+      - run: npm run db:deploy
+      - run: npm run lint
+      - run: npm run typecheck
       - run: npm test
       - run: npm run build
+      - name: Smoke test compiled API and production web
+        shell: bash
+        run: |
+          set -euo pipefail
+          node apps/api/dist/main.js > /tmp/interview-api.log 2>&1 &
+          api_pid=$!
+          npm run start -w @interview/web > /tmp/interview-web.log 2>&1 &
+          web_pid=$!
+          cleanup() {
+            kill "$api_pid" "$web_pid" 2>/dev/null || true
+          }
+          trap cleanup EXIT
+
+          for attempt in {1..30}; do
+            if curl --fail --silent http://localhost:4000/api/health/ready > /tmp/readiness.json; then
+              break
+            fi
+            if ! kill -0 "$api_pid" 2>/dev/null; then
+              cat /tmp/interview-api.log
+              exit 1
+            fi
+            sleep 1
+          done
+
+          grep -q '"status":"ready"' /tmp/readiness.json
+          curl --fail --silent http://localhost:4000/api/health/live
+
+          for attempt in {1..30}; do
+            if curl --fail --silent http://localhost:3000 > /tmp/web.html; then
+              exit 0
+            fi
+            if ! kill -0 "$web_pid" 2>/dev/null; then
+              cat /tmp/interview-web.log
+              exit 1
+            fi
+            sleep 1
+          done
+
+          cat /tmp/interview-web.log
+          exit 1

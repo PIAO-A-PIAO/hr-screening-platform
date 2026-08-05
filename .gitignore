@@ -5,6 +5,8 @@ coverage
 .env
 .env.local
 *.log
+.eslintcache
+*.tsbuildinfo
 var/uploads/*
 !var/uploads/.gitkeep
 packages/database/prisma/*.db
