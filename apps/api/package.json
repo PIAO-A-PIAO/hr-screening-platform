@@ -1,7 +1,7 @@
 {
-  "name": "@interview/api",
+  "name": "@ds-hr/api",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.0.0",
   "scripts": {
     "dev": "nest start --watch",
     "build": "nest build",
@@ -10,8 +10,6 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
-    "@interview/contracts": "*",
-    "@interview/database": "*",
     "@nestjs/common": "^11.1.28",
     "@nestjs/core": "^11.1.28",
     "@nestjs/platform-express": "^11.1.28",
@@ -30,7 +28,6 @@
     "@nestjs/testing": "^11.1.28",
     "@types/express": "^5.0.5",
     "@types/jest": "^30.0.0",
-    "@types/multer": "^2.0.0",
     "@types/node": "^24.10.1",
     "jest": "^30.2.0",
     "ts-jest": "^29.4.5",

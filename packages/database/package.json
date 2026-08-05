@@ -1,23 +1,18 @@
 {
-  "name": "@interview/database",
+  "name": "@ds-hr/database",
   "private": true,
-  "version": "0.1.0",
-  "main": "src/index.js",
+  "version": "0.0.0",
   "scripts": {
     "generate": "prisma generate",
     "migrate": "prisma migrate dev",
     "migrate:deploy": "prisma migrate deploy",
-    "push": "prisma db push",
-    "seed": "tsx prisma/seed.ts",
-    "studio": "prisma studio",
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "studio": "prisma studio"
   },
   "dependencies": {
     "@prisma/client": "6.19.3"
   },
   "devDependencies": {
     "prisma": "6.19.3",
-    "tsx": "^4.20.6",
     "typescript": "^5.9.3"
   }
 }

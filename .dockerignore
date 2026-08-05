@@ -1,8 +1,11 @@
+.git
+.github
+.env
 node_modules
 **/node_modules
-.next
 **/.next
-dist
 **/dist
-.git
-var/uploads
+coverage
+*.log
+*.zip
+var/private-storage/*

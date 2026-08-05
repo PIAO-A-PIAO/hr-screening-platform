@@ -11,26 +11,25 @@ jobs:
       postgres:
         image: postgres:17-alpine
         env:
-          POSTGRES_DB: interview
-          POSTGRES_USER: interview
-          POSTGRES_PASSWORD: interview
+          POSTGRES_DB: ds_hr
+          POSTGRES_USER: ds_hr
+          POSTGRES_PASSWORD: ds_hr
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U interview -d interview"
+          --health-cmd "pg_isready -U ds_hr -d ds_hr"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
     env:
       APP_ENV: ci
       NODE_ENV: test
-      DATABASE_URL: postgresql://interview:interview@localhost:5432/interview?schema=public
-      NEXT_PUBLIC_API_URL: http://localhost:4000/api
-      API_URL: http://localhost:4000/api
+      DATABASE_URL: postgresql://ds_hr:ds_hr@localhost:5432/ds_hr?schema=public
       API_PORT: 4000
       WEB_ORIGIN: http://localhost:3000
-      UPLOAD_DIR: /tmp/interview-ci-uploads
-      DEMO_USER_EMAIL: recruiter@demo.local
+      API_URL: http://localhost:4000/api
+      NEXT_PUBLIC_API_URL: http://localhost:4000/api
+      STORAGE_DIR: /tmp/ds-hr-private-storage
       LOG_LEVEL: warn
     steps:
       - uses: actions/checkout@v4
@@ -39,19 +38,16 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - run: npm run db:generate
+      - run: mkdir -p /tmp/ds-hr-private-storage
       - run: npm run db:deploy
-      - run: npm run lint
-      - run: npm run typecheck
-      - run: npm test
-      - run: npm run build
+      - run: npm run verify
       - name: Smoke test compiled API and production web
         shell: bash
         run: |
           set -euo pipefail
-          node apps/api/dist/main.js > /tmp/interview-api.log 2>&1 &
+          node apps/api/dist/main.js > /tmp/ds-hr-api.log 2>&1 &
           api_pid=$!
-          npm run start -w @interview/web > /tmp/interview-web.log 2>&1 &
+          npm run start -w @ds-hr/web > /tmp/ds-hr-web.log 2>&1 &
           web_pid=$!
           cleanup() {
             kill "$api_pid" "$web_pid" 2>/dev/null || true
@@ -63,7 +59,7 @@ jobs:
               break
             fi
             if ! kill -0 "$api_pid" 2>/dev/null; then
-              cat /tmp/interview-api.log
+              cat /tmp/ds-hr-api.log
               exit 1
             fi
             sleep 1
@@ -77,11 +73,11 @@ jobs:
               exit 0
             fi
             if ! kill -0 "$web_pid" 2>/dev/null; then
-              cat /tmp/interview-web.log
+              cat /tmp/ds-hr-web.log
               exit 1
             fi
             sleep 1
           done
 
-          cat /tmp/interview-web.log
+          cat /tmp/ds-hr-web.log
           exit 1

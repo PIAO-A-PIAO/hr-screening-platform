@@ -21,11 +21,10 @@ const environmentSchema = z.object({
     (value) => value ?? "",
     z.string().min(1, "WEB_ORIGIN is required"),
   ),
-  UPLOAD_DIR: z.preprocess(
+  STORAGE_DIR: z.preprocess(
     (value) => value ?? "",
-    z.string().min(1, "UPLOAD_DIR is required"),
+    z.string().min(1, "STORAGE_DIR is required"),
   ),
-  DEMO_USER_EMAIL: z.string().email().default("recruiter@demo.local"),
   LOG_LEVEL: z.enum(["error", "warn", "log", "debug", "verbose"]).default("log"),
 });
 

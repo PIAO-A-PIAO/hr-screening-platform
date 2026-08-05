@@ -1,18 +1,15 @@
 import type { Metadata } from "next";
-import { AppChrome } from "../components/AppChrome";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Interview Desk",
-  description: "Internal asynchronous interview and review portal",
+  title: "DS-HR Foundation",
+  description: "Clean Milestone 0 foundation for the internal interview platform",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body>
-        <AppChrome>{children}</AppChrome>
-      </body>
+      <body>{children}</body>
     </html>
   );
 }

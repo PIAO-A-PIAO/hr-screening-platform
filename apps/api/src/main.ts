@@ -2,7 +2,6 @@ import "reflect-metadata";
 import { mkdirSync } from "node:fs";
 import { Logger, LogLevel, ValidationPipe } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
-import { NestExpressApplication } from "@nestjs/platform-express";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { AppModule } from "./app.module";
 import { ApiExceptionFilter } from "./common/api-exception.filter";
@@ -18,26 +17,22 @@ const logLevels: Record<string, LogLevel[]> = {
 
 async function bootstrap() {
   const environment = getEnvironment();
-  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+  mkdirSync(resolveFromRepository(environment.STORAGE_DIR), { recursive: true });
+
+  const app = await NestFactory.create(AppModule, {
     logger: logLevels[environment.LOG_LEVEL],
   });
-  const uploadDir = resolveFromRepository(environment.UPLOAD_DIR);
-  mkdirSync(uploadDir, { recursive: true });
 
   app.setGlobalPrefix("api");
-  app.enableCors({
-    origin: environment.WEB_ORIGINS,
-    credentials: true,
-  });
+  app.enableCors({ origin: environment.WEB_ORIGINS, credentials: true });
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
   app.useGlobalFilters(new ApiExceptionFilter());
-  app.useStaticAssets(uploadDir, { prefix: "/uploads/" });
   app.enableShutdownHooks();
 
   const swaggerConfig = new DocumentBuilder()
-    .setTitle("Interview Platform API")
-    .setDescription("Jobs, asynchronous interviews, candidate answers, and weighted reviews")
-    .setVersion("0.1")
+    .setTitle("DS-HR Foundation API")
+    .setDescription("Milestone 0 infrastructure only; no recruitment domain endpoints yet")
+    .setVersion("0.0.0")
     .build();
   SwaggerModule.setup("api/docs", app, SwaggerModule.createDocument(app, swaggerConfig));
 

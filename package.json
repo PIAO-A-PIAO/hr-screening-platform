@@ -1,23 +1,20 @@
 {
-  "name": "internal-video-interview-platform",
+  "name": "ds-hr",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.0.0",
   "workspaces": ["apps/*", "packages/*"],
   "scripts": {
-    "dev": "concurrently -n api,web -c blue,green \"npm run dev -w @interview/api\" \"npm run dev -w @interview/web\"",
-    "build": "npm run db:generate && npm run build -w @interview/contracts && npm run build -w @interview/api && npm run build -w @interview/web",
-    "test": "npm run test -w @interview/api",
-    "lint": "eslint apps packages --max-warnings=0",
-    "typecheck": "npm run typecheck -w @interview/contracts && npm run typecheck -w @interview/database && npm run typecheck -w @interview/api && npm run typecheck -w @interview/web",
+    "dev": "node --env-file-if-exists=.env ./node_modules/concurrently/dist/bin/concurrently.js -n api,web -c blue,green \"npm run dev -w @ds-hr/api\" \"npm run dev -w @ds-hr/web\"",
+    "build": "npm run db:generate && npm run build -w @ds-hr/api && npm run build -w @ds-hr/web",
+    "test": "npm run test -w @ds-hr/api",
+    "lint": "eslint \"apps/**/*.{ts,tsx,js}\" --max-warnings=0",
+    "typecheck": "npm run typecheck -w @ds-hr/api && npm run typecheck -w @ds-hr/web",
     "verify": "npm run db:generate && npm run lint && npm run typecheck && npm test && npm run build",
-    "db:generate": "npm run generate -w @interview/database",
-    "db:migrate": "npm run migrate -w @interview/database",
-    "db:deploy": "npm run migrate:deploy -w @interview/database",
-    "db:seed": "npm run seed -w @interview/database",
-    "db:studio": "npm run studio -w @interview/database"
-  },
-  "dependencies": {
-    "rxjs": "^7.8.2"
+    "db:generate": "npm run generate -w @ds-hr/database",
+    "db:validate": "node --env-file-if-exists=.env ./node_modules/prisma/build/index.js validate --schema packages/database/prisma/schema.prisma",
+    "db:migrate": "node --env-file-if-exists=.env ./node_modules/prisma/build/index.js migrate dev --schema packages/database/prisma/schema.prisma",
+    "db:deploy": "node --env-file-if-exists=.env ./node_modules/prisma/build/index.js migrate deploy --schema packages/database/prisma/schema.prisma",
+    "db:studio": "node --env-file-if-exists=.env ./node_modules/prisma/build/index.js studio --schema packages/database/prisma/schema.prisma"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",

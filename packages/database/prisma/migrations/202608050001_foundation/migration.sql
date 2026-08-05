@@ -1,0 +1,2 @@
+-- Milestone 0 baseline.
+-- No recruitment-domain tables are created in the clean foundation.

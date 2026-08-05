@@ -1,9 +1,7 @@
 import { Controller, Get, ServiceUnavailableException } from "@nestjs/common";
 import { ApiOperation, ApiResponse, ApiTags } from "@nestjs/swagger";
-import { Public } from "../auth/public.decorator";
 import { HealthService } from "./health.service";
 
-@Public()
 @ApiTags("health")
 @Controller("health")
 export class HealthController {
@@ -16,9 +14,9 @@ export class HealthController {
   }
 
   @Get("ready")
-  @ApiOperation({ summary: "Confirm that required dependencies are ready" })
-  @ApiResponse({ status: 200, description: "Database and storage are ready" })
-  @ApiResponse({ status: 503, description: "At least one required dependency is unavailable" })
+  @ApiOperation({ summary: "Confirm that PostgreSQL and private storage are ready" })
+  @ApiResponse({ status: 200, description: "Required dependencies are ready" })
+  @ApiResponse({ status: 503, description: "A required dependency is unavailable" })
   async ready() {
     const result = await this.health.readiness();
     if (result.status === "not_ready") {

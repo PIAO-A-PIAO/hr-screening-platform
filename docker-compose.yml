@@ -2,15 +2,15 @@ services:
   postgres:
     image: postgres:17-alpine
     environment:
-      POSTGRES_DB: interview
-      POSTGRES_USER: interview
-      POSTGRES_PASSWORD: interview
+      POSTGRES_DB: ds_hr
+      POSTGRES_USER: ds_hr
+      POSTGRES_PASSWORD: ds_hr
     ports:
       - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - foundation_db_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U interview -d interview"]
+      test: ["CMD-SHELL", "pg_isready -U ds_hr -d ds_hr"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -22,19 +22,15 @@ services:
     environment:
       APP_ENV: local
       NODE_ENV: production
-      DATABASE_URL: postgresql://interview:interview@postgres:5432/interview?schema=public
+      DATABASE_URL: postgresql://ds_hr:ds_hr@postgres:5432/ds_hr?schema=public
       API_PORT: 4000
       WEB_ORIGIN: http://localhost:3000
-      UPLOAD_DIR: /app/var/uploads
-      DEMO_USER_EMAIL: recruiter@demo.local
+      STORAGE_DIR: /app/var/private-storage
       LOG_LEVEL: log
     ports:
       - "4000:4000"
-    command: >-
-      sh -c "npx prisma migrate deploy --schema packages/database/prisma/schema.prisma
-      && node apps/api/dist/main.js"
     volumes:
-      - uploads:/app/var/uploads
+      - foundation_private_storage:/app/var/private-storage
     depends_on:
       postgres:
         condition: service_healthy
@@ -48,8 +44,6 @@ services:
     build:
       context: .
       dockerfile: apps/web/Dockerfile
-      args:
-        NEXT_PUBLIC_API_URL: http://localhost:4000/api
     environment:
       API_URL: http://api:4000/api
       NEXT_PUBLIC_API_URL: http://localhost:4000/api
@@ -60,5 +54,5 @@ services:
         condition: service_healthy
 
 volumes:
-  postgres_data:
-  uploads:
+  foundation_db_data:
+  foundation_private_storage:
