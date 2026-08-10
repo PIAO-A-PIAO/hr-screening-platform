@@ -17,4 +17,4 @@ COPY --from=build /app/apps/api/dist ./apps/api/dist
 COPY --from=build /app/packages/database ./packages/database
 RUN mkdir -p /app/var/private-storage
 EXPOSE 4000
-CMD ["sh", "-c", "npm run db:deploy && node apps/api/dist/main.js"]
+CMD ["node", "apps/api/dist/main.js"]

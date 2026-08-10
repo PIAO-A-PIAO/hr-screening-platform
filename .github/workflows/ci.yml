@@ -7,6 +7,7 @@ on:
 jobs:
   verify:
     runs-on: ubuntu-latest
+
     services:
       postgres:
         image: postgres:17-alpine
@@ -21,6 +22,7 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
+
     env:
       APP_ENV: ci
       NODE_ENV: test
@@ -29,39 +31,50 @@ jobs:
       WEB_ORIGIN: http://localhost:3000
       API_URL: http://localhost:4000/api
       NEXT_PUBLIC_API_URL: http://localhost:4000/api
+      STORAGE_DRIVER: filesystem
       STORAGE_DIR: /tmp/ds-hr-private-storage
       LOG_LEVEL: warn
+
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: npm
+
       - run: npm ci
       - run: mkdir -p /tmp/ds-hr-private-storage
       - run: npm run db:deploy
       - run: npm run verify
+
       - name: Smoke test compiled API and production web
         shell: bash
         run: |
           set -euo pipefail
+
           node apps/api/dist/main.js > /tmp/ds-hr-api.log 2>&1 &
           api_pid=$!
+
           npm run start -w @ds-hr/web > /tmp/ds-hr-web.log 2>&1 &
           web_pid=$!
+
           cleanup() {
             kill "$api_pid" "$web_pid" 2>/dev/null || true
           }
+
           trap cleanup EXIT
 
           for attempt in {1..30}; do
             if curl --fail --silent http://localhost:4000/api/health/ready > /tmp/readiness.json; then
               break
             fi
+
             if ! kill -0 "$api_pid" 2>/dev/null; then
               cat /tmp/ds-hr-api.log
               exit 1
             fi
+
             sleep 1
           done
 
@@ -72,12 +85,80 @@ jobs:
             if curl --fail --silent http://localhost:3000 > /tmp/web.html; then
               exit 0
             fi
+
             if ! kill -0 "$web_pid" 2>/dev/null; then
               cat /tmp/ds-hr-web.log
               exit 1
             fi
+
             sleep 1
           done
 
           cat /tmp/ds-hr-web.log
+          exit 1
+
+  deploy-staging:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: verify
+    runs-on: [self-hosted, linux, x64, ds-hr-staging]
+
+    concurrency:
+      group: ds-hr-staging
+      cancel-in-progress: false
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build staging images
+        run: >-
+          docker compose
+          --project-name ds-hr-staging
+          --env-file /opt/ds-hr/.env.staging
+          -f docker-compose.staging.yml
+          build
+
+      - name: Start database
+        run: >-
+          docker compose
+          --project-name ds-hr-staging
+          --env-file /opt/ds-hr/.env.staging
+          -f docker-compose.staging.yml
+          up -d postgres
+
+      - name: Deploy migrations
+        run: >-
+          docker compose
+          --project-name ds-hr-staging
+          --env-file /opt/ds-hr/.env.staging
+          -f docker-compose.staging.yml
+          run --rm api npm run db:deploy
+
+      - name: Start application
+        run: >-
+          docker compose
+          --project-name ds-hr-staging
+          --env-file /opt/ds-hr/.env.staging
+          -f docker-compose.staging.yml
+          up -d --remove-orphans
+
+      - name: Verify staging locally
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          for attempt in {1..30}; do
+            if curl --fail --silent http://localhost/api/health/ready | grep -q '"status":"ready"'; then
+              curl --fail --silent http://localhost/ >/dev/null
+              exit 0
+            fi
+
+            sleep 2
+          done
+
+          docker compose \
+            --project-name ds-hr-staging \
+            --env-file /opt/ds-hr/.env.staging \
+            -f docker-compose.staging.yml \
+            ps
+
           exit 1
