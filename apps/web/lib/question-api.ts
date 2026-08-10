@@ -1,0 +1,157 @@
+export type QuestionType = "VIDEO" | "MULTIPLE_CHOICE" | "SHORT_ANSWER";
+export type QuestionStatus = "DRAFT" | "PUBLISHED" | "ARCHIVED";
+
+export type QuestionAsset = {
+  assetId: string;
+  mimeType: string;
+  size: number;
+  durationSeconds: number | null;
+  checksum: string;
+  ownerId: string | null;
+  createdAt: string;
+};
+
+export type QuestionResponse = {
+  id: string;
+  title: string;
+  description: string | null;
+  type: QuestionType;
+  createdAt: string;
+  updatedAt: string;
+  item: Record<string, unknown>;
+};
+
+export type CreateQuestionInput = {
+  title: string;
+  description?: string;
+  type: QuestionType;
+  item: Record<string, unknown>;
+};
+
+export type UploadQuestionAssetResult = {
+  videoId?: string;
+  thumbnailId?: string;
+  assetId: string;
+  mimeType: string;
+  size: number;
+  durationSeconds: number | null;
+  checksum: string;
+  ownerId: string | null;
+  createdAt: string;
+};
+
+export class ApiError extends Error {
+  status: number;
+  details: unknown;
+
+  constructor(message: string, status: number, details: unknown) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.details = details;
+  }
+}
+
+function getApiBaseUrl() {
+  return "/api";
+}
+
+async function readErrorMessage(response: Response) {
+  try {
+    const payload = await response.json() as {
+      message?: string | string[];
+      error?: string;
+    };
+    const message = Array.isArray(payload.message)
+      ? payload.message.join(", ")
+      : payload.message ?? payload.error ?? `Request failed with status ${response.status}`;
+    return { message, details: payload };
+  } catch {
+    return {
+      message: `Request failed with status ${response.status}`,
+      details: null,
+    };
+  }
+}
+
+async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(`${getApiBaseUrl()}${path}`, {
+    ...init,
+    headers: {
+      ...(init?.headers ?? {}),
+    },
+  });
+
+  if (!response.ok) {
+    const { message, details } = await readErrorMessage(response);
+    throw new ApiError(message, response.status, details);
+  }
+
+  return response.json() as Promise<T>;
+}
+
+async function requestBlob(path: string): Promise<Blob> {
+  const response = await fetch(`${getApiBaseUrl()}${path}`, {
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    const { message, details } = await readErrorMessage(response);
+    throw new ApiError(message, response.status, details);
+  }
+
+  return response.blob();
+}
+
+export function createQuestion(input: CreateQuestionInput) {
+  return requestJson<QuestionResponse>("/questions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(input),
+  });
+}
+
+export function getQuestion(questionId: string) {
+  return requestJson<QuestionResponse>(`/questions/${encodeURIComponent(questionId)}`);
+}
+
+export async function uploadQuestionVideo(
+  questionId: string,
+  file: File,
+  options?: { ownerId?: string; durationSeconds?: number },
+) {
+  const formData = new FormData();
+  formData.append("file", file);
+  if (options?.ownerId) formData.append("ownerId", options.ownerId);
+  if (typeof options?.durationSeconds === "number") {
+    formData.append("durationSeconds", String(options.durationSeconds));
+  }
+  return requestJson<UploadQuestionAssetResult>(`/questions/${encodeURIComponent(questionId)}/video`, {
+    method: "POST",
+    body: formData,
+  });
+}
+
+export async function uploadQuestionThumbnail(
+  questionId: string,
+  file: File,
+  options?: { ownerId?: string },
+) {
+  const formData = new FormData();
+  formData.append("file", file);
+  if (options?.ownerId) formData.append("ownerId", options.ownerId);
+  return requestJson<UploadQuestionAssetResult>(`/questions/${encodeURIComponent(questionId)}/thumbnail`, {
+    method: "POST",
+    body: formData,
+  });
+}
+
+export function getQuestionVideoBlob(questionId: string) {
+  return requestBlob(`/questions/${encodeURIComponent(questionId)}/video`);
+}
+
+export function getQuestionThumbnailBlob(questionId: string) {
+  return requestBlob(`/questions/${encodeURIComponent(questionId)}/thumbnail`);
+}
