@@ -98,7 +98,8 @@ jobs:
           exit 1
 
   deploy-staging:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    #if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: ${{false}}
     needs: verify
     runs-on: [self-hosted, linux, x64, ds-hr-staging]
 
