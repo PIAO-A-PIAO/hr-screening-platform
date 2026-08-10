@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import Link from "next/link";
+import { headers } from "next/headers";
 
 type ApiState = {
   connected: boolean;
@@ -9,9 +10,13 @@ type ApiState = {
 };
 
 async function getApiState(): Promise<ApiState> {
-  const apiUrl = process.env.API_URL ?? "http://localhost:4000/api";
   try {
-    const response = await fetch(`${apiUrl}/health/ready`, { cache: "no-store" });
+    const requestHeaders = await headers();
+    const host = requestHeaders.get("host") ?? "localhost:3000";
+    const protocol = requestHeaders.get("x-forwarded-proto") ?? "http";
+    const response = await fetch(`${protocol}://${host}/api/health/ready`, {
+      cache: "no-store",
+    });
     if (!response.ok) return { connected: true, database: false, storage: false };
     const data = await response.json() as {
       checks?: { database?: boolean; storage?: boolean };
