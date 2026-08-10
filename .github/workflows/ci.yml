@@ -97,7 +97,7 @@ jobs:
           cat /tmp/ds-hr-web.log
           exit 1
 
-    deploy-staging:
+  deploy-staging:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: verify
     runs-on: [self-hosted, linux, x64, ds-hr-staging]
