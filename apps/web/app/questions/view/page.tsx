@@ -7,12 +7,14 @@ export const metadata: Metadata = {
 };
 
 type ViewQuestionPageProps = {
-  searchParams?: {
+  searchParams?: Promise<{
     questionId?: string;
-  };
+  }>;
 };
 
-export default function ViewQuestionPage({ searchParams }: ViewQuestionPageProps) {
+export default async function ViewQuestionPage({ searchParams }: ViewQuestionPageProps) {
+  const resolvedSearchParams = await searchParams;
+
   return (
     <main className="pageShell">
       <section className="hero compactHero">
@@ -23,7 +25,7 @@ export default function ViewQuestionPage({ searchParams }: ViewQuestionPageProps
         </p>
       </section>
 
-      <QuestionViewer initialQuestionId={searchParams?.questionId ?? ""} />
+      <QuestionViewer initialQuestionId={resolvedSearchParams?.questionId ?? ""} />
     </main>
   );
 }
