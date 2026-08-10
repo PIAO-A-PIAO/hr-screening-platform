@@ -17,7 +17,9 @@ const logLevels: Record<string, LogLevel[]> = {
 
 async function bootstrap() {
   const environment = getEnvironment();
+  if (environment.STORAGE_DRIVER === "filesystem") {
   mkdirSync(resolveFromRepository(environment.STORAGE_DIR), { recursive: true });
+ }
 
   const app = await NestFactory.create(AppModule, {
     logger: logLevels[environment.LOG_LEVEL],

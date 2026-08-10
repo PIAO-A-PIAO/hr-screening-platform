@@ -21,11 +21,32 @@ const environmentSchema = z.object({
     (value) => value ?? "",
     z.string().min(1, "WEB_ORIGIN is required"),
   ),
+  STORAGE_DRIVER: z.enum(["filesystem", "s3"]).default("filesystem"),
   STORAGE_DIR: z.preprocess(
     (value) => value ?? "",
     z.string().min(1, "STORAGE_DIR is required"),
   ),
+  AWS_REGION: z.string().min(1).optional(),
+  S3_BUCKET_NAME: z.string().min(1).optional(),
   LOG_LEVEL: z.enum(["error", "warn", "log", "debug", "verbose"]).default("log"),
+}).superRefine((environment, context) => {
+  if (environment.STORAGE_DRIVER !== "s3") return;
+
+  if (!environment.AWS_REGION) {
+    context.addIssue({
+      code: "custom",
+      path: ["AWS_REGION"],
+      message: "AWS_REGION is required when STORAGE_DRIVER is s3",
+    });
+  }
+
+  if (!environment.S3_BUCKET_NAME) {
+    context.addIssue({
+      code: "custom",
+      path: ["S3_BUCKET_NAME"],
+      message: "S3_BUCKET_NAME is required when STORAGE_DRIVER is s3",
+    });
+  }
 });
 
 type ParsedEnvironment = z.infer<typeof environmentSchema>;
@@ -38,10 +59,12 @@ let cachedEnvironment: AppEnvironment | undefined;
 
 export function parseEnvironment(source: NodeJS.ProcessEnv): AppEnvironment {
   const parsed = environmentSchema.safeParse(source);
+
   if (!parsed.success) {
     const details = parsed.error.issues
       .map((issue) => `${issue.path.join(".") || "environment"}: ${issue.message}`)
       .join("; ");
+
     throw new Error(`Configuration error: ${details}`);
   }
 
@@ -53,11 +76,16 @@ export function parseEnvironment(source: NodeJS.ProcessEnv): AppEnvironment {
     try {
       new URL(origin);
     } catch {
-      throw new Error(`Configuration error: WEB_ORIGIN contains an invalid URL: ${origin}`);
+      throw new Error(
+        `Configuration error: WEB_ORIGIN contains an invalid URL: ${origin}`,
+      );
     }
   }
 
-  return { ...parsed.data, WEB_ORIGINS: webOrigins };
+  return {
+    ...parsed.data,
+    WEB_ORIGINS: webOrigins,
+  };
 }
 
 export function getEnvironment(): AppEnvironment {
