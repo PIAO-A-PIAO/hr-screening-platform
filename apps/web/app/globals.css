@@ -267,6 +267,17 @@ h1 {
   gap: 12px;
 }
 
+.testBuilderGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.65fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.draftSidebar {
+  min-height: 100%;
+}
+
 .fieldWide {
   grid-column: 1 / -1;
 }
@@ -613,6 +624,10 @@ textarea:focus {
   }
 
   .gridTwo {
+    grid-template-columns: 1fr;
+  }
+
+  .testBuilderGrid {
     grid-template-columns: 1fr;
   }
 }

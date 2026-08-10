@@ -1,5 +1,6 @@
 export type QuestionType = "VIDEO" | "MULTIPLE_CHOICE" | "SHORT_ANSWER";
 export type QuestionStatus = "DRAFT" | "PUBLISHED" | "ARCHIVED";
+export type TestStatus = "DRAFT" | "PUBLISHED" | "ARCHIVED";
 
 export type QuestionAsset = {
   assetId: string;
@@ -26,6 +27,37 @@ export type CreateQuestionInput = {
   description?: string;
   type: QuestionType;
   item: Record<string, unknown>;
+};
+
+export type QuestionDraftInput = CreateQuestionInput & {
+  order: number;
+};
+
+export type CreateTestInput = {
+  name: string;
+  description?: string;
+  tags?: string[];
+  status?: TestStatus;
+  questions: QuestionDraftInput[];
+};
+
+export type TestQuestionResponse = QuestionResponse & {
+  order: number;
+};
+
+export type TestResponse = {
+  id: string;
+  name: string;
+  description: string | null;
+  positionMetadata: Record<string, unknown> | null;
+  tags: string[];
+  status: TestStatus;
+  creatorId: string | null;
+  creatorName: string | null;
+  configuration: Record<string, unknown> | null;
+  createdAt: string;
+  updatedAt: string;
+  questions: TestQuestionResponse[];
 };
 
 export type UploadQuestionAssetResult = {
@@ -113,8 +145,22 @@ export function createQuestion(input: CreateQuestionInput) {
   });
 }
 
+export function createTest(input: CreateTestInput) {
+  return requestJson<TestResponse>("/tests", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(input),
+  });
+}
+
 export function getQuestion(questionId: string) {
   return requestJson<QuestionResponse>(`/questions/${encodeURIComponent(questionId)}`);
+}
+
+export function getTest(testId: string) {
+  return requestJson<TestResponse>(`/tests/${encodeURIComponent(testId)}`);
 }
 
 export async function uploadQuestionVideo(
