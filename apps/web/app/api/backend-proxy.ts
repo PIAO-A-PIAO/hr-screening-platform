@@ -37,7 +37,6 @@ export async function proxyRequest(request: NextRequest, backendPath: string) {
         method,
         headers,
         body,
-        duplex: hasBody ? "half" : undefined,
         cache: "no-store",
       });
 
