@@ -4,7 +4,7 @@ import { proxyRequest } from "../backend-proxy";
 export const runtime = "nodejs";
 
 async function proxy(request: NextRequest) {
-  return proxyRequest(request, "/questions");
+  return proxyRequest(request, "/tests");
 }
 
 export async function GET(request: NextRequest) {

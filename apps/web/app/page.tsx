@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import Link from "next/link";
+import { headers } from "next/headers";
 
 type ApiState = {
   connected: boolean;
@@ -9,9 +10,13 @@ type ApiState = {
 };
 
 async function getApiState(): Promise<ApiState> {
-  const apiUrl = process.env.API_URL ?? "http://localhost:4000/api";
   try {
-    const response = await fetch(`${apiUrl}/health/ready`, { cache: "no-store" });
+    const requestHeaders = await headers();
+    const host = requestHeaders.get("host") ?? "localhost:3000";
+    const protocol = requestHeaders.get("x-forwarded-proto") ?? "http";
+    const response = await fetch(`${protocol}://${host}/api/health/ready`, {
+      cache: "no-store",
+    });
     if (!response.ok) return { connected: true, database: false, storage: false };
     const data = await response.json() as {
       checks?: { database?: boolean; storage?: boolean };
@@ -69,6 +74,11 @@ export default async function Home() {
           <span className="sectionLabel">View</span>
           <h2>View a question by ID</h2>
           <p>Open the dedicated lookup page and load a question, then inspect its details and media.</p>
+        </Link>
+        <Link className="routeCard" href="/tests/create">
+          <span className="sectionLabel">Test</span>
+          <h2>Create a test</h2>
+          <p>Assemble ordered question drafts into one test record and save the bundle together.</p>
         </Link>
       </section>
     </main>
