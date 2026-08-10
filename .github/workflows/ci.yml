@@ -101,21 +101,38 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: verify
     runs-on: [self-hosted, linux, x64, ds-hr-staging]
+    timeout-minutes: 45
 
     concurrency:
       group: ds-hr-staging
       cancel-in-progress: false
 
+    env:
+      COMPOSE_PARALLEL_LIMIT: 1
+
     steps:
       - uses: actions/checkout@v5
 
-      - name: Build staging images
+      - name: Show server resources
+        run: |
+          free -h
+          df -h /
+
+      - name: Build API staging image
         run: >-
           docker compose
           --project-name ds-hr-staging
           --env-file /opt/ds-hr/.env.staging
           -f docker-compose.staging.yml
-          build
+          build api
+
+      - name: Build web staging image
+        run: >-
+          docker compose
+          --project-name ds-hr-staging
+          --env-file /opt/ds-hr/.env.staging
+          -f docker-compose.staging.yml
+          build web
 
       - name: Start database
         run: >-
@@ -147,7 +164,8 @@ jobs:
           set -euo pipefail
 
           for attempt in {1..30}; do
-            if curl --fail --silent http://localhost/api/health/ready | grep -q '"status":"ready"'; then
+            if curl --fail --silent http://localhost/api/health/ready |
+              grep -q '"status":"ready"'; then
               curl --fail --silent http://localhost/ >/dev/null
               exit 0
             fi
@@ -155,10 +173,24 @@ jobs:
             sleep 2
           done
 
+          exit 1
+
+      - name: Show deployment diagnostics
+        if: failure()
+        shell: bash
+        run: |
           docker compose \
             --project-name ds-hr-staging \
             --env-file /opt/ds-hr/.env.staging \
             -f docker-compose.staging.yml \
             ps
 
-          exit 1
+          docker compose \
+            --project-name ds-hr-staging \
+            --env-file /opt/ds-hr/.env.staging \
+            -f docker-compose.staging.yml \
+            logs --tail=100
+
+      - name: Remove unused image layers
+        if: success()
+        run: docker image prune --force
