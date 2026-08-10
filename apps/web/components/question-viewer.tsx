@@ -102,9 +102,10 @@ export function QuestionViewer({ initialQuestionId = "" }: QuestionViewerProps) 
       return;
     }
 
+    const currentQuestion = question;
     let cancelled = false;
     const objectUrls: string[] = [];
-    const assets = question.item as { video?: QuestionAsset | null; thumbnail?: QuestionAsset | null };
+    const assets = currentQuestion.item as { video?: QuestionAsset | null; thumbnail?: QuestionAsset | null };
 
     async function loadMedia() {
       setMedia((current) => ({ ...current, loading: true, error: null }));
@@ -116,14 +117,14 @@ export function QuestionViewer({ initialQuestionId = "" }: QuestionViewerProps) 
           thumbnailUrl: null,
         };
 
-        if (question.type === "VIDEO" && assets.video) {
-          const videoBlob = await getQuestionVideoBlob(question.id);
+        if (currentQuestion.type === "VIDEO" && assets.video) {
+          const videoBlob = await getQuestionVideoBlob(currentQuestion.id);
           next.videoUrl = URL.createObjectURL(videoBlob);
           objectUrls.push(next.videoUrl);
         }
 
-        if (question.type === "VIDEO" && assets.thumbnail) {
-          const thumbnailBlob = await getQuestionThumbnailBlob(question.id);
+        if (currentQuestion.type === "VIDEO" && assets.thumbnail) {
+          const thumbnailBlob = await getQuestionThumbnailBlob(currentQuestion.id);
           next.thumbnailUrl = URL.createObjectURL(thumbnailBlob);
           objectUrls.push(next.thumbnailUrl);
         }
@@ -184,6 +185,8 @@ export function QuestionViewer({ initialQuestionId = "" }: QuestionViewerProps) 
     }
   }
 
+  const currentQuestion = question;
+
   return (
     <section className="panel">
       <div className="panelHeader">
@@ -222,15 +225,15 @@ export function QuestionViewer({ initialQuestionId = "" }: QuestionViewerProps) 
         )}
       </div>
 
-      {question && (
+      {currentQuestion && (
         <div className="questionDetail">
           <div className="detailHeader">
             <div>
               <span className="sectionLabel">{questionSummary}</span>
-              <h3>{question.title}</h3>
+              <h3>{currentQuestion.title}</h3>
             </div>
             <div className="pillRow">
-              <span className="pill">{question.type}</span>
+              <span className="pill">{currentQuestion.type}</span>
             </div>
           </div>
 
@@ -238,24 +241,24 @@ export function QuestionViewer({ initialQuestionId = "" }: QuestionViewerProps) 
             <div className="detailCard">
               <strong>Core fields</strong>
               <dl>
-                <div><dt>ID</dt><dd>{question.id}</dd></div>
-                <div><dt>Description</dt><dd>{question.description ?? "No description"}</dd></div>
-                <div><dt>Created</dt><dd>{new Date(question.createdAt).toLocaleString()}</dd></div>
-                <div><dt>Updated</dt><dd>{new Date(question.updatedAt).toLocaleString()}</dd></div>
+                <div><dt>ID</dt><dd>{currentQuestion.id}</dd></div>
+                <div><dt>Description</dt><dd>{currentQuestion.description ?? "No description"}</dd></div>
+                <div><dt>Created</dt><dd>{new Date(currentQuestion.createdAt).toLocaleString()}</dd></div>
+                <div><dt>Updated</dt><dd>{new Date(currentQuestion.updatedAt).toLocaleString()}</dd></div>
               </dl>
             </div>
 
             <div className="detailCard">
               <strong>Item payload</strong>
-              <pre>{JSON.stringify(question.item, null, 2)}</pre>
+              <pre>{JSON.stringify(currentQuestion.item, null, 2)}</pre>
             </div>
           </div>
 
-          {question.type === "VIDEO" && (
+          {currentQuestion.type === "VIDEO" && (
             <div className="mediaGrid">
               <div className="detailCard">
                 <strong>Video</strong>
-                <p>{describeAsset((question.item as { video?: QuestionAsset | null }).video)}</p>
+                <p>{describeAsset((currentQuestion.item as { video?: QuestionAsset | null }).video)}</p>
                 <input
                   type="file"
                   accept="video/mp4,video/webm,video/quicktime,video/x-msvideo"
@@ -272,7 +275,7 @@ export function QuestionViewer({ initialQuestionId = "" }: QuestionViewerProps) 
 
               <div className="detailCard">
                 <strong>Thumbnail</strong>
-                <p>{describeAsset((question.item as { thumbnail?: QuestionAsset | null }).thumbnail)}</p>
+                <p>{describeAsset((currentQuestion.item as { thumbnail?: QuestionAsset | null }).thumbnail)}</p>
                 <input
                   type="file"
                   accept="image/png,image/jpeg,image/webp"
@@ -288,19 +291,19 @@ export function QuestionViewer({ initialQuestionId = "" }: QuestionViewerProps) 
             </div>
           )}
 
-          {question.type === "MULTIPLE_CHOICE" && (
+          {currentQuestion.type === "MULTIPLE_CHOICE" && (
             <div className="detailCard">
               <strong>Options</strong>
               <div className="optionSummary">
                 <span>
-                  Multiple selection: {(question.item as { allowMultipleSelection?: boolean }).allowMultipleSelection ? "Yes" : "No"}
+                  Multiple selection: {(currentQuestion.item as { allowMultipleSelection?: boolean }).allowMultipleSelection ? "Yes" : "No"}
                 </span>
                 <span>
-                  Shuffle: {(question.item as { shuffleOptions?: boolean }).shuffleOptions ? "Yes" : "No"}
+                  Shuffle: {(currentQuestion.item as { shuffleOptions?: boolean }).shuffleOptions ? "Yes" : "No"}
                 </span>
               </div>
               <ul className="dataList">
-                {((question.item as { options?: Array<{ label: string; value: string; order: number; isCorrect: boolean }> }).options ?? []).map((option) => (
+                {((currentQuestion.item as { options?: Array<{ label: string; value: string; order: number; isCorrect: boolean }> }).options ?? []).map((option) => (
                   <li key={`${option.order}-${option.value}`}>
                     <strong>{option.label}</strong>
                     <span>{option.value}</span>
@@ -311,13 +314,13 @@ export function QuestionViewer({ initialQuestionId = "" }: QuestionViewerProps) 
             </div>
           )}
 
-          {question.type === "SHORT_ANSWER" && (
+          {currentQuestion.type === "SHORT_ANSWER" && (
             <div className="detailCard">
               <strong>Short answer settings</strong>
               <dl>
-                <div><dt>Placeholder</dt><dd>{(question.item as { placeholder?: string | null }).placeholder ?? "None"}</dd></div>
-                <div><dt>Max length</dt><dd>{(question.item as { maxLength?: number | null }).maxLength ?? "Unlimited"}</dd></div>
-                <div><dt>Answer hint</dt><dd>{(question.item as { answerHint?: string | null }).answerHint ?? "None"}</dd></div>
+                <div><dt>Placeholder</dt><dd>{(currentQuestion.item as { placeholder?: string | null }).placeholder ?? "None"}</dd></div>
+                <div><dt>Max length</dt><dd>{(currentQuestion.item as { maxLength?: number | null }).maxLength ?? "Unlimited"}</dd></div>
+                <div><dt>Answer hint</dt><dd>{(currentQuestion.item as { answerHint?: string | null }).answerHint ?? "None"}</dd></div>
               </dl>
             </div>
           )}
