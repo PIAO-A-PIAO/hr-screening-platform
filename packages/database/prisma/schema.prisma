@@ -24,6 +24,27 @@ enum QuestionAssetKind {
   THUMBNAIL
 }
 
+enum TestStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+model Test {
+  id               String     @id @default(cuid())
+  name             String
+  description      String?
+  positionMetadata Json?
+  tags             String[]   @default([])
+  status           TestStatus @default(DRAFT)
+  creatorId        String?
+  creatorName      String?
+  configuration    Json?
+  questions        Question[]
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+}
+
 model Question {
   id          String         @id @default(cuid())
   title       String
@@ -31,6 +52,7 @@ model Question {
   type        QuestionType
   order       Int            @default(0)
   testId      String?
+  test        Test?          @relation(fields: [testId], references: [id], onDelete: SetNull)
   status      QuestionStatus  @default(DRAFT)
   creatorId   String?
   creatorName String?
