@@ -7,5 +7,105 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Intentionally no business models in Milestone 0.
-// The first domain migration will be designed and reviewed in Milestone 1.
+enum QuestionType {
+  VIDEO
+  MULTIPLE_CHOICE
+  SHORT_ANSWER
+}
+
+enum QuestionStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum QuestionAssetKind {
+  VIDEO
+  THUMBNAIL
+}
+
+model Question {
+  id          String         @id @default(cuid())
+  title       String
+  description String?
+  type        QuestionType
+  order       Int            @default(0)
+  testId      String?
+  status      QuestionStatus  @default(DRAFT)
+  creatorId   String?
+  creatorName String?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  videoItem          VideoQuestionItem?
+  multipleChoiceItem MultipleChoiceQuestionItem?
+  shortAnswerItem    ShortAnswerQuestionItem?
+
+  @@index([testId, order])
+  @@index([type])
+}
+
+model VideoQuestionItem {
+  questionId       String   @id
+  question         Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  videoAssetId     String?  @unique
+  videoAsset       QuestionAsset? @relation("QuestionVideoAsset", fields: [videoAssetId], references: [id], onDelete: SetNull)
+  thumbnailAssetId String?  @unique
+  thumbnailAsset   QuestionAsset? @relation("QuestionThumbnailAsset", fields: [thumbnailAssetId], references: [id], onDelete: SetNull)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model MultipleChoiceQuestionItem {
+  questionId             String   @id
+  question               Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  allowMultipleSelection Boolean  @default(false)
+  shuffleOptions         Boolean  @default(false)
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  options MultipleChoiceQuestionOption[]
+}
+
+model MultipleChoiceQuestionOption {
+  id          String   @id @default(cuid())
+  questionId   String
+  question     MultipleChoiceQuestionItem @relation(fields: [questionId], references: [questionId], onDelete: Cascade)
+  label        String
+  value        String
+  order        Int
+  isCorrect    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([questionId, order])
+}
+
+model ShortAnswerQuestionItem {
+  questionId  String   @id
+  question    Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  placeholder String?
+  maxLength   Int?
+  answerHint  String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model QuestionAsset {
+  id             String          @id @default(cuid())
+  kind           QuestionAssetKind
+  storageKey     String          @unique
+  mimeType       String
+  size           Int
+  durationSeconds Float?
+  checksum       String
+  ownerId        String?
+  originalName   String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  videoQuestionItemForVideo     VideoQuestionItem? @relation("QuestionVideoAsset")
+  videoQuestionItemForThumbnail  VideoQuestionItem? @relation("QuestionThumbnailAsset")
+
+  @@index([kind])
+}
