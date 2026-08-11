@@ -6,40 +6,6 @@ Digital Shovel’s internal asynchronous video-interviewing platform.
 
 This repository currently represents **Clean Milestone 0**: a tested technical foundation with local development, automated verification, private-storage readiness, Docker configuration, and automatic AWS staging deployment.
 
-## Milestone 0 status
-
-Milestone 0 provides:
-
-* Next.js frontend shell
-* NestJS API shell
-* PostgreSQL and Prisma integration
-* Empty baseline database migration
-* Database and private-storage readiness checks
-* Local filesystem storage support
-* AWS S3 staging-storage support
-* API documentation with Swagger
-* Docker development and staging configurations
-* Nginx reverse proxy
-* GitHub Actions CI/CD
-* Public AWS staging environment
-
-## Deliberately not included
-
-Milestone 0 contains no business workflows or seeded business data:
-
-* No positions or jobs
-* No interview templates or questions
-* No candidates or applications
-* No invitations or demo tokens
-* No recordings or transcriptions
-* No reviews or scores
-* No L1–L4 workflow
-* No fake authentication
-* No tables from the previous prototype
-* No `db:seed` command
-
-These features will be introduced through later milestones.
-
 ## Technology stack
 
 | Component     | Technology                           |
@@ -55,28 +21,9 @@ These features will be introduced through later milestones.
 | Staging host  | Amazon EC2                           |
 
 ## Repository structure
+<img width="1195" height="1316" alt="ChatGPT Image Aug 11, 2026, 10_13_24 AM" src="https://github.com/user-attachments/assets/2167c4f5-4544-489b-8f6b-bb5b11095d8f" />
 
-```text
-apps/
-  api/                  NestJS API
-  web/                  Next.js frontend
 
-packages/
-  database/             Prisma schema and migrations
-
-nginx/
-  default.conf          Staging reverse-proxy configuration
-
-var/
-  private-storage/      Local private-storage directory
-
-.github/
-  workflows/
-    ci.yml              Verification and staging deployment
-
-docker-compose.yml              Local Docker configuration
-docker-compose.staging.yml      AWS staging configuration
-```
 
 ## Requirements
 
