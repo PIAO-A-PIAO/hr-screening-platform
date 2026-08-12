@@ -85,6 +85,21 @@ export default async function Home() {
           <h2>See all tests</h2>
           <p>Open the test index and launch the candidate answering flow for any created test.</p>
         </Link>
+        <Link className="routeCard" href="/users/create">
+          <span className="sectionLabel">Users</span>
+          <h2>Create a user</h2>
+          <p>Open the recruiter-facing user form, or generate 10 sample users in one click.</p>
+        </Link>
+        <Link className="routeCard" href="/users/role/recruiter">
+          <span className="sectionLabel">Users</span>
+          <h2>Browse recruiters</h2>
+          <p>Open the recruiter-only user feed and review summary cards for that role.</p>
+        </Link>
+        <Link className="routeCard" href="/users/role/candidate">
+          <span className="sectionLabel">Users</span>
+          <h2>Browse candidates</h2>
+          <p>Open the candidate-only user feed and review summary cards for that role.</p>
+        </Link>
       </section>
     </main>
   );
