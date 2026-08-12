@@ -70,15 +70,20 @@ export default async function Home() {
           <h2>Create a screening question</h2>
           <p>Open the dedicated creation form for video, multiple choice, and short answer questions.</p>
         </Link>
-        <Link className="routeCard" href="/questions/view">
-          <span className="sectionLabel">View</span>
-          <h2>View a question by ID</h2>
-          <p>Open the dedicated lookup page and load a question, then inspect its details and media.</p>
+        <Link className="routeCard" href="/questions">
+          <span className="sectionLabel">Browse</span>
+          <h2>See all questions</h2>
+          <p>Open the question index and jump into the candidate answering view for any question.</p>
         </Link>
         <Link className="routeCard" href="/tests/create">
           <span className="sectionLabel">Test</span>
           <h2>Create a test</h2>
           <p>Assemble ordered question drafts into one test record and save the bundle together.</p>
+        </Link>
+        <Link className="routeCard" href="/tests">
+          <span className="sectionLabel">Browse</span>
+          <h2>See all tests</h2>
+          <p>Open the test index and launch the candidate answering flow for any created test.</p>
         </Link>
       </section>
     </main>

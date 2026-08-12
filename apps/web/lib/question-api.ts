@@ -60,6 +60,19 @@ export type TestResponse = {
   questions: TestQuestionResponse[];
 };
 
+export type QuestionListItem = QuestionResponse;
+
+export type TestSummaryResponse = {
+  id: string;
+  name: string;
+  description: string | null;
+  tags: string[];
+  status: TestStatus;
+  createdAt: string;
+  updatedAt: string;
+  questionCount: number;
+};
+
 export type UploadQuestionAssetResult = {
   videoId?: string;
   thumbnailId?: string;
@@ -159,8 +172,16 @@ export function getQuestion(questionId: string) {
   return requestJson<QuestionResponse>(`/questions/${encodeURIComponent(questionId)}`);
 }
 
+export function listQuestions() {
+  return requestJson<QuestionListItem[]>("/questions");
+}
+
 export function getTest(testId: string) {
   return requestJson<TestResponse>(`/tests/${encodeURIComponent(testId)}`);
+}
+
+export function listTests() {
+  return requestJson<TestSummaryResponse[]>("/tests");
 }
 
 export function reorderTestQuestions(
