@@ -5,6 +5,7 @@ import {
   createQuestion,
   getQuestion,
   type CreateQuestionInput,
+  type QuestionDraftInput,
   type QuestionResponse,
   type QuestionType,
   uploadQuestionThumbnail,
@@ -12,7 +13,13 @@ import {
 } from "../lib/question-api";
 
 type QuestionCreatorProps = {
+  mode?: "standalone" | "draft";
+  draftOrder?: number;
   onCreated?: (question: QuestionResponse) => void;
+  onDraftAdded?: (
+    draft: QuestionDraftInput,
+    media?: { videoFile?: File | null; thumbnailFile?: File | null },
+  ) => void;
 };
 
 type MultipleChoiceOption = {
@@ -90,13 +97,20 @@ function buildItemPayload(type: QuestionType, state: FormState["item"]) {
   };
 }
 
-export function QuestionCreator({ onCreated }: QuestionCreatorProps) {
+export function QuestionCreator({
+  mode = "standalone",
+  draftOrder = 0,
+  onCreated,
+  onDraftAdded,
+}: QuestionCreatorProps) {
   const [state, setState] = useState<FormState>(initialState);
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<QuestionResponse | null>(null);
+  const [draftNotice, setDraftNotice] = useState<string | null>(null);
+  const isDraftMode = mode === "draft";
 
   function updateOption(index: number, next: Partial<MultipleChoiceOption>) {
     setState((current) => {
@@ -156,6 +170,7 @@ export function QuestionCreator({ onCreated }: QuestionCreatorProps) {
     setLoading(true);
     setError(null);
     setSuccess(null);
+    setDraftNotice(null);
 
     try {
       const payload: CreateQuestionInput = {
@@ -164,6 +179,19 @@ export function QuestionCreator({ onCreated }: QuestionCreatorProps) {
         type: state.type,
         item: buildItemPayload(state.type, state.item),
       };
+
+      if (isDraftMode) {
+        const draft: QuestionDraftInput = {
+          ...payload,
+          order: draftOrder,
+        };
+        onDraftAdded?.(draft, { videoFile, thumbnailFile });
+        setDraftNotice("Question draft added to the test.");
+        setState(initialState);
+        setVideoFile(null);
+        setThumbnailFile(null);
+        return;
+      }
 
       const created = await createQuestion(payload);
 
@@ -189,17 +217,20 @@ export function QuestionCreator({ onCreated }: QuestionCreatorProps) {
   const isVideo = state.type === "VIDEO";
   const isMultipleChoice = state.type === "MULTIPLE_CHOICE";
   const canUseMultipleCorrect = state.item.allowMultipleSelection;
+  const sectionLabel = isDraftMode ? "Test question" : "Create question";
+  const headline = isDraftMode ? "Add a question draft" : "Reusable screening question form";
+  const description = isDraftMode
+    ? "Add one ordered question to the test draft at a time."
+    : "Create video, multiple choice, or short answer questions with type-aware validation.";
 
   return (
     <section className="panel">
       <div className="panelHeader">
         <div>
-          <span className="sectionLabel">Create question</span>
-          <h2>Reusable screening question form</h2>
+          <span className="sectionLabel">{sectionLabel}</span>
+          <h2>{headline}</h2>
         </div>
-        <p>
-          Create video, multiple choice, or short answer questions with type-aware validation.
-        </p>
+        <p>{description}</p>
       </div>
 
       <form className="formGrid" onSubmit={handleSubmit}>
@@ -275,7 +306,9 @@ export function QuestionCreator({ onCreated }: QuestionCreatorProps) {
               />
             </label>
             <div className="helperText">
-              Uploads happen after the question is created. If you skip these files, you can add them later on the view page.
+              {isDraftMode
+                ? "Video files are stored with the test draft and uploaded after the test creates the question records."
+                : "Uploads happen after the question is created. If you skip these files, you can add them later on the view page."}
             </div>
           </div>
         )}
@@ -406,10 +439,12 @@ export function QuestionCreator({ onCreated }: QuestionCreatorProps) {
 
         <div className="fieldWide actionsRow">
           <button className="primaryButton" type="submit" disabled={loading}>
-            {loading ? "Saving..." : "Create question"}
+            {loading ? "Saving..." : isDraftMode ? "Add question" : "Create question"}
           </button>
           <span className="helperText">
-            {isVideo
+            {isDraftMode
+              ? "This question will be saved as part of the test and can be refined later."
+              : isVideo
               ? "Video questions can upload media immediately in this form, or later on the view page."
               : "Item fields are validated before the question is saved."}
           </span>
@@ -418,13 +453,14 @@ export function QuestionCreator({ onCreated }: QuestionCreatorProps) {
 
       <div className="feedbackArea">
         {error && <div className="stateCard errorState">Error: {error}</div>}
-        {success && (
+        {draftNotice && <div className="stateCard successState">{draftNotice}</div>}
+        {success && !isDraftMode && (
           <div className="stateCard successState">
             <strong>Created</strong>
             <pre>{JSON.stringify(success, null, 2)}</pre>
           </div>
         )}
-        {!error && !success && !loading && (
+        {!error && !success && !draftNotice && !loading && (
           <div className="stateCard emptyStateInline">
             No question has been created in this session yet.
           </div>
