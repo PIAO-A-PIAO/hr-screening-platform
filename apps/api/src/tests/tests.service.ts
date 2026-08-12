@@ -19,12 +19,45 @@ export type TestResponse = {
   questions: TestQuestionResponse[];
 };
 
+export type TestSummaryResponse = {
+  id: string;
+  name: string;
+  description: string | null;
+  tags: string[];
+  status: TestStatus;
+  createdAt: Date;
+  updatedAt: Date;
+  questionCount: number;
+};
+
 @Injectable()
 export class TestsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly questions: QuestionsService,
   ) {}
+
+  async listTests(): Promise<TestSummaryResponse[]> {
+    const tests = await this.prisma.test.findMany({
+      orderBy: { createdAt: "desc" },
+      include: {
+        _count: {
+          select: { questions: true },
+        },
+      },
+    });
+
+    return tests.map((test) => ({
+      id: test.id,
+      name: test.name,
+      description: test.description,
+      tags: test.tags,
+      status: test.status,
+      createdAt: test.createdAt,
+      updatedAt: test.updatedAt,
+      questionCount: test._count.questions,
+    }));
+  }
 
   async createTest(dto: CreateTestDto): Promise<TestResponse> {
     const orders = dto.questions.map((question) => question.order);
