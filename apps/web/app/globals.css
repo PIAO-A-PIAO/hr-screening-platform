@@ -102,6 +102,7 @@ h1 {
 .helperText,
 .statusCard small,
 .field span,
+.fieldLabel,
 .detailCard p,
 .detailCard dt,
 .detailCard dd,
@@ -265,6 +266,13 @@ h1 {
   line-height: 1.6;
 }
 
+.heroActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 20px;
+}
+
 .formGrid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -341,6 +349,12 @@ textarea:focus {
   gap: 12px;
 }
 
+.statusChipGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
 .checkRow {
   display: inline-flex;
   align-items: center;
@@ -358,6 +372,11 @@ textarea:focus {
 
 .checkRow.compact {
   padding: 9px 10px;
+}
+
+.fieldLabel {
+  font-size: 13px;
+  font-weight: 700;
 }
 
 .optionList {
@@ -820,6 +839,73 @@ textarea:focus {
   font-size: 15px;
 }
 
+.userLookupForm {
+  margin-bottom: 0;
+}
+
+.userSummaryCard {
+  display: grid;
+  gap: 12px;
+}
+
+.userGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.userSummaryHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.userSummaryHeader h3 {
+  margin-top: 0;
+  font-size: clamp(22px, 2vw, 28px);
+}
+
+.userSummaryHeader p {
+  margin: 6px 0 0;
+  color: var(--muted);
+}
+
+.userStatusRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.userStatusPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding-right: 10px;
+}
+
+.userStatusLabel {
+  white-space: nowrap;
+}
+
+.userStatusSelect {
+  width: auto;
+  min-width: 140px;
+  border: 0;
+  padding: 0 18px 0 0;
+  margin: 0;
+  background: transparent;
+  color: inherit;
+  box-shadow: none;
+  appearance: auto;
+}
+
+.userStatusSelect:focus {
+  border: 0;
+  box-shadow: none;
+}
+
 .inlineStatus {
   margin-top: 10px;
   font-size: 13px;
@@ -837,6 +923,10 @@ textarea:focus {
   .routeGrid,
   .routeList,
   .candidateTestLayout {
+    grid-template-columns: 1fr;
+  }
+
+  .userGrid {
     grid-template-columns: 1fr;
   }
 
@@ -870,6 +960,10 @@ textarea:focus {
 
   .formGrid,
   .lookupBar {
+    grid-template-columns: 1fr;
+  }
+
+  .statusChipGrid {
     grid-template-columns: 1fr;
   }
 
