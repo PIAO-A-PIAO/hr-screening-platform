@@ -1,5 +1,6 @@
 import { TestStatus, QuestionType } from "@prisma/client";
 import {
+  ArrayUnique,
   IsArray,
   IsEnum,
   IsInt,
@@ -50,4 +51,11 @@ export class CreateTestDto {
   @ValidateNested({ each: true })
   @Type(() => CreateTestQuestionDto)
   questions!: CreateTestQuestionDto[];
+}
+
+export class ReorderTestQuestionsDto {
+  @IsArray()
+  @ArrayUnique()
+  @IsString({ each: true })
+  questionIds!: string[];
 }

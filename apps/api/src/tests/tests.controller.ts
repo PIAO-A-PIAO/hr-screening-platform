@@ -1,6 +1,6 @@
-import { Body, Controller, Get, Param, Post } from "@nestjs/common";
+import { Body, Controller, Get, Param, Patch, Post } from "@nestjs/common";
 import { ApiBody, ApiOperation, ApiParam, ApiTags } from "@nestjs/swagger";
-import { CreateTestDto } from "./create-test.dto";
+import { CreateTestDto, ReorderTestQuestionsDto } from "./create-test.dto";
 import { TestsService } from "./tests.service";
 
 @ApiTags("tests")
@@ -37,6 +37,18 @@ export class TestsController {
   })
   createTest(@Body() dto: CreateTestDto) {
     return this.tests.createTest(dto);
+  }
+
+  @Patch(":testId/questions/order")
+  @ApiOperation({
+  summary: "Replace the question order for a test",
+  })
+  @ApiParam({ name: "testId" })
+  reorderQuestions(
+  @Param("testId") testId: string,
+  @Body() dto: ReorderTestQuestionsDto,
+  ) {
+  return this.tests.reorderQuestions(testId, dto);
   }
 
   @Get(":testId")

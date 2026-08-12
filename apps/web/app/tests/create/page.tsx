@@ -51,6 +51,42 @@ export default function CreateTestPage() {
     setSuccess(null);
   }
 
+  function moveDraftQuestion(
+  index: number,
+  direction: -1 | 1,
+) {
+  setDraftQuestions((current) => {
+    const targetIndex = index + direction;
+
+    if (
+      targetIndex < 0 ||
+      targetIndex >= current.length
+    ) {
+      return current;
+    }
+
+    const reordered = [...current];
+
+    [
+      reordered[index],
+      reordered[targetIndex],
+    ] = [
+      reordered[targetIndex],
+      reordered[index],
+    ];
+
+    return reordered.map((entry, currentIndex) => ({
+      ...entry,
+      draft: {
+        ...entry.draft,
+        order: currentIndex + 1,
+      },
+    }));
+  });
+
+  setSuccess(null);
+}
+
   function removeDraftQuestion(index: number) {
     setDraftQuestions((current) =>
       current
@@ -191,13 +227,33 @@ export default function CreateTestPage() {
                   <li key={`${index}-${draft.draft.type}`}>
                     <strong>{draft.draft.order}. {draft.draft.title || "Untitled question"}</strong>
                     <span>{draft.draft.type}</span>
+                    <div className="draftActions">
                     <button
                       type="button"
-                      className="ghostButton"
+                      className="ghostButton compactButton"
+                      onClick={() => moveDraftQuestion(index, -1)}
+                      disabled={index === 0}
+                    >
+                      Up
+                    </button>
+
+                    <button
+                      type="button"
+                      className="ghostButton compactButton"
+                      onClick={() => moveDraftQuestion(index, 1)}
+                      disabled={index === draftQuestions.length - 1}
+                    >
+                      Down
+                    </button>
+
+                    <button
+                      type="button"
+                      className="ghostButton compactButton"
                       onClick={() => removeDraftQuestion(index)}
                     >
                       Remove
                     </button>
+                    </div>
                   </li>
                 ))}
               </ul>
@@ -210,8 +266,18 @@ export default function CreateTestPage() {
         {error && <div className="stateCard errorState">Error: {error}</div>}
         {success && (
           <div className="stateCard successState">
-            <strong>Created</strong>
-            <pre>{JSON.stringify(success, null, 2)}</pre>
+            <strong>Test created.</strong>
+
+            <span>
+              {success.name} · {success.questions.length} questions
+            </span>
+
+            <Link
+              className="primaryButton inlineButton"
+              href={`/tests/${success.id}`}
+            >
+              Open test
+            </Link>
           </div>
         )}
         {!error && !success && !loading && (
