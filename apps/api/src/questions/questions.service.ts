@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
-import { QuestionAssetKind, QuestionType } from "@prisma/client";
+import { Prisma, QuestionAssetKind, QuestionType } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import {
   QUESTION_THUMBNAIL_MAX_BYTES,
@@ -54,6 +54,23 @@ export class QuestionsService {
   ) {}
 
   async createQuestion(dto: CreateQuestionDto): Promise<QuestionResponse> {
+    return this.createQuestionRecord(this.prisma, dto);
+  }
+
+  async createQuestionInTest(
+    prisma: Prisma.TransactionClient,
+    dto: CreateQuestionDto,
+    testId: string,
+    order: number,
+  ): Promise<QuestionResponse> {
+    return this.createQuestionRecord(prisma, dto, { testId, order });
+  }
+
+  private async createQuestionRecord(
+    prisma: Prisma.TransactionClient | PrismaService,
+    dto: CreateQuestionDto,
+    overrides?: { testId?: string | null; order?: number | null },
+  ): Promise<QuestionResponse> {
     const item = this.validateQuestionItem(dto.type, dto.item) as {
       allowMultipleSelection?: boolean;
       shuffleOptions?: boolean;
@@ -63,11 +80,13 @@ export class QuestionsService {
       answerHint?: string | null;
     };
 
-    const created = await this.prisma.question.create({
+    const created = await prisma.question.create({
       data: {
         title: dto.title,
         description: dto.description ?? null,
         type: dto.type,
+        order: overrides?.order ?? 0,
+        testId: overrides?.testId ?? null,
         videoItem: dto.type === QuestionType.VIDEO ? { create: {} } : undefined,
         multipleChoiceItem: dto.type === QuestionType.MULTIPLE_CHOICE
           ? {
@@ -97,11 +116,18 @@ export class QuestionsService {
       },
     });
 
-    return this.getQuestion(created.id);
+    return this.getQuestionWithClient(prisma, created.id);
   }
 
   async getQuestion(questionId: string): Promise<QuestionResponse> {
-    const question = await this.prisma.question.findUnique({
+    return this.getQuestionWithClient(this.prisma, questionId);
+  }
+
+  async getQuestionWithClient(
+    prisma: Prisma.TransactionClient | PrismaService,
+    questionId: string,
+  ): Promise<QuestionResponse> {
+    const question = await prisma.question.findUnique({
       where: { id: questionId },
       include: {
         videoItem: {

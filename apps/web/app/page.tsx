@@ -75,6 +75,11 @@ export default async function Home() {
           <h2>View a question by ID</h2>
           <p>Open the dedicated lookup page and load a question, then inspect its details and media.</p>
         </Link>
+        <Link className="routeCard" href="/tests/create">
+          <span className="sectionLabel">Test</span>
+          <h2>Create a test</h2>
+          <p>Assemble ordered question drafts into one test record and save the bundle together.</p>
+        </Link>
       </section>
     </main>
   );
