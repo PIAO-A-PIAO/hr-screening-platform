@@ -31,6 +31,8 @@ CREATE TABLE "UserTestAssignment" (
   "userId" TEXT NOT NULL,
   "testId" TEXT NOT NULL,
   "status" "UserTestStatus"[] NOT NULL DEFAULT ARRAY[]::"UserTestStatus"[],
+  "inviteToken" TEXT,
+  "invitedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -38,6 +40,7 @@ CREATE TABLE "UserTestAssignment" (
 );
 
 CREATE UNIQUE INDEX "UserTestAssignment_userId_testId_key" ON "UserTestAssignment"("userId", "testId");
+CREATE UNIQUE INDEX "UserTestAssignment_inviteToken_key" ON "UserTestAssignment"("inviteToken");
 CREATE INDEX "UserTestAssignment_testId_idx" ON "UserTestAssignment"("testId");
 CREATE INDEX "UserTestAssignment_userId_idx" ON "UserTestAssignment"("userId");
 

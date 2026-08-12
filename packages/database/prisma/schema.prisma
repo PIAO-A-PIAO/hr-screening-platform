@@ -108,6 +108,8 @@ model UserTestAssignment {
   userId    String
   testId    String
   status    UserTestStatus[] @default([])
+  inviteToken String?     @unique
+  invitedAt DateTime      @default(now())
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
 
