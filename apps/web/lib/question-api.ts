@@ -163,6 +163,22 @@ export function getTest(testId: string) {
   return requestJson<TestResponse>(`/tests/${encodeURIComponent(testId)}`);
 }
 
+export function reorderTestQuestions(
+  testId: string,
+  questionIds: string[],
+) {
+  return requestJson<TestResponse>(
+    `/tests/${encodeURIComponent(testId)}/questions/order`,
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ questionIds }),
+    },
+  );
+}
+
 export async function uploadQuestionVideo(
   questionId: string,
   file: File,

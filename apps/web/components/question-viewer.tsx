@@ -21,6 +21,7 @@ type MediaState = {
 
 type QuestionViewerProps = {
   initialQuestionId?: string;
+  embedded?: boolean;
 };
 
 function describeAsset(asset: QuestionAsset | null | undefined) {
@@ -34,7 +35,7 @@ function sectionTitle(type: QuestionType) {
   return "Short answer question";
 }
 
-export function QuestionViewer({ initialQuestionId = "" }: QuestionViewerProps) {
+export function QuestionViewer({ initialQuestionId = "", embedded = false, }: QuestionViewerProps) {
   const [questionId, setQuestionId] = useState(initialQuestionId);
   const [submittedId, setSubmittedId] = useState(initialQuestionId);
   const [question, setQuestion] = useState<QuestionResponse | null>(null);
@@ -188,17 +189,21 @@ export function QuestionViewer({ initialQuestionId = "" }: QuestionViewerProps) 
   const currentQuestion = question;
 
   return (
-    <section className="panel">
+  <section className={embedded ? "embeddedQuestion" : "panel"}>
+    {!embedded && (
       <div className="panelHeader">
         <div>
           <span className="sectionLabel">View question</span>
           <h2>Lookup by question ID</h2>
         </div>
+
         <p>
           Load one question at a time, inspect its data, and upload or preview media for video questions.
         </p>
       </div>
+    )}
 
+    {!embedded && (
       <form
         className="lookupBar"
         onSubmit={(event) => {
@@ -211,13 +216,21 @@ export function QuestionViewer({ initialQuestionId = "" }: QuestionViewerProps) 
           onChange={(event) => setQuestionId(event.target.value)}
           placeholder="Paste a questionId here"
         />
-        <button className="primaryButton" type="submit" disabled={loading}>
+
+        <button
+          className="primaryButton"
+          type="submit"
+          disabled={loading}
+        >
           {loading ? "Loading..." : "Load question"}
         </button>
       </form>
+    )}
 
       <div className="feedbackArea">
-        {!submittedId && <div className="stateCard emptyStateInline">Enter a question ID to load a record.</div>}
+        {!submittedId && !embedded && (
+          <div className="stateCard emptyStateInline">Enter a question ID to load a record.</div>
+        )}
         {loading && <div className="stateCard">Loading question...</div>}
         {error && <div className="stateCard errorState">Error: {error}</div>}
         {!loading && !error && !question && submittedId && (

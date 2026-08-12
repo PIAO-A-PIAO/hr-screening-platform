@@ -665,3 +665,166 @@ textarea:focus {
     grid-template-columns: 1fr;
   }
 }
+
+/* Milestone 2 — Hireflix-inspired test builder */
+
+.draftActions,
+.railActions,
+.stepperActions,
+.railHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.compactButton {
+  padding: 8px 10px;
+  font-size: 12px;
+}
+
+.inlineButton {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
+.testHeaderPanel {
+  margin-bottom: 16px;
+}
+
+.testEditorLayout {
+  display: grid;
+  grid-template-columns:
+    minmax(280px, 0.34fr)
+    minmax(0, 0.66fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.testQuestionRail {
+  position: sticky;
+  top: 20px;
+}
+
+.railHeader {
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.railHeader > div {
+  display: grid;
+  gap: 10px;
+}
+
+.questionRailList {
+  display: grid;
+  gap: 8px;
+  padding: 0;
+  margin: 0 0 16px;
+  list-style: none;
+}
+
+.questionRailList li {
+  display: grid;
+  grid-template-columns:
+    minmax(0, 1fr)
+    auto;
+
+  gap: 8px;
+  align-items: center;
+
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 8px;
+
+  background:
+    rgba(255, 255, 255, 0.66);
+}
+
+.questionRailList li.active {
+  border-color:
+    rgba(31, 111, 235, 0.48);
+
+  box-shadow:
+    0 0 0 3px
+    rgba(31, 111, 235, 0.09);
+}
+
+.questionRailMain {
+  display: grid;
+
+  grid-template-columns:
+    30px
+    minmax(0, 1fr);
+
+  gap: 10px;
+  align-items: center;
+
+  border: 0;
+  padding: 6px;
+
+  text-align: left;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.questionRailMain > span {
+  display: grid;
+  place-items: center;
+
+  width: 30px;
+  height: 30px;
+
+  border-radius: 999px;
+
+  background: var(--brand-soft);
+  color: var(--brand);
+
+  font-weight: 800;
+}
+
+.questionRailMain div {
+  display: grid;
+  gap: 2px;
+}
+
+.questionRailMain small,
+.stageCounter {
+  color: var(--muted);
+}
+
+.testQuestionStage {
+  min-width: 0;
+}
+
+.embeddedQuestion .feedbackArea {
+  margin-top: 0;
+}
+
+.stageCounter {
+  margin-bottom: 14px;
+
+  font-size: 13px;
+  font-weight: 800;
+
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.stepperActions {
+  justify-content: space-between;
+  margin-top: 18px;
+}
+
+@media (max-width: 900px) {
+  .testEditorLayout {
+    grid-template-columns: 1fr;
+  }
+
+  .testQuestionRail {
+    position: static;
+  }
+}
