@@ -197,6 +197,10 @@ h1 {
   transition: transform 160ms ease, box-shadow 160ms ease;
 }
 
+.compactRouteCard {
+  align-content: start;
+}
+
 .routeCard:hover {
   transform: translateY(-2px);
   box-shadow: 0 26px 90px rgba(16, 24, 40, 0.14);
@@ -210,6 +214,18 @@ h1 {
   margin: 0;
   color: var(--muted);
   line-height: 1.65;
+}
+
+.routeList {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.routeCardMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .workspaceGrid {
@@ -596,6 +612,214 @@ textarea:focus {
   background: rgba(255, 255, 255, 0.55);
 }
 
+.candidateAnswerShell,
+.candidateStage,
+.candidateSidebar {
+  min-width: 0;
+}
+
+.candidateFlow,
+.candidateTestLayout {
+  display: grid;
+  gap: 16px;
+}
+
+.candidateAnswerShell {
+  display: grid;
+  gap: 16px;
+}
+
+.candidateTestLayout {
+  grid-template-columns: minmax(280px, 0.34fr) minmax(0, 0.66fr);
+  align-items: start;
+}
+
+.candidateSidebar {
+  position: sticky;
+  top: 20px;
+}
+
+.candidateQuestionList {
+  display: grid;
+  gap: 8px;
+  padding: 0;
+  margin: 0 0 16px;
+  list-style: none;
+}
+
+.candidateQuestionList li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.66);
+}
+
+.candidateQuestionList li.active {
+  border-color: rgba(31, 111, 235, 0.48);
+  box-shadow: 0 0 0 3px rgba(31, 111, 235, 0.09);
+}
+
+.candidateQuestionButton {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  border: 0;
+  padding: 6px;
+  text-align: left;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.candidateQuestionButton > span {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  background: var(--brand-soft);
+  color: var(--brand);
+  font-weight: 800;
+}
+
+.candidateQuestionButton div {
+  display: grid;
+  gap: 2px;
+}
+
+.candidateQuestionButton small,
+.answerCounter,
+.mutedPrompt {
+  color: var(--muted);
+}
+
+.progressChip {
+  padding: 7px 10px;
+  border-radius: 999px;
+  background: rgba(18, 21, 29, 0.05);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.progressChip.done {
+  background: rgba(22, 132, 91, 0.12);
+  color: var(--ready);
+}
+
+.candidateActionsStack,
+.candidateActions,
+.candidateFooter {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.candidateActions,
+.candidateFooter {
+  justify-content: space-between;
+}
+
+.candidateActionsStack {
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+
+.candidateStage {
+  min-width: 0;
+}
+
+.questionPromptHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.questionPromptHeader h2 {
+  margin-top: 12px;
+}
+
+.candidatePrompt {
+  margin: 0;
+  line-height: 1.65;
+  font-size: 16px;
+}
+
+.answerPanel {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid rgba(18, 21, 29, 0.08);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.candidateMediaPanel {
+  background: linear-gradient(180deg, rgba(31, 111, 235, 0.04), rgba(255, 255, 255, 0.76));
+}
+
+.answerOptionList {
+  display: grid;
+  gap: 10px;
+}
+
+.answerOption {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  padding: 12px 14px;
+  border: 1px solid rgba(18, 21, 29, 0.12);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.88);
+  cursor: pointer;
+  transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.answerOption:hover {
+  transform: translateY(-1px);
+}
+
+.answerOption.selected {
+  border-color: rgba(31, 111, 235, 0.42);
+  box-shadow: 0 0 0 3px rgba(31, 111, 235, 0.09);
+}
+
+.answerOption input {
+  margin: 0;
+  width: auto;
+}
+
+.answerOption span {
+  display: grid;
+  gap: 2px;
+}
+
+.answerOption small {
+  color: var(--muted);
+}
+
+.candidateStatusCard {
+  display: grid;
+  gap: 4px;
+}
+
+.candidateSubmissionState {
+  margin-top: 14px;
+}
+
+.compactCandidateQuestion .candidatePrompt {
+  font-size: 15px;
+}
+
 .inlineStatus {
   margin-top: 10px;
   font-size: 13px;
@@ -610,7 +834,9 @@ textarea:focus {
   .detailGrid,
   .mediaGrid,
   .statusGrid,
-  .routeGrid {
+  .routeGrid,
+  .routeList,
+  .candidateTestLayout {
     grid-template-columns: 1fr;
   }
 
@@ -629,6 +855,10 @@ textarea:focus {
 
   .testBuilderGrid {
     grid-template-columns: 1fr;
+  }
+
+  .candidateSidebar {
+    position: static;
   }
 }
 
@@ -649,6 +879,13 @@ textarea:focus {
 
   .panel {
     padding: 18px;
+  }
+
+  .questionPromptHeader,
+  .candidateActions,
+  .candidateFooter {
+    flex-direction: column;
+    align-items: stretch;
   }
 }
 

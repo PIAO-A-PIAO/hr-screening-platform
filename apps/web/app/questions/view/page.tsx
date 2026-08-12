@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
-import { QuestionViewer } from "../../../components/question-viewer";
+import { QuestionAnswerRoute } from "../../../components/question-answer-route";
 
 export const metadata: Metadata = {
-  title: "View Question | DS-HR",
-  description: "View a reusable screening question by ID",
+  title: "Answer Question | DS-HR",
+  description: "Open a candidate-facing question view by ID",
 };
 
 type ViewQuestionPageProps = {
@@ -19,13 +19,13 @@ export default async function ViewQuestionPage({ searchParams }: ViewQuestionPag
     <main className="pageShell">
       <section className="hero compactHero">
         <div className="eyebrow">DS-HR - Questions</div>
-        <h1>View question</h1>
+        <h1>Answer question</h1>
         <p>
-          Load a question by ID, inspect its structured item payload, and preview attached media.
+          Load a question by ID and use the candidate answering experience instead of the recruiter detail view.
         </p>
       </section>
 
-      <QuestionViewer initialQuestionId={resolvedSearchParams?.questionId ?? ""} />
+      <QuestionAnswerRoute initialQuestionId={resolvedSearchParams?.questionId ?? ""} />
     </main>
   );
 }
