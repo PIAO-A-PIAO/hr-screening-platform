@@ -278,6 +278,20 @@ export class UsersService {
     return rowToResponse(response.user, response.assignments);
   }
 
+  async deleteUser(userId: string): Promise<{ id: string }> {
+    const [deleted] = await this.prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+      DELETE FROM "User"
+      WHERE "id" = ${userId}
+      RETURNING "id"
+    `);
+
+    if (!deleted) {
+      throw new NotFoundException("User not found");
+    }
+
+    return deleted;
+  }
+
   private assertNoDuplicateEmails(emails: string[]) {
     const uniqueEmails = new Set(emails);
     if (uniqueEmails.size !== emails.length) {

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Query } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from "@nestjs/common";
 import { ApiBody, ApiOperation, ApiParam, ApiQuery, ApiTags } from "@nestjs/swagger";
 import { GenerateUsersDto, InviteUsersDto, UpdateUserStatusDto, UserRoleDto } from "./users.dto";
 import { UsersService } from "./users.service";
@@ -100,5 +100,12 @@ export class UsersController {
     @Body() dto: UpdateUserStatusDto,
   ) {
     return this.users.updateUserStatus(userId, dto.status);
+  }
+
+  @Delete(":userId")
+  @ApiOperation({ summary: "Delete a user" })
+  @ApiParam({ name: "userId" })
+  deleteUser(@Param("userId") userId: string) {
+    return this.users.deleteUser(userId);
   }
 }
