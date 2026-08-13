@@ -123,7 +123,13 @@ export function UserCreateRoute() {
         {createdUsers.length > 0 && (
           <div className="userGrid">
             {createdUsers.map((user) => (
-              <UserSummaryCard key={user.id} user={user} />
+              <UserSummaryCard
+                key={user.id}
+                user={user}
+                onDeleted={(userId) => {
+                  setCreatedUsers((current) => current.filter((entry) => entry.id !== userId));
+                }}
+              />
             ))}
           </div>
         )}

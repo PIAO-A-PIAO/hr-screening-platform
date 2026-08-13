@@ -140,3 +140,9 @@ export function updateUserStatus(userId: string, input: UpdateUserStatusInput) {
     body: JSON.stringify(input),
   });
 }
+
+export function deleteUser(userId: string) {
+  return requestJson<{ id: string }>(`/users/${encodeURIComponent(userId)}`, {
+    method: "DELETE",
+  });
+}

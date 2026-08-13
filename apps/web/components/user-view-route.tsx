@@ -129,7 +129,14 @@ export function UserViewRoute({
         )}
       </div>
 
-      {user && <UserSummaryCard user={user} />}
+      {user && (
+        <UserSummaryCard
+          user={user}
+          onDeleted={() => {
+            setUser(null);
+          }}
+        />
+      )}
     </section>
   );
 }
