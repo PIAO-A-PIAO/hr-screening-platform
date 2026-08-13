@@ -64,7 +64,13 @@ export function UsersIndexRoute({ role, title, description }: UsersIndexRoutePro
       {!loading && !error && users.length > 0 && (
         <div className="userGrid">
           {users.map((user) => (
-            <UserSummaryCard key={user.id} user={user} />
+            <UserSummaryCard
+              key={user.id}
+              user={user}
+              onDeleted={(userId) => {
+                setUsers((current) => current.filter((entry) => entry.id !== userId));
+              }}
+            />
           ))}
         </div>
       )}
