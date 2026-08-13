@@ -85,6 +85,11 @@ export default async function Home() {
           <h2>See all tests</h2>
           <p>Open the test index and launch the candidate answering flow for any created test.</p>
         </Link>
+        <Link className="routeCard" href="/video-recording">
+          <span className="sectionLabel">Media</span>
+          <h2>Browser video recording</h2>
+          <p>Open the local recorder to test camera and microphone capture, preview, and download support.</p>
+        </Link>
         <Link className="routeCard" href="/users/create">
           <span className="sectionLabel">Users</span>
           <h2>Create a user</h2>
