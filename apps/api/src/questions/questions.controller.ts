@@ -100,6 +100,43 @@ export class QuestionsController {
     };
   }
 
+  @Post("video/transcode")
+  @ApiOperation({ summary: "Transcode a recorded video blob and report compression" })
+  @ApiConsumes("multipart/form-data")
+  @ApiBody({
+    schema: {
+      type: "object",
+      properties: {
+        file: { type: "string", format: "binary" },
+      },
+      required: ["file"],
+    },
+  })
+  @UseInterceptors(FileInterceptor("file", {
+    limits: { fileSize: QUESTION_VIDEO_MAX_BYTES },
+  }))
+  async transcodeVideo(
+    @UploadedFile(
+      new ParseFilePipeBuilder().build({
+        errorHttpStatusCode: 400,
+        fileIsRequired: true,
+      }),
+    ) file: UploadFile,
+  ) {
+    const result = await this.questions.transcodeVideoBlob(file);
+    return {
+      compressionPercentage: result.compressionPercentage,
+      sourceSize: result.sourceSize,
+      preparedSize: result.preparedSize,
+      sourceMimeType: result.sourceMimeType,
+      preparedMimeType: result.preparedMimeType,
+      sourceCodec: result.sourceCodec,
+      preparedCodec: result.preparedCodec,
+      sourceDurationSeconds: result.sourceDurationSeconds,
+      preparedDurationSeconds: result.preparedDurationSeconds,
+    };
+  }
+
   @Get(":questionId/video")
   @ApiOperation({ summary: "Stream the video blob for a video question" })
   @ApiParam({ name: "questionId" })

@@ -10,6 +10,18 @@ type BrowserSupport = {
 
 type RecordingStatus = "idle" | "recording" | "processing" | "ready";
 
+type CompressionReport = {
+  compressionPercentage: number | null;
+  sourceSize: number;
+  preparedSize: number;
+  sourceMimeType: string;
+  preparedMimeType: string;
+  sourceCodec: string;
+  preparedCodec: string;
+  sourceDurationSeconds: number | null;
+  preparedDurationSeconds: number | null;
+};
+
 const MIME_TYPE_CANDIDATES = [
   "video/webm;codecs=vp9,opus",
   "video/webm;codecs=vp8,opus",
@@ -84,15 +96,19 @@ export function VideoRecordingRoute() {
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<BlobPart[]>([]);
   const objectUrlRef = useRef<string | null>(null);
+  const recordedBlobRef = useRef<Blob | null>(null);
   const mimeTypeRef = useRef<string>("");
 
   const [support, setSupport] = useState<BrowserSupport | null>(null);
   const [status, setStatus] = useState<RecordingStatus>("idle");
   const [error, setError] = useState<string | null>(null);
+  const [transcodeError, setTranscodeError] = useState<string | null>(null);
+  const [transcoding, setTranscoding] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [recordingMimeType, setRecordingMimeType] = useState<string>("");
   const [recordingCodec, setRecordingCodec] = useState<string>("browser default");
   const [downloadName, setDownloadName] = useState("recording.webm");
+  const [compressionReport, setCompressionReport] = useState<CompressionReport | null>(null);
 
   useEffect(() => {
     setSupport(getBrowserSupport());
@@ -113,6 +129,8 @@ export function VideoRecordingRoute() {
       if (objectUrlRef.current) {
         URL.revokeObjectURL(objectUrlRef.current);
       }
+
+      recordedBlobRef.current = null;
 
       if (previewVideoRef.current) {
         previewVideoRef.current.srcObject = null;
@@ -174,6 +192,9 @@ export function VideoRecordingRoute() {
     setRecordingMimeType("");
     setRecordingCodec("browser default");
     setDownloadName("recording.webm");
+    setCompressionReport(null);
+    setTranscodeError(null);
+    recordedBlobRef.current = null;
 
     if (previewVideoRef.current) {
       previewVideoRef.current.srcObject = null;
@@ -197,6 +218,9 @@ export function VideoRecordingRoute() {
     }
 
     clearPreview();
+    setError(null);
+    setTranscodeError(null);
+    setCompressionReport(null);
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -241,6 +265,7 @@ export function VideoRecordingRoute() {
         const blob = new Blob(chunksRef.current, {
           type: recorder.mimeType || mimeTypeRef.current || "video/webm",
         });
+        recordedBlobRef.current = blob;
         const objectUrl = URL.createObjectURL(blob);
 
         if (objectUrlRef.current) {
@@ -283,8 +308,56 @@ export function VideoRecordingRoute() {
     }
   }
 
+  async function transcodeRecording() {
+    if (!recordedBlobRef.current || !recordingStopped) {
+      return;
+    }
+
+    setTranscodeError(null);
+    setCompressionReport(null);
+    setTranscoding(true);
+
+    try {
+      const formData = new FormData();
+      const recordingFile = new File(
+        [recordedBlobRef.current],
+        downloadName,
+        { type: recordingMimeType || recordedBlobRef.current.type || "video/webm" },
+      );
+      formData.append("file", recordingFile);
+
+      const response = await fetch("/api/questions/video/transcode", {
+        method: "POST",
+        body: formData,
+      });
+
+      const payload = (await response.json().catch(() => null)) as CompressionReport | { message?: string } | null;
+
+      if (!response.ok) {
+        const message = payload && typeof payload === "object" && "message" in payload && typeof payload.message === "string"
+          ? payload.message
+          : "Video transcode request failed.";
+        throw new Error(message);
+      }
+
+      setCompressionReport(payload as CompressionReport);
+    } catch (caught) {
+      setTranscodeError(readErrorMessage(caught));
+    } finally {
+      setTranscoding(false);
+    }
+  }
+
   const recordingActive = status === "recording";
   const recordingStopped = status === "ready";
+  const compressionPercentage = compressionReport?.compressionPercentage;
+  const compressionText = compressionPercentage === null
+    ? "Compression unavailable"
+    : typeof compressionPercentage === "number"
+      ? compressionPercentage >= 0
+        ? `Compressed by ${compressionPercentage.toFixed(1)}%`
+        : `Expanded by ${Math.abs(compressionPercentage).toFixed(1)}%`
+      : "No compression report yet";
 
   return (
     <section className="panel videoRecorderShell">
@@ -306,6 +379,14 @@ export function VideoRecordingRoute() {
             </button>
             <button className="ghostButton" type="button" onClick={stopRecording} disabled={!recordingActive}>
               Stop Recording
+            </button>
+            <button
+              className="ghostButton"
+              type="button"
+              onClick={() => void transcodeRecording()}
+              disabled={!recordingStopped || transcoding || !recordedBlobRef.current}
+            >
+              {transcoding ? "Transcoding..." : "Transcode recording"}
             </button>
             <a
               className="ghostButton recorderDownloadButton"
@@ -345,7 +426,16 @@ export function VideoRecordingRoute() {
                 <span>Codec</span>
                 <small>{recordingCodec}</small>
               </div>
+              <div>
+                <span>Compression</span>
+                <small>{compressionText}</small>
+              </div>
+              <div>
+                <span>Transcode mime</span>
+                <small>{compressionReport?.preparedMimeType ?? "Awaiting transcode request"}</small>
+              </div>
             </div>
+            {transcodeError && <div className="stateCard errorState recorderError">Transcode error: {transcodeError}</div>}
           </div>
         </div>
 
