@@ -10,6 +10,7 @@ import {
 } from "./question.constants";
 import { CreateQuestionDto } from "./create-question.dto";
 import { QuestionStorageService } from "./question-storage.service";
+import { VideoTranscodingService, type VideoTranscodeResult } from "./video-transcoding.service";
 import { UploadQuestionAssetDto } from "./upload-question-asset.dto";
 
 type UploadedQuestionAsset = {
@@ -20,6 +21,7 @@ type UploadedQuestionAsset = {
   checksum: string;
   ownerId: string | null;
   createdAt: Date;
+  transcoding?: VideoTranscodeResult;
 };
 
 type QuestionResponse = {
@@ -51,6 +53,7 @@ export class QuestionsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly storage: QuestionStorageService,
+    private readonly transcoder: VideoTranscodingService,
   ) {}
 
   async listQuestions(): Promise<QuestionResponse[]> {
@@ -182,6 +185,22 @@ export class QuestionsService {
     return this.uploadAsset(questionId, QuestionAssetKind.VIDEO, file, dto);
   }
 
+  async transcodeVideoBlob(file: UploadedFile) {
+    if (!file) {
+      throw new BadRequestException("file is required");
+    }
+
+    if (file.size > QUESTION_VIDEO_MAX_BYTES) {
+      throw new BadRequestException(`Video file exceeds the ${QUESTION_VIDEO_MAX_BYTES} byte limit`);
+    }
+
+    return this.transcoder.transcodeAndReportCompression({
+      buffer: file.buffer,
+      mimeType: file.mimetype,
+      originalName: file.originalname,
+    });
+  }
+
   async uploadThumbnail(questionId: string, file: UploadedFile, dto: UploadQuestionAssetDto) {
     return this.uploadAsset(questionId, QuestionAssetKind.THUMBNAIL, file, dto);
   }
@@ -209,7 +228,18 @@ export class QuestionsService {
       update: {},
     });
 
-    const checksum = createHash("sha256").update(file.buffer).digest("hex");
+    const preparedFile = kind === QuestionAssetKind.VIDEO
+      ? await this.transcoder.transcodeUpload({
+          buffer: file.buffer,
+          mimeType: file.mimetype,
+          originalName: file.originalname,
+        })
+      : null;
+
+    const storedBuffer = preparedFile?.preparedBuffer ?? file.buffer;
+    const storedMimeType = preparedFile?.preparedMimeType ?? file.mimetype;
+    const storedSize = preparedFile?.preparedSize ?? file.size;
+    const checksum = createHash("sha256").update(storedBuffer).digest("hex");
     const assetId = randomUUID();
     const storageKey = `questions/${questionId}/${kind.toLowerCase()}/${assetId}`;
     const existingAssetId = kind === QuestionAssetKind.VIDEO
@@ -221,10 +251,10 @@ export class QuestionsService {
         id: assetId,
         kind,
         storageKey,
-        mimeType: file.mimetype,
-        size: file.size,
+        mimeType: storedMimeType,
+        size: storedSize,
         durationSeconds: kind === QuestionAssetKind.VIDEO
-          ? dto.durationSeconds ?? null
+          ? preparedFile?.preparedDurationSeconds ?? dto.durationSeconds ?? null
           : null,
         checksum,
         ownerId: dto.ownerId ?? null,
@@ -233,7 +263,7 @@ export class QuestionsService {
     });
 
     try {
-      await this.storage.putObject(storageKey, file.buffer, file.mimetype);
+      await this.storage.putObject(storageKey, storedBuffer, storedMimeType);
     } catch (error) {
       await this.prisma.questionAsset.delete({ where: { id: asset.id } }).catch(() => undefined);
       throw error;
@@ -256,7 +286,7 @@ export class QuestionsService {
       }
     }
 
-    return this.toAssetResponse(asset);
+    return this.toAssetResponse(asset, preparedFile ?? undefined);
   }
 
   private async openAsset(questionId: string, kind: QuestionAssetKind) {
@@ -434,7 +464,7 @@ export class QuestionsService {
     checksum: string;
     ownerId: string | null;
     createdAt: Date;
-  }): UploadedQuestionAsset {
+  }, transcoding?: VideoTranscodeResult): UploadedQuestionAsset {
     return {
       assetId: asset.id,
       mimeType: asset.mimeType,
@@ -443,6 +473,7 @@ export class QuestionsService {
       checksum: asset.checksum,
       ownerId: asset.ownerId,
       createdAt: asset.createdAt,
+      transcoding,
     };
   }
 
