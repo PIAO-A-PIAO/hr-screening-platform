@@ -102,6 +102,7 @@ h1 {
 .helperText,
 .statusCard small,
 .field span,
+.fieldLabel,
 .detailCard p,
 .detailCard dt,
 .detailCard dd,
@@ -197,6 +198,10 @@ h1 {
   transition: transform 160ms ease, box-shadow 160ms ease;
 }
 
+.compactRouteCard {
+  align-content: start;
+}
+
 .routeCard:hover {
   transform: translateY(-2px);
   box-shadow: 0 26px 90px rgba(16, 24, 40, 0.14);
@@ -210,6 +215,18 @@ h1 {
   margin: 0;
   color: var(--muted);
   line-height: 1.65;
+}
+
+.routeList {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.routeCardMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .workspaceGrid {
@@ -247,6 +264,13 @@ h1 {
 .panelHeader p {
   margin: 0;
   line-height: 1.6;
+}
+
+.heroActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 20px;
 }
 
 .formGrid {
@@ -325,6 +349,12 @@ textarea:focus {
   gap: 12px;
 }
 
+.statusChipGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
 .checkRow {
   display: inline-flex;
   align-items: center;
@@ -342,6 +372,11 @@ textarea:focus {
 
 .checkRow.compact {
   padding: 9px 10px;
+}
+
+.fieldLabel {
+  font-size: 13px;
+  font-weight: 700;
 }
 
 .optionList {
@@ -391,6 +426,11 @@ textarea:focus {
 .ghostButton {
   color: var(--ink);
   background: rgba(18, 21, 29, 0.05);
+}
+
+.dangerButton {
+  color: #8d1111;
+  background: rgba(203, 32, 32, 0.1);
 }
 
 .primaryButton:hover,
@@ -596,6 +636,283 @@ textarea:focus {
   background: rgba(255, 255, 255, 0.55);
 }
 
+.candidateAnswerShell,
+.candidateStage,
+.candidateSidebar {
+  min-width: 0;
+}
+
+.candidateFlow,
+.candidateTestLayout {
+  display: grid;
+  gap: 16px;
+}
+
+.candidateAnswerShell {
+  display: grid;
+  gap: 16px;
+}
+
+.candidateTestLayout {
+  grid-template-columns: minmax(280px, 0.34fr) minmax(0, 0.66fr);
+  align-items: start;
+}
+
+.candidateSidebar {
+  position: sticky;
+  top: 20px;
+}
+
+.candidateQuestionList {
+  display: grid;
+  gap: 8px;
+  padding: 0;
+  margin: 0 0 16px;
+  list-style: none;
+}
+
+.candidateQuestionList li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.66);
+}
+
+.candidateQuestionList li.active {
+  border-color: rgba(31, 111, 235, 0.48);
+  box-shadow: 0 0 0 3px rgba(31, 111, 235, 0.09);
+}
+
+.candidateQuestionButton {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  border: 0;
+  padding: 6px;
+  text-align: left;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.candidateQuestionButton > span {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  background: var(--brand-soft);
+  color: var(--brand);
+  font-weight: 800;
+}
+
+.candidateQuestionButton div {
+  display: grid;
+  gap: 2px;
+}
+
+.candidateQuestionButton small,
+.answerCounter,
+.mutedPrompt {
+  color: var(--muted);
+}
+
+.progressChip {
+  padding: 7px 10px;
+  border-radius: 999px;
+  background: rgba(18, 21, 29, 0.05);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.progressChip.done {
+  background: rgba(22, 132, 91, 0.12);
+  color: var(--ready);
+}
+
+.candidateActionsStack,
+.candidateActions,
+.candidateFooter {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.candidateActions,
+.candidateFooter {
+  justify-content: space-between;
+}
+
+.candidateActionsStack {
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+
+.candidateStage {
+  min-width: 0;
+}
+
+.questionPromptHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.questionPromptHeader h2 {
+  margin-top: 12px;
+}
+
+.candidatePrompt {
+  margin: 0;
+  line-height: 1.65;
+  font-size: 16px;
+}
+
+.answerPanel {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid rgba(18, 21, 29, 0.08);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.candidateMediaPanel {
+  background: linear-gradient(180deg, rgba(31, 111, 235, 0.04), rgba(255, 255, 255, 0.76));
+}
+
+.answerOptionList {
+  display: grid;
+  gap: 10px;
+}
+
+.answerOption {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  padding: 12px 14px;
+  border: 1px solid rgba(18, 21, 29, 0.12);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.88);
+  cursor: pointer;
+  transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.answerOption:hover {
+  transform: translateY(-1px);
+}
+
+.answerOption.selected {
+  border-color: rgba(31, 111, 235, 0.42);
+  box-shadow: 0 0 0 3px rgba(31, 111, 235, 0.09);
+}
+
+.answerOption input {
+  margin: 0;
+  width: auto;
+}
+
+.answerOption span {
+  display: grid;
+  gap: 2px;
+}
+
+.answerOption small {
+  color: var(--muted);
+}
+
+.candidateStatusCard {
+  display: grid;
+  gap: 4px;
+}
+
+.candidateSubmissionState {
+  margin-top: 14px;
+}
+
+.compactCandidateQuestion .candidatePrompt {
+  font-size: 15px;
+}
+
+.userLookupForm {
+  margin-bottom: 0;
+}
+
+.userSummaryCard {
+  display: grid;
+  gap: 12px;
+  position: relative;
+  padding-bottom: 54px;
+}
+
+.userGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.userSummaryHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.userSummaryHeader h3 {
+  margin-top: 0;
+  font-size: clamp(22px, 2vw, 28px);
+}
+
+.userSummaryHeader p {
+  margin: 6px 0 0;
+  color: var(--muted);
+}
+
+.userStatusRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.userStatusPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding-right: 10px;
+}
+
+.userStatusLabel {
+  white-space: nowrap;
+}
+
+.userStatusSelect {
+  width: auto;
+  min-width: 140px;
+  border: 0;
+  padding: 0 18px 0 0;
+  margin: 0;
+  background: transparent;
+  color: inherit;
+  box-shadow: none;
+  appearance: auto;
+}
+
+.userStatusSelect:focus {
+  border: 0;
+  box-shadow: none;
+}
+
 .inlineStatus {
   margin-top: 10px;
   font-size: 13px;
@@ -605,12 +922,56 @@ textarea:focus {
   color: var(--danger);
 }
 
+.iconButton {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  transition: transform 160ms ease, box-shadow 160ms ease, opacity 160ms ease;
+}
+
+.dangerIconButton {
+  color: #8d1111;
+  background: rgba(203, 32, 32, 0.1);
+}
+
+.iconButton:hover {
+  transform: translateY(-1px);
+}
+
+.trashIcon {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+}
+
+.iconButton:disabled {
+  opacity: 0.65;
+  cursor: wait;
+  transform: none;
+}
+
 @media (max-width: 1100px) {
   .workspaceGrid,
   .detailGrid,
   .mediaGrid,
   .statusGrid,
-  .routeGrid {
+  .routeGrid,
+  .routeList,
+  .candidateTestLayout {
+    grid-template-columns: 1fr;
+  }
+
+  .userGrid {
     grid-template-columns: 1fr;
   }
 
@@ -630,6 +991,10 @@ textarea:focus {
   .testBuilderGrid {
     grid-template-columns: 1fr;
   }
+
+  .candidateSidebar {
+    position: static;
+  }
 }
 
 @media (max-width: 760px) {
@@ -643,12 +1008,23 @@ textarea:focus {
     grid-template-columns: 1fr;
   }
 
+  .statusChipGrid {
+    grid-template-columns: 1fr;
+  }
+
   .detailHeader {
     flex-direction: column;
   }
 
   .panel {
     padding: 18px;
+  }
+
+  .questionPromptHeader,
+  .candidateActions,
+  .candidateFooter {
+    flex-direction: column;
+    align-items: stretch;
   }
 }
 
