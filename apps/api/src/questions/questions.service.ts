@@ -53,6 +53,30 @@ export class QuestionsService {
     private readonly storage: QuestionStorageService,
   ) {}
 
+  async listQuestions(): Promise<QuestionResponse[]> {
+    const questions = await this.prisma.question.findMany({
+      orderBy: { createdAt: "desc" },
+      include: {
+        videoItem: {
+          include: {
+            videoAsset: true,
+            thumbnailAsset: true,
+          },
+        },
+        multipleChoiceItem: {
+          include: {
+            options: {
+              orderBy: { order: "asc" },
+            },
+          },
+        },
+        shortAnswerItem: true,
+      },
+    });
+
+    return questions.map((question) => this.toQuestionResponse(question));
+  }
+
   async createQuestion(dto: CreateQuestionDto): Promise<QuestionResponse> {
     return this.createQuestionRecord(this.prisma, dto);
   }

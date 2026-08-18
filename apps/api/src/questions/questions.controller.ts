@@ -32,6 +32,12 @@ type UploadFile = {
 export class QuestionsController {
   constructor(private readonly questions: QuestionsService) {}
 
+  @Get()
+  @ApiOperation({ summary: "List all questions" })
+  getQuestions() {
+    return this.questions.listQuestions();
+  }
+
   @Post()
   @ApiOperation({ summary: "Create a screening question" })
   @ApiBody({

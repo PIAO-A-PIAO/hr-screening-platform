@@ -8,6 +8,12 @@ import { TestsService } from "./tests.service";
 export class TestsController {
   constructor(private readonly tests: TestsService) {}
 
+  @Get()
+  @ApiOperation({ summary: "List all tests" })
+  getTests() {
+    return this.tests.listTests();
+  }
+
   @Post()
   @ApiOperation({ summary: "Create a test with ordered questions" })
   @ApiBody({
