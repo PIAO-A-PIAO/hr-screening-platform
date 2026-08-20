@@ -7,9 +7,10 @@ import { QuestionsModule } from "./questions/questions.module";
 import { UsersModule } from "./users/users.module";
 import { TestsModule } from "./tests/tests.module";
 import { ResponsesModule } from "./responses/responses.module";
+import { AttemptsModule } from "./attempts/attempts.module";
 
 @Module({
-  imports: [PrismaModule, HealthModule, QuestionsModule, TestsModule, UsersModule, ResponsesModule, PositionsModule],
+  imports: [PrismaModule, HealthModule, QuestionsModule, TestsModule, UsersModule, ResponsesModule, AttemptsModule, PositionsModule],
   controllers: [AppController],
 })
 export class AppModule {}
