@@ -30,6 +30,13 @@ enum TestStatus {
   ARCHIVED
 }
 
+enum PositionStatus {
+  DRAFT
+  OPEN
+  ON_HOLD
+  CLOSED
+}
+
 enum UserRole {
   RECRUITER
   CANDIDATE
@@ -75,11 +82,13 @@ model Test {
   name             String
   description      String?
   positionMetadata Json?
+  positionId       String?    @unique
   tags             String[]   @default([])
   status           TestStatus @default(DRAFT)
   creatorId        String?
   creatorName      String?
   creator          User?      @relation("TestCreator", fields: [creatorId], references: [id], onDelete: SetNull)
+  position         Position?  @relation(fields: [positionId], references: [id], onDelete: SetNull)
   configuration    Json?
   questions        Question[]
   createdAt        DateTime   @default(now())
@@ -87,6 +96,20 @@ model Test {
 
   assignments      UserTestAssignment[]
   responses        Response[]
+}
+
+model Position {
+  id          String         @id @default(cuid())
+  title       String
+  description String?
+  department  String
+  location    String
+  status      PositionStatus @default(DRAFT)
+  owner       String
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  test Test?
 }
 
 model Question {

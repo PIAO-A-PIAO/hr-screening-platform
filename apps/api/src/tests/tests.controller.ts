@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Param, Patch, Post } from "@nestjs/common";
 import { ApiBody, ApiOperation, ApiParam, ApiTags } from "@nestjs/swagger";
-import { CreateTestDto, ReorderTestQuestionsDto } from "./create-test.dto";
+import { AppendTestQuestionsDto, CreateTestDto, ReorderTestQuestionsDto } from "./create-test.dto";
 import { TestsService } from "./tests.service";
 
 @ApiTags("tests")
@@ -23,6 +23,7 @@ export class TestsController {
         name: { type: "string" },
         tags: { type: "array", items: { type: "string" } },
         status: { type: "string", enum: ["DRAFT", "PUBLISHED", "ARCHIVED"] },
+        positionId: { type: "string" },
         questions: {
           type: "array",
           items: {
@@ -43,6 +44,68 @@ export class TestsController {
   })
   createTest(@Body() dto: CreateTestDto) {
     return this.tests.createTest(dto);
+  }
+
+  @Patch(":testId")
+  @ApiOperation({ summary: "Update a test and its ordered questions" })
+  @ApiParam({ name: "testId" })
+  @ApiBody({
+    schema: {
+      type: "object",
+      properties: {
+        name: { type: "string" },
+        tags: { type: "array", items: { type: "string" } },
+        status: { type: "string", enum: ["DRAFT", "PUBLISHED", "ARCHIVED"] },
+        questions: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              questionId: { type: "string" },
+              title: { type: "string" },
+              description: { type: "string" },
+              type: { type: "string", enum: ["VIDEO", "MULTIPLE_CHOICE", "SHORT_ANSWER"] },
+              order: { type: "number" },
+              item: { type: "object" },
+            },
+            required: ["title", "type", "order", "item"],
+          },
+        },
+      },
+      required: ["name", "questions"],
+    },
+  })
+  updateTest(@Param("testId") testId: string, @Body() dto: CreateTestDto) {
+    return this.tests.updateTest(testId, dto);
+  }
+
+  @Post(":testId/questions")
+  @ApiOperation({ summary: "Append questions to an existing test" })
+  @ApiParam({ name: "testId" })
+  @ApiBody({
+    schema: {
+      type: "object",
+      properties: {
+        questions: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              title: { type: "string" },
+              description: { type: "string" },
+              type: { type: "string", enum: ["VIDEO", "MULTIPLE_CHOICE", "SHORT_ANSWER"] },
+              order: { type: "number" },
+              item: { type: "object" },
+            },
+            required: ["title", "type", "order", "item"],
+          },
+        },
+      },
+      required: ["questions"],
+    },
+  })
+  appendQuestions(@Param("testId") testId: string, @Body() dto: AppendTestQuestionsDto) {
+    return this.tests.appendQuestions(testId, dto);
   }
 
   @Patch(":testId/questions/order")

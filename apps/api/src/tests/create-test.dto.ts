@@ -13,6 +13,10 @@ import {
 import { Type } from "class-transformer";
 
 export class CreateTestQuestionDto {
+  @IsOptional()
+  @IsString()
+  questionId?: string;
+
   @IsString()
   title!: string;
 
@@ -48,6 +52,10 @@ export class CreateTestDto {
   @IsEnum(TestStatus)
   status?: TestStatus;
 
+  @IsOptional()
+  @IsString()
+  positionId?: string;
+
   @ValidateNested({ each: true })
   @Type(() => CreateTestQuestionDto)
   questions!: CreateTestQuestionDto[];
@@ -58,4 +66,10 @@ export class ReorderTestQuestionsDto {
   @ArrayUnique()
   @IsString({ each: true })
   questionIds!: string[];
+}
+
+export class AppendTestQuestionsDto {
+  @ValidateNested({ each: true })
+  @Type(() => CreateTestQuestionDto)
+  questions!: CreateTestQuestionDto[];
 }
