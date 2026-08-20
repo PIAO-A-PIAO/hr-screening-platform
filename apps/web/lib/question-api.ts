@@ -31,6 +31,7 @@ export type CreateQuestionInput = {
 
 export type QuestionDraftInput = CreateQuestionInput & {
   order: number;
+  questionId?: string;
 };
 
 export type CreateTestInput = {
@@ -38,6 +39,7 @@ export type CreateTestInput = {
   description?: string;
   tags?: string[];
   status?: TestStatus;
+  positionId?: string;
   questions: QuestionDraftInput[];
 };
 
@@ -50,6 +52,7 @@ export type TestResponse = {
   name: string;
   description: string | null;
   positionMetadata: Record<string, unknown> | null;
+  positionId: string | null;
   tags: string[];
   status: TestStatus;
   creatorId: string | null;
@@ -68,6 +71,7 @@ export type TestSummaryResponse = {
   description: string | null;
   tags: string[];
   status: TestStatus;
+  positionId: string | null;
   createdAt: string;
   updatedAt: string;
   questionCount: number;
@@ -160,6 +164,26 @@ export function createQuestion(input: CreateQuestionInput) {
 
 export function createTest(input: CreateTestInput) {
   return requestJson<TestResponse>("/tests", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(input),
+  });
+}
+
+export function updateTest(testId: string, input: CreateTestInput) {
+  return requestJson<TestResponse>(`/tests/${encodeURIComponent(testId)}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(input),
+  });
+}
+
+export function appendTestQuestions(testId: string, input: { questions: QuestionDraftInput[] }) {
+  return requestJson<TestResponse>(`/tests/${encodeURIComponent(testId)}/questions`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

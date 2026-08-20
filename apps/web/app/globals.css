@@ -632,6 +632,15 @@ textarea:focus {
   margin: 0;
 }
 
+.positionDataGrid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 16px;
+}
+
+.positionDataGrid div {
+  min-width: 0;
+}
+
 .detailCard dl div {
   display: grid;
   gap: 3px;
@@ -671,6 +680,30 @@ textarea:focus {
   background: rgba(18, 21, 29, 0.04);
   display: grid;
   gap: 5px;
+}
+
+.draftOrderList li {
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: background-color 160ms ease, border-color 160ms ease, transform 160ms ease, box-shadow 160ms ease;
+}
+
+.draftOrderList li:hover {
+  background: rgba(31, 111, 235, 0.08);
+  border-color: rgba(31, 111, 235, 0.16);
+  transform: translateY(-1px);
+}
+
+.draftOrderList li.selected {
+  background: rgba(31, 111, 235, 0.12);
+  border-color: rgba(31, 111, 235, 0.28);
+  box-shadow: inset 0 0 0 1px rgba(31, 111, 235, 0.06);
+}
+
+.draftCardEmpty {
+  min-height: 92px;
+  border-style: dashed;
+  align-content: center;
 }
 
 .dataList strong {
@@ -939,6 +972,98 @@ textarea:focus {
   gap: 16px;
 }
 
+.positionGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.positionSummaryCard,
+.positionTestShell,
+.positionDetailShell {
+  display: grid;
+  gap: 12px;
+}
+
+.positionDetailStack {
+  display: grid;
+  gap: 14px;
+}
+
+.positionAccordionCard {
+  width: 100%;
+}
+
+.attachedTestAccordion {
+  width: 100%;
+  padding: 0;
+  overflow: hidden;
+}
+
+.attachedTestAccordion > summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 16px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.attachedTestAccordion > summary::-webkit-details-marker {
+  display: none;
+}
+
+.attachedTestSummaryMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.attachedTestBody {
+  display: grid;
+  gap: 14px;
+  padding: 0 16px 16px;
+}
+
+.attachedTestPreview {
+  margin-top: 0;
+}
+
+.positionSummaryHeader,
+.positionActionStack,
+.positionSummaryActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.positionSummaryHeader {
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.positionSummaryHeader h3 {
+  margin-top: 0;
+  font-size: clamp(22px, 2vw, 28px);
+}
+
+.positionSummaryCard p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.createTestToggle {
+  align-items: center;
+  grid-template-columns: auto minmax(0, 1fr);
+}
+
+.positionCandidateGrid {
+  align-items: start;
+}
+
 .userSummaryHeader {
   display: flex;
   justify-content: space-between;
@@ -1045,8 +1170,10 @@ textarea:focus {
   .statusGrid,
   .routeGrid,
   .routeList,
+  .positionGrid,
   .candidateTestLayout,
-  .videoRecorderLayout {
+  .videoRecorderLayout,
+  .positionDataGrid {
     grid-template-columns: 1fr;
   }
 
