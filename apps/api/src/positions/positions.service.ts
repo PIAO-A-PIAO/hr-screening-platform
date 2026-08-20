@@ -21,6 +21,7 @@ function isSubmitted(status: UserTestStatus[]) {
 export type PositionCandidateSummary = {
   id: string;
   userId: string;
+  attemptId: string | null;
   name: string;
   email: string;
   status: UserTestStatus[];
@@ -217,9 +218,19 @@ export class PositionsService {
     }
 
     const assignments = position.test?.assignments ?? [];
+    const attemptIds = position.test
+      ? await this.prisma.$queryRaw<Array<{ assignmentId: string; attemptId: string | null }>>(Prisma.sql`
+          SELECT
+            a."assignmentId",
+            a."id" AS "attemptId"
+          FROM "Attempt" a
+          WHERE a."testId" = ${position.test.id}
+        `)
+      : [];
     const summaries = assignments.map((assignment) => ({
       id: assignment.id,
       userId: assignment.userId,
+      attemptId: attemptIds.find((row) => row.assignmentId === assignment.id)?.attemptId ?? null,
       name: assignment.user.name,
       email: assignment.user.email,
       status: assignment.status,

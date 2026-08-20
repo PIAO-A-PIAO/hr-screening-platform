@@ -97,6 +97,7 @@ function rowToResponse(row: UserRow, assignments: AssignmentRow[] = []): UserRes
 export class UsersService {
   constructor(private readonly prisma: PrismaService) {}
   private assignmentInviteTokenSupportPromise: Promise<boolean> | null = null;
+  private assignmentInvitedAtSupportPromise: Promise<boolean> | null = null;
   private userNamePartsSupportPromise: Promise<boolean> | null = null;
 
   private supportsAssignmentInviteToken() {
@@ -113,6 +114,20 @@ export class UsersService {
     return this.assignmentInviteTokenSupportPromise;
   }
 
+  private supportsAssignmentInvitedAt() {
+    this.assignmentInvitedAtSupportPromise ??= this.prisma.$queryRaw<Array<{ exists: boolean }>>(Prisma.sql`
+      SELECT EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = current_schema()
+          AND table_name = 'UserTestAssignment'
+          AND column_name = 'invitedAt'
+      ) AS "exists"
+    `).then((rows) => rows[0]?.exists === true);
+
+    return this.assignmentInvitedAtSupportPromise;
+  }
+
   private supportsUserNameParts() {
     this.userNamePartsSupportPromise ??= this.prisma.$queryRaw<Array<{ column_name: string }>>(Prisma.sql`
       SELECT "column_name"
@@ -127,6 +142,7 @@ export class UsersService {
 
   async listUsers(role?: UserRoleDto): Promise<UserResponse[]> {
     const supportsInviteToken = await this.supportsAssignmentInviteToken();
+    const supportsInvitedAt = await this.supportsAssignmentInvitedAt();
     const users = await this.prisma.$queryRaw<
       Array<{
         id: string;
@@ -161,7 +177,7 @@ export class UsersService {
       })),
     );
 
-    const assignments = supportsInviteToken
+    const assignments = supportsInviteToken && supportsInvitedAt
       ? await this.prisma.$queryRaw<AssignmentRow[]>(Prisma.sql`
         SELECT
           "id",
@@ -175,23 +191,59 @@ export class UsersService {
         FROM "UserTestAssignment"
         ORDER BY "createdAt" DESC
       `)
-      : await this.prisma.$queryRaw<AssignmentRow[]>(Prisma.sql`
-        SELECT
-          "id",
-          "userId",
-          "testId",
-          "status",
-          "createdAt",
-          "updatedAt"
-        FROM "UserTestAssignment"
-        ORDER BY "createdAt" DESC
-      `).then((rows) =>
-        rows.map((row) => ({
-          ...row,
-          inviteToken: null,
-          invitedAt: row.createdAt,
-        })),
-      );
+      : supportsInviteToken
+        ? await this.prisma.$queryRaw<AssignmentRow[]>(Prisma.sql`
+          SELECT
+            "id",
+            "userId",
+            "testId",
+            "status",
+            "inviteToken",
+            "createdAt",
+            "updatedAt"
+          FROM "UserTestAssignment"
+          ORDER BY "createdAt" DESC
+        `).then((rows) =>
+          rows.map((row) => ({
+            ...row,
+            invitedAt: row.createdAt,
+          })),
+        )
+        : supportsInvitedAt
+          ? await this.prisma.$queryRaw<AssignmentRow[]>(Prisma.sql`
+            SELECT
+              "id",
+              "userId",
+              "testId",
+              "status",
+              "invitedAt",
+              "createdAt",
+              "updatedAt"
+            FROM "UserTestAssignment"
+            ORDER BY "createdAt" DESC
+          `).then((rows) =>
+            rows.map((row) => ({
+              ...row,
+              inviteToken: null,
+            })),
+          )
+          : await this.prisma.$queryRaw<AssignmentRow[]>(Prisma.sql`
+            SELECT
+              "id",
+              "userId",
+              "testId",
+              "status",
+              "createdAt",
+              "updatedAt"
+            FROM "UserTestAssignment"
+            ORDER BY "createdAt" DESC
+          `).then((rows) =>
+            rows.map((row) => ({
+              ...row,
+              inviteToken: null,
+              invitedAt: row.createdAt,
+            })),
+          );
 
     const assignmentsByUserId = new Map<string, AssignmentRow[]>();
     for (const assignment of assignments) {
@@ -351,6 +403,7 @@ export class UsersService {
   }
 
   private async loadUserResponse(userId: string, supportsInviteToken: boolean) {
+    const supportsInvitedAt = await this.supportsAssignmentInvitedAt();
     const [user] = await this.prisma.$queryRaw<Array<{
       id: string;
       name: string;
@@ -380,7 +433,7 @@ export class UsersService {
       throw new NotFoundException("User not found");
     }
 
-    const assignments = supportsInviteToken
+    const assignments = supportsInviteToken && supportsInvitedAt
       ? await this.prisma.$queryRaw<AssignmentRow[]>(Prisma.sql`
         SELECT
           "id",
@@ -395,24 +448,62 @@ export class UsersService {
         WHERE "userId" = ${userId}
         ORDER BY "createdAt" DESC
       `)
-      : await this.prisma.$queryRaw<AssignmentRow[]>(Prisma.sql`
-        SELECT
-          "id",
-          "userId",
-          "testId",
-          "status",
-          "createdAt",
-          "updatedAt"
-        FROM "UserTestAssignment"
-        WHERE "userId" = ${userId}
-        ORDER BY "createdAt" DESC
-      `).then((rows) =>
-        rows.map((row) => ({
-          ...row,
-          inviteToken: null,
-          invitedAt: row.createdAt,
-        })),
-      );
+      : supportsInviteToken
+        ? await this.prisma.$queryRaw<AssignmentRow[]>(Prisma.sql`
+          SELECT
+            "id",
+            "userId",
+            "testId",
+            "status",
+            "inviteToken",
+            "createdAt",
+            "updatedAt"
+          FROM "UserTestAssignment"
+          WHERE "userId" = ${userId}
+          ORDER BY "createdAt" DESC
+        `).then((rows) =>
+          rows.map((row) => ({
+            ...row,
+            invitedAt: row.createdAt,
+          })),
+        )
+        : supportsInvitedAt
+          ? await this.prisma.$queryRaw<AssignmentRow[]>(Prisma.sql`
+            SELECT
+              "id",
+              "userId",
+              "testId",
+              "status",
+              "invitedAt",
+              "createdAt",
+              "updatedAt"
+            FROM "UserTestAssignment"
+            WHERE "userId" = ${userId}
+            ORDER BY "createdAt" DESC
+          `).then((rows) =>
+            rows.map((row) => ({
+              ...row,
+              inviteToken: null,
+            })),
+          )
+          : await this.prisma.$queryRaw<AssignmentRow[]>(Prisma.sql`
+            SELECT
+              "id",
+              "userId",
+              "testId",
+              "status",
+              "createdAt",
+              "updatedAt"
+            FROM "UserTestAssignment"
+            WHERE "userId" = ${userId}
+            ORDER BY "createdAt" DESC
+          `).then((rows) =>
+            rows.map((row) => ({
+              ...row,
+              inviteToken: null,
+              invitedAt: row.createdAt,
+            })),
+          );
 
     return { user, assignments };
   }
@@ -521,21 +612,41 @@ export class UsersService {
 
     for (const testId of uniqueTestIds) {
       const inviteToken = randomUUID();
-      const [existingAssignment] = await tx.$queryRaw<AssignmentRow[]>(Prisma.sql`
-        SELECT
-          "id",
-          "userId",
-          "testId",
-          "status",
-          "inviteToken",
-          "invitedAt",
-          "createdAt",
-          "updatedAt"
-        FROM "UserTestAssignment"
-        WHERE "userId" = ${userId}
-          AND "testId" = ${testId}
-        LIMIT 1
-      `);
+      const [existingAssignment] = supportsInviteToken
+        ? await tx.$queryRaw<AssignmentRow[]>(Prisma.sql`
+          SELECT
+            "id",
+            "userId",
+            "testId",
+            "status",
+            "inviteToken",
+            "invitedAt",
+            "createdAt",
+            "updatedAt"
+          FROM "UserTestAssignment"
+          WHERE "userId" = ${userId}
+            AND "testId" = ${testId}
+          LIMIT 1
+        `)
+        : await tx.$queryRaw<AssignmentRow[]>(Prisma.sql`
+          SELECT
+            "id",
+            "userId",
+            "testId",
+            "status",
+            "createdAt",
+            "updatedAt"
+          FROM "UserTestAssignment"
+          WHERE "userId" = ${userId}
+            AND "testId" = ${testId}
+          LIMIT 1
+        `).then((rows) =>
+          rows.map((row) => ({
+            ...row,
+            inviteToken: null,
+            invitedAt: row.createdAt,
+          })),
+        );
 
       if (!existingAssignment) {
         const [created] = supportsInviteToken
