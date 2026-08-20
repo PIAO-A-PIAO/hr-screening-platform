@@ -30,6 +30,18 @@ enum TestStatus {
   ARCHIVED
 }
 
+enum AttemptStatus {
+  IN_PROGRESS
+  SUBMITTED
+  ABANDONED
+}
+
+enum AttemptScoreState {
+  PENDING
+  PARTIAL
+  FINAL
+}
+
 enum PositionStatus {
   DRAFT
   OPEN
@@ -73,6 +85,7 @@ model User {
   createdTests     Test[]     @relation("TestCreator")
   createdQuestions Question[] @relation("QuestionCreator")
   testAssignments  UserTestAssignment[]
+  attempts         Attempt[]
   responses        Response[] @relation("CandidateResponses")
   evaluatedResponses Response[] @relation("ResponseEvaluator")
 }
@@ -95,6 +108,7 @@ model Test {
   updatedAt        DateTime   @updatedAt
 
   assignments      UserTestAssignment[]
+  attempts         Attempt[]
   responses        Response[]
 }
 
@@ -148,6 +162,30 @@ model UserTestAssignment {
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   test Test @relation(fields: [testId], references: [id], onDelete: Cascade)
+  attempt Attempt?
+
+  @@unique([userId, testId])
+  @@index([testId])
+  @@index([userId])
+}
+
+model Attempt {
+  id            String            @id @default(cuid())
+  assignmentId   String            @unique
+  testId         String
+  userId         String
+  status         AttemptStatus     @default(IN_PROGRESS)
+  startedAt      DateTime          @default(now())
+  submittedAt    DateTime?
+  scoreSum       Float?
+  scoreState     AttemptScoreState @default(PENDING)
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  assignment UserTestAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  test       Test               @relation(fields: [testId], references: [id], onDelete: Cascade)
+  user       User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  responses  Response[]
 
   @@unique([userId, testId])
   @@index([testId])
@@ -238,6 +276,7 @@ model Response {
   question  Question @relation(fields: [questionId], references: [id], onDelete: Restrict)
   user      User     @relation("CandidateResponses", fields: [userId], references: [id], onDelete: Cascade)
   test      Test     @relation(fields: [testId], references: [id], onDelete: Cascade)
+  attempt   Attempt?  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
   evaluator User?    @relation("ResponseEvaluator", fields: [evaluatorUserId], references: [id], onDelete: SetNull)
 
   videoItem          VideoResponseItem?
