@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   createQuestion,
   getQuestion,
@@ -15,6 +15,7 @@ import {
 type QuestionCreatorProps = {
   mode?: "standalone" | "draft";
   draftOrder?: number;
+  initialDraft?: QuestionDraftInput | null;
   onCreated?: (question: QuestionResponse) => void;
   onDraftAdded?: (
     draft: QuestionDraftInput,
@@ -61,6 +62,88 @@ const initialState: FormState = {
   },
 };
 
+function createInitialState(draft?: QuestionDraftInput | null) {
+  if (!draft) {
+    return initialState;
+  }
+
+  if (draft.type === "VIDEO") {
+    return {
+      title: draft.title,
+      description: draft.description ?? "",
+      type: draft.type,
+      item: {
+        allowMultipleSelection: false,
+        shuffleOptions: false,
+        options: [
+          { label: "", order: 0, isCorrect: true },
+          { label: "", order: 1, isCorrect: false },
+          { label: "", order: 2, isCorrect: false },
+          { label: "", order: 3, isCorrect: false },
+        ],
+        placeholder: "",
+        maxLength: "",
+        answerHint: "",
+      },
+    };
+  }
+
+  if (draft.type === "MULTIPLE_CHOICE") {
+    const item = draft.item as {
+      allowMultipleSelection?: boolean;
+      shuffleOptions?: boolean;
+      options?: Array<{
+        label?: string;
+        order?: number;
+        isCorrect?: boolean;
+      }>;
+    };
+
+    return {
+      title: draft.title,
+      description: draft.description ?? "",
+      type: draft.type,
+      item: {
+        allowMultipleSelection: item.allowMultipleSelection === true,
+        shuffleOptions: item.shuffleOptions === true,
+        options: (item.options ?? []).map((option, index) => ({
+          label: option.label ?? "",
+          order: typeof option.order === "number" ? option.order : index,
+          isCorrect: option.isCorrect === true,
+        })),
+        placeholder: "",
+        maxLength: "",
+        answerHint: "",
+      },
+    };
+  }
+
+  const item = draft.item as {
+    placeholder?: string | null;
+    maxLength?: number | null;
+    answerHint?: string | null;
+  };
+
+  return {
+    title: draft.title,
+    description: draft.description ?? "",
+    type: draft.type,
+    item: {
+      allowMultipleSelection: false,
+      shuffleOptions: false,
+      options: [
+        { label: "", order: 0, isCorrect: true },
+        { label: "", order: 1, isCorrect: false },
+        { label: "", order: 2, isCorrect: false },
+        { label: "", order: 3, isCorrect: false },
+      ],
+      placeholder: item.placeholder ?? "",
+      maxLength: item.maxLength === null || item.maxLength === undefined ? "" : String(item.maxLength),
+      answerHint: item.answerHint ?? "",
+    },
+  };
+}
+
 function slugify(value: string, fallback: string) {
   const slug = value
     .toLowerCase()
@@ -100,10 +183,12 @@ function buildItemPayload(type: QuestionType, state: FormState["item"]) {
 export function QuestionCreator({
   mode = "standalone",
   draftOrder = 0,
+  initialDraft = null,
   onCreated,
   onDraftAdded,
 }: QuestionCreatorProps) {
-  const [state, setState] = useState<FormState>(initialState);
+  const [state, setState] = useState<FormState>(() => createInitialState(initialDraft));
+  const [editingQuestionId, setEditingQuestionId] = useState<string | null>(initialDraft?.questionId ?? null);
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
@@ -111,6 +196,17 @@ export function QuestionCreator({
   const [success, setSuccess] = useState<QuestionResponse | null>(null);
   const [draftNotice, setDraftNotice] = useState<string | null>(null);
   const isDraftMode = mode === "draft";
+
+  useEffect(() => {
+    setState(createInitialState(initialDraft));
+    setEditingQuestionId(initialDraft?.questionId ?? null);
+    setVideoFile(null);
+    setThumbnailFile(null);
+    setError(null);
+    setSuccess(null);
+    setDraftNotice(null);
+    setLoading(false);
+  }, [initialDraft]);
 
   function updateOption(index: number, next: Partial<MultipleChoiceOption>) {
     setState((current) => {
@@ -183,13 +279,16 @@ export function QuestionCreator({
       if (isDraftMode) {
         const draft: QuestionDraftInput = {
           ...payload,
-          order: draftOrder,
+          questionId: editingQuestionId ?? undefined,
+          order: initialDraft?.order ?? draftOrder,
         };
         onDraftAdded?.(draft, { videoFile, thumbnailFile });
-        setDraftNotice("Question draft added to the test.");
-        setState(initialState);
-        setVideoFile(null);
-        setThumbnailFile(null);
+        setDraftNotice(editingQuestionId ? "Question draft updated." : "Question draft added to the test.");
+        if (!editingQuestionId) {
+          setState(initialState);
+          setVideoFile(null);
+          setThumbnailFile(null);
+        }
         return;
       }
 
@@ -218,9 +317,15 @@ export function QuestionCreator({
   const isMultipleChoice = state.type === "MULTIPLE_CHOICE";
   const canUseMultipleCorrect = state.item.allowMultipleSelection;
   const sectionLabel = isDraftMode ? "Test question" : "Create question";
-  const headline = isDraftMode ? "Add a question draft" : "Reusable screening question form";
+  const headline = isDraftMode
+    ? editingQuestionId
+      ? "Edit existing question"
+      : "Add a new question"
+    : "Reusable screening question form";
   const description = isDraftMode
-    ? "Add one ordered question to the test draft at a time."
+    ? editingQuestionId
+      ? "Update the selected question in place."
+      : "Add one ordered question to the test draft at a time."
     : "Create video, multiple choice, or short answer questions with type-aware validation.";
 
   return (
@@ -439,11 +544,13 @@ export function QuestionCreator({
 
         <div className="fieldWide actionsRow">
           <button className="primaryButton" type="submit" disabled={loading}>
-            {loading ? "Saving..." : isDraftMode ? "Add question" : "Create question"}
+            {loading ? "Saving..." : isDraftMode ? (editingQuestionId ? "Save question" : "Add question") : "Create question"}
           </button>
           <span className="helperText">
             {isDraftMode
-              ? "This question will be saved as part of the test and can be refined later."
+              ? editingQuestionId
+                ? "Changes will update the selected question in the draft."
+                : "This question will be saved as part of the test and can be refined later."
               : isVideo
               ? "Video questions can upload media immediately in this form, or later on the view page."
               : "Item fields are validated before the question is saved."}

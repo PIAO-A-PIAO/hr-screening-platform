@@ -75,15 +75,25 @@ export default async function Home() {
           <h2>See all questions</h2>
           <p>Open the question index and jump into the candidate answering view for any question.</p>
         </Link>
-        <Link className="routeCard" href="/tests/create">
+        <Link className="routeCard" href="/positions/create">
           <span className="sectionLabel">Test</span>
-          <h2>Create a test</h2>
-          <p>Assemble ordered question drafts into one test record and save the bundle together.</p>
+          <h2>Create a position and test</h2>
+          <p>Start from a position record, then open the inline test panel to attach a screening flow.</p>
         </Link>
         <Link className="routeCard" href="/tests">
           <span className="sectionLabel">Browse</span>
           <h2>See all tests</h2>
           <p>Open the test index and launch the candidate answering flow for any created test.</p>
+        </Link>
+        <Link className="routeCard" href="/positions/create">
+          <span className="sectionLabel">Positions</span>
+          <h2>Create a position</h2>
+          <p>Draft a role first, then optionally attach a screening test and start managing candidates.</p>
+        </Link>
+        <Link className="routeCard" href="/positions">
+          <span className="sectionLabel">Positions</span>
+          <h2>See all positions</h2>
+          <p>Open the position index and review attached test state plus submitted candidate counts.</p>
         </Link>
         <Link className="routeCard" href="/video-recording">
           <span className="sectionLabel">Media</span>
