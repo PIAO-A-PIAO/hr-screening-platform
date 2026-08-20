@@ -68,6 +68,7 @@ export function UserSummaryCard({ user, onDeleted }: UserSummaryCardProps) {
         <div>
           <h3>{formatFullName(user)}</h3>
           <p>{user.email}</p>
+          <small>{user.id}</small>
         </div>
         <span className="pill">{user.role}</span>
       </div>

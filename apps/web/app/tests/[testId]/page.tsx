@@ -10,10 +10,14 @@ type TestPageProps = {
   params: Promise<{
     testId: string;
   }>;
+  searchParams: Promise<{
+    inviteToken?: string;
+  }>;
 };
 
-export default async function TestViewPage({ params }: TestPageProps) {
+export default async function TestViewPage({ params, searchParams }: TestPageProps) {
   const resolvedParams = await params;
+  const resolvedSearchParams = await searchParams;
 
-  return <TestAnswerRoute testId={resolvedParams.testId} />;
+  return <TestAnswerRoute testId={resolvedParams.testId} inviteToken={resolvedSearchParams.inviteToken} />;
 }

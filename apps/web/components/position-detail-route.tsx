@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { CreateTestPanel } from "./create-test-panel";
+import { InviteCandidatePanel } from "./invite-candidate-panel";
 import { getPosition, type PositionResponse } from "../lib/position-api";
 
 type PositionDetailRouteProps = {
@@ -12,11 +14,18 @@ function formatStatuses(statuses: string[]) {
   return statuses.length === 0 ? "No status" : statuses.join(", ");
 }
 
+function buildAttemptViewHref(candidate: PositionResponse["submittedCandidates"][number]) {
+  if (!candidate.attemptId || !candidate.inviteToken) {
+    return null;
+  }
+
+  return `/attempts/view?attemptId=${encodeURIComponent(candidate.attemptId)}&inviteToken=${encodeURIComponent(candidate.inviteToken)}`;
+}
+
 export function PositionDetailRoute({ positionId }: PositionDetailRouteProps) {
   const [position, setPosition] = useState<PositionResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
   useEffect(() => {
     let cancelled = false;
 
@@ -116,6 +125,8 @@ export function PositionDetailRoute({ positionId }: PositionDetailRouteProps) {
         </div>
 
         <CreateTestPanel position={position} className="positionAccordionCard" />
+
+        <InviteCandidatePanel position={position} className="positionAccordionCard" />
       </div>
 
       <div className="detailGrid positionCandidateGrid">
@@ -127,10 +138,31 @@ export function PositionDetailRoute({ positionId }: PositionDetailRouteProps) {
             <ul className="dataList">
               {position.submittedCandidates.map((candidate) => (
                 <li key={candidate.id}>
-                  <strong>{candidate.name}</strong>
-                  <span>{candidate.email}</span>
-                  <small>{formatStatuses(candidate.status)}</small>
-                  <small>Invited {new Date(candidate.invitedAt).toLocaleString()}</small>
+                  {(() => {
+                    const href = buildAttemptViewHref(candidate);
+
+                    if (!href) {
+                      return (
+                        <>
+                          <strong>{candidate.name}</strong>
+                          <span>{candidate.email}</span>
+                          <small>{formatStatuses(candidate.status)}</small>
+                          <small>Invited {new Date(candidate.invitedAt).toLocaleString()}</small>
+                          <small>{candidate.inviteToken}</small>
+                        </>
+                      );
+                    }
+
+                    return (
+                      <Link className="candidateRowLink" href={href}>
+                        <strong>{candidate.name}</strong>
+                        <span>{candidate.email}</span>
+                        <small>{formatStatuses(candidate.status)}</small>
+                        <small>Invited {new Date(candidate.invitedAt).toLocaleString()}</small>
+                        <small>{candidate.inviteToken}</small>
+                      </Link>
+                    );
+                  })()}
                 </li>
               ))}
             </ul>
@@ -149,6 +181,7 @@ export function PositionDetailRoute({ positionId }: PositionDetailRouteProps) {
                   <span>{candidate.email}</span>
                   <small>{formatStatuses(candidate.status)}</small>
                   <small>Invited {new Date(candidate.invitedAt).toLocaleString()}</small>
+                  <small>{candidate.inviteToken}</small>
                 </li>
               ))}
             </ul>

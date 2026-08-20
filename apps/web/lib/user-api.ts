@@ -48,6 +48,14 @@ export type GenerateUsersInput = {
   users: GenerateUserInput[];
 };
 
+export type InviteUserInput = GenerateUserInput & {
+  testIds: string[];
+};
+
+export type InviteUsersInput = {
+  users: InviteUserInput[];
+};
+
 export type UpdateUserStatusInput = {
   status: UserStatus[];
 };
@@ -113,6 +121,16 @@ export function createUser(input: GenerateUserInput) {
 
 export function generateUsers(input: GenerateUsersInput) {
   return requestJson<UserResponse[]>("/users/generate", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(input),
+  });
+}
+
+export function inviteUsers(input: InviteUsersInput) {
+  return requestJson<UserResponse[]>("/users/invite", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

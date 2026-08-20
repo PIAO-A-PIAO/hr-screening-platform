@@ -32,6 +32,7 @@ export type PositionSummaryResponse = {
 export type PositionCandidateSummary = {
   id: string;
   userId: string;
+  attemptId: string | null;
   name: string;
   email: string;
   status: UserStatus[];

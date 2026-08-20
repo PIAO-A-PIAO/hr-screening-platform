@@ -682,6 +682,17 @@ textarea:focus {
   gap: 5px;
 }
 
+.candidateRowLink {
+  display: grid;
+  gap: 5px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.candidateRowLink:hover strong {
+  text-decoration: underline;
+}
+
 .draftOrderList li {
   cursor: pointer;
   border: 1px solid transparent;

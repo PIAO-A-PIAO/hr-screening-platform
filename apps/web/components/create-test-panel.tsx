@@ -342,6 +342,7 @@ export function CreateTestPanel({ position, className }: CreateTestPanelProps) {
         <div>
           <span className="sectionLabel">Attached test</span>
           <h3>{attachedTest?.name ?? position.test?.name ?? position.title}</h3>
+          <small>{attachedTestId}</small>
         </div>
         <div className="attachedTestSummaryMeta">
           <span className="pill">{attachedTest?.status ?? position.test?.status ?? "Draft"}</span>
@@ -427,6 +428,7 @@ export function CreateTestPanel({ position, className }: CreateTestPanelProps) {
                   <strong>
                     {draft.draft.order}. {draft.draft.title || "Untitled question"}
                   </strong>
+                  <small>{draft.clientId}</small>
                   <span>
                     {draft.draft.type}
                     {draft.draft.questionId ? " . existing" : " . new"}

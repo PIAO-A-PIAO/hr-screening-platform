@@ -5,11 +5,12 @@ import { getResponse, getResponseVideoBlob, type ResponseRecord } from "../lib/r
 
 type ResponseViewRouteProps = {
   initialResponseId?: string;
+  initialInviteToken?: string;
 };
 
-export function ResponseViewRoute({ initialResponseId = "" }: ResponseViewRouteProps) {
+export function ResponseViewRoute({ initialResponseId = "", initialInviteToken = "" }: ResponseViewRouteProps) {
   const [responseId, setResponseId] = useState(initialResponseId);
-  const [inviteToken, setInviteToken] = useState("");
+  const [inviteToken, setInviteToken] = useState(initialInviteToken);
   const [submittedId, setSubmittedId] = useState("");
   const [submittedToken, setSubmittedToken] = useState("");
   const [response, setResponse] = useState<ResponseRecord | null>(null);
@@ -49,6 +50,17 @@ export function ResponseViewRoute({ initialResponseId = "" }: ResponseViewRouteP
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
   }, [submittedId, submittedToken]);
+
+  useEffect(() => {
+    if (!initialResponseId || !initialInviteToken) {
+      return;
+    }
+
+    setResponseId(initialResponseId);
+    setInviteToken(initialInviteToken);
+    setSubmittedId(initialResponseId);
+    setSubmittedToken(initialInviteToken);
+  }, [initialResponseId, initialInviteToken]);
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
