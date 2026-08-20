@@ -7,6 +7,6 @@ import { VideoTranscodingService } from "./video-transcoding.service";
 @Module({
   controllers: [QuestionsController],
   providers: [QuestionStorageService, QuestionsService, VideoTranscodingService],
-  exports: [QuestionsService],
+  exports: [QuestionStorageService, QuestionsService, VideoTranscodingService],
 })
 export class QuestionsModule {}

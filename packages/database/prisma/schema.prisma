@@ -48,6 +48,12 @@ enum UserTestStatus {
   ON_HOLD
 }
 
+enum ResponseType {
+  VIDEO
+  MULTIPLE_CHOICE
+  SHORT_ANSWER
+}
+
 model User {
   id         String    @id @default(cuid())
   name       String
@@ -60,6 +66,8 @@ model User {
   createdTests     Test[]     @relation("TestCreator")
   createdQuestions Question[] @relation("QuestionCreator")
   testAssignments  UserTestAssignment[]
+  responses        Response[] @relation("CandidateResponses")
+  evaluatedResponses Response[] @relation("ResponseEvaluator")
 }
 
 model Test {
@@ -78,6 +86,7 @@ model Test {
   updatedAt        DateTime   @updatedAt
 
   assignments      UserTestAssignment[]
+  responses        Response[]
 }
 
 model Question {
@@ -98,6 +107,7 @@ model Question {
   videoItem          VideoQuestionItem?
   multipleChoiceItem MultipleChoiceQuestionItem?
   shortAnswerItem    ShortAnswerQuestionItem?
+  responses          Response[]
 
   @@index([testId, order])
   @@index([type])
@@ -154,6 +164,8 @@ model MultipleChoiceQuestionOption {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
+  selectedInResponses MultipleChoiceResponseSelection[]
+
   @@index([questionId, order])
 }
 
@@ -165,6 +177,7 @@ model ShortAnswerQuestionItem {
   answerHint  String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
 }
 
 model QuestionAsset {
@@ -184,4 +197,86 @@ model QuestionAsset {
   videoQuestionItemForThumbnail  VideoQuestionItem? @relation("QuestionThumbnailAsset")
 
   @@index([kind])
+}
+
+model Response {
+  id              String       @id @default(cuid())
+  type            ResponseType
+  questionId      String
+  userId          String
+  testId          String
+  attemptId       String?
+  score           Float?
+  evaluatorUserId String?
+  evaluatedAt     DateTime?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  question  Question @relation(fields: [questionId], references: [id], onDelete: Restrict)
+  user      User     @relation("CandidateResponses", fields: [userId], references: [id], onDelete: Cascade)
+  test      Test     @relation(fields: [testId], references: [id], onDelete: Cascade)
+  evaluator User?    @relation("ResponseEvaluator", fields: [evaluatorUserId], references: [id], onDelete: SetNull)
+
+  videoItem          VideoResponseItem?
+  multipleChoiceItem MultipleChoiceResponseItem?
+  shortAnswerItem    ShortAnswerResponseItem?
+
+  @@unique([userId, testId, questionId])
+  @@index([testId, userId])
+  @@index([questionId])
+  @@index([attemptId])
+}
+
+model VideoResponseItem {
+  responseId String   @id
+  response   Response @relation(fields: [responseId], references: [id], onDelete: Cascade)
+  assetId    String?  @unique
+  asset      ResponseAsset? @relation(fields: [assetId], references: [id], onDelete: SetNull)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model MultipleChoiceResponseItem {
+  responseId String   @id
+  response   Response @relation(fields: [responseId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  selections MultipleChoiceResponseSelection[]
+}
+
+model MultipleChoiceResponseSelection {
+  responseId String
+  optionId   String
+  response   MultipleChoiceResponseItem @relation(fields: [responseId], references: [responseId], onDelete: Cascade)
+  option     MultipleChoiceQuestionOption @relation(fields: [optionId], references: [id], onDelete: Restrict)
+  createdAt  DateTime @default(now())
+
+  @@id([responseId, optionId])
+  @@index([optionId])
+}
+
+model ShortAnswerResponseItem {
+  responseId String   @id
+  response   Response @relation(fields: [responseId], references: [id], onDelete: Cascade)
+  textValue  String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model ResponseAsset {
+  id              String   @id @default(cuid())
+  storageKey      String   @unique
+  mimeType        String
+  size            Int
+  durationSeconds Float?
+  checksum        String
+  ownerId         String
+  originalName    String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  videoResponseItem VideoResponseItem?
+
+  @@index([ownerId])
 }
