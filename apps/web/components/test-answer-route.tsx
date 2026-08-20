@@ -3,13 +3,65 @@
 import { useEffect, useMemo, useState } from "react";
 import { QuestionAnswerer, createEmptyAnswer, type CandidateAnswer } from "./question-answerer";
 import { getTest, type TestResponse } from "../lib/question-api";
+import {
+  resolveInviteToken,
+  saveAttemptResponse,
+  startAttempt,
+  submitAttempt,
+  type AttemptResponse,
+  type SaveAttemptResponseDraft,
+} from "../lib/attempt-api";
 
 type TestAnswerRouteProps = {
   testId: string;
+  inviteToken?: string;
 };
 
-export function TestAnswerRoute({ testId }: TestAnswerRouteProps) {
+function isAnswered(question: TestResponse["questions"][number], answer: CandidateAnswer) {
+  if (question.type === "MULTIPLE_CHOICE") {
+    return answer.selectedValues.length > 0;
+  }
+
+  return answer.text.trim().length > 0;
+}
+
+function buildSavePayload(
+  question: TestResponse["questions"][number],
+  answer: CandidateAnswer,
+): SaveAttemptResponseDraft {
+  if (question.type === "MULTIPLE_CHOICE") {
+    const options = (question.item as {
+      options?: Array<{ id: string; value: string }>;
+    }).options ?? [];
+    const selectedOptionIds = answer.selectedValues
+      .map((selectedValue) => options.find((option) => option.value === selectedValue)?.id)
+      .filter((value): value is string => Boolean(value));
+
+    return {
+      type: question.type,
+      questionId: question.id,
+      item: { selectedOptionIds },
+    };
+  }
+
+  if (question.type === "SHORT_ANSWER") {
+    return {
+      type: question.type,
+      questionId: question.id,
+      item: { textValue: answer.text },
+    };
+  }
+
+  return {
+    type: question.type,
+    questionId: question.id,
+    item: {},
+  };
+}
+
+export function TestAnswerRoute({ testId, inviteToken }: TestAnswerRouteProps) {
   const [test, setTest] = useState<TestResponse | null>(null);
+  const [attempt, setAttempt] = useState<AttemptResponse | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -24,6 +76,7 @@ export function TestAnswerRoute({ testId }: TestAnswerRouteProps) {
       setLoading(true);
       setError(null);
       setSubmitted(false);
+      setAttempt(null);
 
       try {
         const loaded = await getTest(testId);
@@ -31,6 +84,31 @@ export function TestAnswerRoute({ testId }: TestAnswerRouteProps) {
           setTest(loaded);
           setActiveIndex(0);
           setAnswers({});
+        }
+
+        const normalizedToken = inviteToken?.trim();
+        if (!normalizedToken) {
+          if (!cancelled) {
+            setError("Invitation token is required to submit this test.");
+          }
+          return;
+        }
+
+        const resolved = await resolveInviteToken(normalizedToken);
+        if (resolved.testId !== testId) {
+          throw new Error("Invitation token does not match this test.");
+        }
+
+        const started = await startAttempt(
+          {
+            userId: resolved.userId,
+            testId: resolved.testId,
+          },
+          normalizedToken,
+        );
+
+        if (!cancelled) {
+          setAttempt(started);
         }
       } catch (caught) {
         if (!cancelled) {
@@ -48,7 +126,7 @@ export function TestAnswerRoute({ testId }: TestAnswerRouteProps) {
     return () => {
       cancelled = true;
     };
-  }, [testId]);
+  }, [testId, inviteToken]);
 
   const activeQuestion = useMemo(() => test?.questions[activeIndex] ?? null, [test, activeIndex]);
 
@@ -74,10 +152,54 @@ export function TestAnswerRoute({ testId }: TestAnswerRouteProps) {
     });
   }
 
-  function finishTest() {
+  async function finishTest() {
+    if (!test) {
+      return;
+    }
+    if (!attempt) {
+      setError("The attempt is not ready yet.");
+      return;
+    }
+
+    const unanswered = test.questions.filter((question) => !isAnswered(question, answers[question.id] ?? createEmptyAnswer()));
+    if (unanswered.length > 0) {
+      setError("Answer every question before finishing the test.");
+      return;
+    }
+
     setSaving(true);
-    setSubmitted(true);
-    setSaving(false);
+    setError(null);
+
+    const normalizedToken = inviteToken?.trim();
+    if (!normalizedToken) {
+      setSaving(false);
+      setError("Invitation token is required to submit this test.");
+      return;
+    }
+
+    try {
+      for (const question of test.questions) {
+        const answer = answers[question.id] ?? createEmptyAnswer();
+        const payload = buildSavePayload(question, answer);
+        await saveAttemptResponse(
+          attempt.id,
+          {
+            ...payload,
+            userId: attempt.userId,
+            testId: attempt.testId,
+          },
+          normalizedToken,
+        );
+      }
+
+      const submittedAttempt = await submitAttempt(attempt.id, normalizedToken);
+      setAttempt(submittedAttempt);
+      setSubmitted(true);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Failed to submit attempt");
+    } finally {
+      setSaving(false);
+    }
   }
 
   if (loading) {
@@ -204,10 +326,10 @@ export function TestAnswerRoute({ testId }: TestAnswerRouteProps) {
               />
 
               <div className="candidateFooter">
-                <div className="stateCard candidateStatusCard">
-                  <strong>Local test preview</strong>
+              <div className="stateCard candidateStatusCard">
+                  <strong>Candidate submission</strong>
                   <span>
-                    Your response is kept in this browser session until the candidate workflow is connected to a submit endpoint.
+                    Responses are saved to the backend when you finish the test.
                   </span>
                 </div>
 
@@ -220,7 +342,7 @@ export function TestAnswerRoute({ testId }: TestAnswerRouteProps) {
                       Next
                     </button>
                   ) : (
-                    <button className="primaryButton" type="button" onClick={finishTest} disabled={saving}>
+                    <button className="primaryButton" type="button" onClick={() => void finishTest()} disabled={saving || submitted}>
                       {saving ? "Saving..." : submitted ? "Finished" : "Finish test"}
                     </button>
                   )}
@@ -229,8 +351,8 @@ export function TestAnswerRoute({ testId }: TestAnswerRouteProps) {
 
               {submitted && (
                 <div className="stateCard successState candidateSubmissionState">
-                  <strong>Preview complete.</strong>
-                  <span>This test view does not persist answers yet, so the submission stays local.</span>
+                  <strong>Submission complete.</strong>
+                  <span>The attempt has been submitted to the backend.</span>
                 </div>
               )}
             </>

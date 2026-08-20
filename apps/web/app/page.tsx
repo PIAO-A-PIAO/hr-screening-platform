@@ -85,6 +85,11 @@ export default async function Home() {
           <h2>See all tests</h2>
           <p>Open the test index and launch the candidate answering flow for any created test.</p>
         </Link>
+        <Link className="routeCard" href="/tests/take">
+          <span className="sectionLabel">Candidate</span>
+          <h2>Take a test with a token</h2>
+          <p>Paste an invitation token and jump straight into the assigned candidate view.</p>
+        </Link>
         <Link className="routeCard" href="/positions/create">
           <span className="sectionLabel">Positions</span>
           <h2>Create a position</h2>
