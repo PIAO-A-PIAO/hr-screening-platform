@@ -1,3 +1,5 @@
+import type { ResponseRecord } from "./response-api";
+
 export type InviteTokenLookupResponse = {
   assignmentId: string;
   testId: string;
@@ -131,7 +133,7 @@ export function saveAttemptResponse(
   input: SaveAttemptResponseInput,
   inviteToken: string,
 ) {
-  return requestJson<unknown>(
+  return requestJson<ResponseRecord>(
     `/attempts/${encodeURIComponent(attemptId)}/save`,
     {
       method: "POST",

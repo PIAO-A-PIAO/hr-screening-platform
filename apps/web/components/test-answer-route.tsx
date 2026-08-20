@@ -11,18 +11,35 @@ import {
   type AttemptResponse,
   type SaveAttemptResponseDraft,
 } from "../lib/attempt-api";
+import { uploadResponseVideo } from "../lib/response-api";
 
 type TestAnswerRouteProps = {
   testId: string;
   inviteToken?: string;
 };
 
-function isAnswered(question: TestResponse["questions"][number], answer: CandidateAnswer) {
+function isAnswered(
+  question: TestResponse["questions"][number],
+  answer: CandidateAnswer,
+  recording: File | null,
+) {
+  if (question.type === "VIDEO") {
+    return recording !== null;
+  }
+
   if (question.type === "MULTIPLE_CHOICE") {
     return answer.selectedValues.length > 0;
   }
 
   return answer.text.trim().length > 0;
+}
+
+function isQuestionAnswered(
+  question: TestResponse["questions"][number],
+  answer: CandidateAnswer,
+  recording: File | null,
+) {
+  return isAnswered(question, answer, recording);
 }
 
 function buildSavePayload(
@@ -68,6 +85,7 @@ export function TestAnswerRoute({ testId, inviteToken }: TestAnswerRouteProps) {
   const [saving, setSaving] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [answers, setAnswers] = useState<Record<string, CandidateAnswer>>({});
+  const [videoRecordings, setVideoRecordings] = useState<Record<string, File | null>>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -77,6 +95,7 @@ export function TestAnswerRoute({ testId, inviteToken }: TestAnswerRouteProps) {
       setError(null);
       setSubmitted(false);
       setAttempt(null);
+      setVideoRecordings({});
 
       try {
         const loaded = await getTest(testId);
@@ -84,6 +103,7 @@ export function TestAnswerRoute({ testId, inviteToken }: TestAnswerRouteProps) {
           setTest(loaded);
           setActiveIndex(0);
           setAnswers({});
+          setVideoRecordings({});
         }
 
         const normalizedToken = inviteToken?.trim();
@@ -141,6 +161,17 @@ export function TestAnswerRoute({ testId, inviteToken }: TestAnswerRouteProps) {
     return answers[questionIdValue] ?? createEmptyAnswer();
   }
 
+  function currentVideoRecordingFor(questionIdValue: string) {
+    return videoRecordings[questionIdValue] ?? null;
+  }
+
+  function updateVideoRecording(questionIdValue: string, file: File | null) {
+    setVideoRecordings((current) => ({
+      ...current,
+      [questionIdValue]: file,
+    }));
+  }
+
   function moveQuestion(direction: -1 | 1) {
     if (!test) return;
     setActiveIndex((current) => {
@@ -161,7 +192,12 @@ export function TestAnswerRoute({ testId, inviteToken }: TestAnswerRouteProps) {
       return;
     }
 
-    const unanswered = test.questions.filter((question) => !isAnswered(question, answers[question.id] ?? createEmptyAnswer()));
+    const unanswered = test.questions.filter((question) => {
+      const answer = answers[question.id] ?? createEmptyAnswer();
+      const recording = currentVideoRecordingFor(question.id);
+      return !isQuestionAnswered(question, answer, recording);
+    });
+
     if (unanswered.length > 0) {
       setError("Answer every question before finishing the test.");
       return;
@@ -181,7 +217,7 @@ export function TestAnswerRoute({ testId, inviteToken }: TestAnswerRouteProps) {
       for (const question of test.questions) {
         const answer = answers[question.id] ?? createEmptyAnswer();
         const payload = buildSavePayload(question, answer);
-        await saveAttemptResponse(
+        const savedResponse = await saveAttemptResponse(
           attempt.id,
           {
             ...payload,
@@ -190,6 +226,14 @@ export function TestAnswerRoute({ testId, inviteToken }: TestAnswerRouteProps) {
           },
           normalizedToken,
         );
+
+        if (question.type === "VIDEO") {
+          const recording = currentVideoRecordingFor(question.id);
+          if (!recording) {
+            throw new Error(`Missing video recording for question ${question.id}`);
+          }
+          await uploadResponseVideo(savedResponse.id, recording, normalizedToken);
+        }
       }
 
       const submittedAttempt = await submitAttempt(attempt.id, normalizedToken);
@@ -228,11 +272,9 @@ export function TestAnswerRoute({ testId, inviteToken }: TestAnswerRouteProps) {
 
   const answeredCount = test.questions.filter((question) => {
     const answer = answers[question.id];
-    if (!answer) return false;
-    if (question.type === "MULTIPLE_CHOICE") {
-      return answer.selectedValues.length > 0;
-    }
-    return answer.text.trim().length > 0;
+    const recording = currentVideoRecordingFor(question.id);
+    if (!answer && question.type !== "VIDEO") return false;
+    return isQuestionAnswered(question, answer ?? createEmptyAnswer(), recording);
   }).length;
 
   const activeAnswer = activeQuestion ? currentAnswerFor(activeQuestion.id) : createEmptyAnswer();
@@ -276,10 +318,11 @@ export function TestAnswerRoute({ testId, inviteToken }: TestAnswerRouteProps) {
           <ol className="candidateQuestionList">
             {test.questions.map((question, index) => {
               const answer = answers[question.id];
-              const answered =
-                question.type === "MULTIPLE_CHOICE"
-                  ? (answer?.selectedValues.length ?? 0) > 0
-                  : (answer?.text.trim().length ?? 0) > 0;
+              const answered = isQuestionAnswered(
+                question,
+                answer ?? createEmptyAnswer(),
+                currentVideoRecordingFor(question.id),
+              );
 
               return (
                 <li key={question.id} className={index === activeIndex ? "active" : ""}>
@@ -323,7 +366,20 @@ export function TestAnswerRoute({ testId, inviteToken }: TestAnswerRouteProps) {
                 question={activeQuestion}
                 value={activeAnswer}
                 onChange={(nextValue) => updateAnswer(activeQuestion.id, nextValue)}
+                videoMode={activeQuestion.type === "VIDEO" ? "record" : "text"}
+                onVideoRecordingReady={
+                  activeQuestion.type === "VIDEO"
+                    ? (file) => updateVideoRecording(activeQuestion.id, file)
+                    : undefined
+                }
               />
+
+              {activeQuestion.type === "VIDEO" && currentVideoRecordingFor(activeQuestion.id) && (
+                <div className="stateCard successState candidateSubmissionState">
+                  <strong>Video recorded.</strong>
+                  <span>The recording will be uploaded when you finish the test.</span>
+                </div>
+              )}
 
               <div className="candidateFooter">
               <div className="stateCard candidateStatusCard">
