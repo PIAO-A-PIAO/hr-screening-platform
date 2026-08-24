@@ -90,6 +90,16 @@ export default async function Home() {
           <h2>Browser video recording</h2>
           <p>Open the local recorder to test camera and microphone capture, preview, and download support.</p>
         </Link>
+        <Link className="routeCard" href="/responses/create">
+          <span className="sectionLabel">Responses</span>
+          <h2>Submit a response</h2>
+          <p>Save a typed candidate answer and upload a browser-recorded video when required.</p>
+        </Link>
+        <Link className="routeCard" href="/responses/view">
+          <span className="sectionLabel">Responses</span>
+          <h2>View a response</h2>
+          <p>Retrieve a private response by ID using the matching candidate invitation token.</p>
+        </Link>
         <Link className="routeCard" href="/users/create">
           <span className="sectionLabel">Users</span>
           <h2>Create a user</h2>

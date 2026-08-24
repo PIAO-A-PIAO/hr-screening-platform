@@ -90,7 +90,11 @@ function readErrorMessage(error: unknown) {
   return "Recording failed.";
 }
 
-export function VideoRecordingRoute() {
+type VideoRecordingRouteProps = {
+  onRecordingReady?: (file: File | null) => void;
+};
+
+export function VideoRecordingRoute({ onRecordingReady }: VideoRecordingRouteProps = {}) {
   const previewVideoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
@@ -195,6 +199,7 @@ export function VideoRecordingRoute() {
     setCompressionReport(null);
     setTranscodeError(null);
     recordedBlobRef.current = null;
+    onRecordingReady?.(null);
 
     if (previewVideoRef.current) {
       previewVideoRef.current.srcObject = null;
@@ -276,9 +281,11 @@ export function VideoRecordingRoute() {
         setPreviewUrl(objectUrl);
 
         const finalMimeType = blob.type || recorder.mimeType || mimeTypeRef.current || "video/webm";
+        const finalDownloadName = `recording.${fileExtensionForMimeType(finalMimeType)}`;
         setRecordingMimeType(finalMimeType);
         setRecordingCodec(extractCodecSummary(finalMimeType));
-        setDownloadName(`recording.${fileExtensionForMimeType(finalMimeType)}`);
+        setDownloadName(finalDownloadName);
+        onRecordingReady?.(new File([blob], finalDownloadName, { type: finalMimeType }));
         setStatus("ready");
 
         cleanupStream();
@@ -367,7 +374,9 @@ export function VideoRecordingRoute() {
           <h2>Record a candidate response locally</h2>
         </div>
         <p>
-          Start, stop, preview, and download a browser recording without uploading anything to the backend yet.
+          {onRecordingReady
+            ? "Start, stop, and preview a recording before attaching it to the response."
+            : "Start, stop, preview, and download a browser recording without saving a response."}
         </p>
       </div>
 
