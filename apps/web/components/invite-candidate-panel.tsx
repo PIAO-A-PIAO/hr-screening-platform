@@ -7,13 +7,14 @@ import type { PositionResponse } from "../lib/position-api";
 type InviteCandidatePanelProps = {
   position: PositionResponse;
   className?: string;
+  onInvited?: () => void;
 };
 
 function splitName(user: UserResponse) {
   return `${user.firstName} ${user.lastName}`.trim();
 }
 
-export function InviteCandidatePanel({ position, className }: InviteCandidatePanelProps) {
+export function InviteCandidatePanel({ position, className, onInvited }: InviteCandidatePanelProps) {
   const [users, setUsers] = useState<UserResponse[]>([]);
   const [selectedUserId, setSelectedUserId] = useState("");
   const [loadingUsers, setLoadingUsers] = useState(true);
@@ -88,6 +89,7 @@ export function InviteCandidatePanel({ position, className }: InviteCandidatePan
       }
 
       setSuccessToken(token);
+      onInvited?.();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Failed to invite candidate");
     } finally {

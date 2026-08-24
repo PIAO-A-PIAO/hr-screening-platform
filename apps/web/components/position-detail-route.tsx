@@ -56,6 +56,16 @@ export function PositionDetailRoute({ positionId }: PositionDetailRouteProps) {
     };
   }, [positionId]);
 
+  async function refreshPosition() {
+    setError(null);
+    try {
+      const loaded = await getPosition(positionId);
+      setPosition(loaded);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Failed to refresh position");
+    }
+  }
+
   if (loading) {
     return (
       <section className="panel">
@@ -124,9 +134,9 @@ export function PositionDetailRoute({ positionId }: PositionDetailRouteProps) {
           </dl>
         </div>
 
-        <CreateTestPanel position={position} className="positionAccordionCard" />
+        <CreateTestPanel position={position} className="positionAccordionCard" onSaved={() => void refreshPosition()} />
 
-        <InviteCandidatePanel position={position} className="positionAccordionCard" />
+        <InviteCandidatePanel position={position} className="positionAccordionCard" onInvited={() => void refreshPosition()} />
       </div>
 
       <div className="detailGrid positionCandidateGrid">
