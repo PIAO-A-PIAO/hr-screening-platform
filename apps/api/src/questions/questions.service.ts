@@ -93,6 +93,109 @@ export class QuestionsService {
     return this.createQuestionRecord(prisma, dto, { testId, order });
   }
 
+  async updateQuestionInTest(
+    prisma: Prisma.TransactionClient,
+    questionId: string,
+    dto: CreateQuestionDto,
+    testId: string,
+    order: number,
+  ): Promise<QuestionResponse> {
+    const existing = await prisma.question.findUnique({
+      where: { id: questionId },
+      select: {
+        id: true,
+        testId: true,
+      },
+    });
+
+    if (!existing) {
+      throw new NotFoundException("Question not found");
+    }
+
+    if (existing.testId !== testId) {
+      throw new BadRequestException("Question does not belong to this test");
+    }
+
+    const item = this.validateQuestionItem(dto.type, dto.item) as {
+      allowMultipleSelection?: boolean;
+      shuffleOptions?: boolean;
+      options?: MultipleChoiceOptionInput[];
+      placeholder?: string | null;
+      maxLength?: number | null;
+      answerHint?: string | null;
+    };
+
+    await prisma.question.update({
+      where: { id: questionId },
+      data: {
+        title: dto.title,
+        description: dto.description ?? null,
+        order,
+      },
+    });
+
+    if (dto.type === QuestionType.VIDEO) {
+      await prisma.multipleChoiceQuestionItem.delete({ where: { questionId } }).catch(() => undefined);
+      await prisma.shortAnswerQuestionItem.delete({ where: { questionId } }).catch(() => undefined);
+      await prisma.videoQuestionItem.upsert({
+        where: { questionId },
+        create: { questionId },
+        update: {},
+      });
+    } else if (dto.type === QuestionType.MULTIPLE_CHOICE) {
+      await prisma.videoQuestionItem.delete({ where: { questionId } }).catch(() => undefined);
+      await prisma.shortAnswerQuestionItem.delete({ where: { questionId } }).catch(() => undefined);
+      await prisma.multipleChoiceQuestionItem.upsert({
+        where: { questionId },
+        create: {
+          questionId,
+          allowMultipleSelection: item.allowMultipleSelection ?? false,
+          shuffleOptions: item.shuffleOptions ?? false,
+          options: {
+            create: (item.options ?? []).map((option) => ({
+              label: option.label,
+              value: option.value,
+              order: option.order,
+              isCorrect: option.isCorrect,
+            })),
+          },
+        },
+        update: {
+          allowMultipleSelection: item.allowMultipleSelection ?? false,
+          shuffleOptions: item.shuffleOptions ?? false,
+          options: {
+            deleteMany: {},
+            create: (item.options ?? []).map((option) => ({
+              label: option.label,
+              value: option.value,
+              order: option.order,
+              isCorrect: option.isCorrect,
+            })),
+          },
+        },
+      });
+    } else if (dto.type === QuestionType.SHORT_ANSWER) {
+      await prisma.videoQuestionItem.delete({ where: { questionId } }).catch(() => undefined);
+      await prisma.multipleChoiceQuestionItem.delete({ where: { questionId } }).catch(() => undefined);
+      await prisma.shortAnswerQuestionItem.upsert({
+        where: { questionId },
+        create: {
+          questionId,
+          placeholder: item.placeholder ?? null,
+          maxLength: item.maxLength ?? null,
+          answerHint: item.answerHint ?? null,
+        },
+        update: {
+          placeholder: item.placeholder ?? null,
+          maxLength: item.maxLength ?? null,
+          answerHint: item.answerHint ?? null,
+        },
+      });
+    }
+
+    return this.getQuestionWithClient(prisma, questionId);
+  }
+
   private async createQuestionRecord(
     prisma: Prisma.TransactionClient | PrismaService,
     dto: CreateQuestionDto,

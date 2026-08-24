@@ -10,6 +10,7 @@ export const metadata: Metadata = {
 type ViewResponsePageProps = {
   searchParams?: Promise<{
     responseId?: string;
+    inviteToken?: string;
   }>;
 };
 
@@ -46,6 +47,7 @@ export default async function ViewResponsePage({
         initialResponseId={
           resolvedSearchParams?.responseId ?? ""
         }
+        initialInviteToken={resolvedSearchParams?.inviteToken ?? ""}
       />
     </main>
   );

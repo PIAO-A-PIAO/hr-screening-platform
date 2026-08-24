@@ -92,9 +92,13 @@ function readErrorMessage(error: unknown) {
 
 type VideoRecordingRouteProps = {
   onRecordingReady?: (file: File | null) => void;
+  previewBelowControls?: boolean;
 };
 
-export function VideoRecordingRoute({ onRecordingReady }: VideoRecordingRouteProps = {}) {
+export function VideoRecordingRoute({
+  onRecordingReady,
+  previewBelowControls = false,
+}: VideoRecordingRouteProps = {}) {
   const previewVideoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
@@ -380,7 +384,7 @@ export function VideoRecordingRoute({ onRecordingReady }: VideoRecordingRoutePro
         </p>
       </div>
 
-      <div className="videoRecorderLayout">
+      <div className={previewBelowControls ? "videoRecorderLayout stackedVideoRecorderLayout" : "videoRecorderLayout"}>
         <div className="videoRecorderControls">
           <div className="actionsRow recorderActions">
             <button className="primaryButton" type="button" onClick={() => void startRecording()} disabled={recordingActive}>
@@ -411,6 +415,29 @@ export function VideoRecordingRoute({ onRecordingReady }: VideoRecordingRoutePro
               Download recording
             </a>
           </div>
+
+          {previewBelowControls && (
+            <div className="videoRecorderPreview">
+              <div className="stateCard recorderPreviewCard">
+                <strong>{recordingActive ? "Monitoring" : "Preview"}</strong>
+                <span className="inlineStatus">
+                  {recordingActive
+                    ? "Live camera and microphone feed is visible here while recording."
+                    : "The recorded file appears here after you stop."}
+                </span>
+                {error && <div className="stateCard errorState recorderError">Error: {error}</div>}
+                <video
+                  ref={previewVideoRef}
+                  className="mediaFrame recorderVideo"
+                  controls={recordingStopped}
+                  playsInline
+                  muted={recordingActive}
+                  autoPlay={recordingActive}
+                />
+                {!recordingActive && !previewUrl && <div className="mediaEmpty recorderEmpty">No recording preview yet.</div>}
+              </div>
+            </div>
+          )}
 
           <div className="stateCard recorderMetaCard">
             <strong>Recording metadata</strong>
@@ -448,26 +475,28 @@ export function VideoRecordingRoute({ onRecordingReady }: VideoRecordingRoutePro
           </div>
         </div>
 
-        <div className="videoRecorderPreview">
-          <div className="stateCard recorderPreviewCard">
-            <strong>{recordingActive ? "Monitoring" : "Preview"}</strong>
-            <span className="inlineStatus">
-              {recordingActive
-                ? "Live camera and microphone feed is visible here while recording."
-                : "The recorded file appears here after you stop."}
-            </span>
-            {error && <div className="stateCard errorState recorderError">Error: {error}</div>}
-            <video
-              ref={previewVideoRef}
-              className="mediaFrame recorderVideo"
-              controls={recordingStopped}
-              playsInline
-              muted={recordingActive}
-              autoPlay={recordingActive}
-            />
-            {!recordingActive && !previewUrl && <div className="mediaEmpty recorderEmpty">No recording preview yet.</div>}
+        {!previewBelowControls && (
+          <div className="videoRecorderPreview">
+            <div className="stateCard recorderPreviewCard">
+              <strong>{recordingActive ? "Monitoring" : "Preview"}</strong>
+              <span className="inlineStatus">
+                {recordingActive
+                  ? "Live camera and microphone feed is visible here while recording."
+                  : "The recorded file appears here after you stop."}
+              </span>
+              {error && <div className="stateCard errorState recorderError">Error: {error}</div>}
+              <video
+                ref={previewVideoRef}
+                className="mediaFrame recorderVideo"
+                controls={recordingStopped}
+                playsInline
+                muted={recordingActive}
+                autoPlay={recordingActive}
+              />
+              {!recordingActive && !previewUrl && <div className="mediaEmpty recorderEmpty">No recording preview yet.</div>}
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </section>
   );
