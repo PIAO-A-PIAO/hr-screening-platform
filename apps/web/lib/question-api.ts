@@ -1,3 +1,5 @@
+import { normalizeVideoFile } from "./video-file";
+
 export type QuestionType = "VIDEO" | "MULTIPLE_CHOICE" | "SHORT_ANSWER";
 export type QuestionStatus = "DRAFT" | "PUBLISHED" | "ARCHIVED";
 export type TestStatus = "DRAFT" | "PUBLISHED" | "ARCHIVED";
@@ -230,7 +232,7 @@ export async function uploadQuestionVideo(
   options?: { ownerId?: string; durationSeconds?: number },
 ) {
   const formData = new FormData();
-  formData.append("file", file);
+  formData.append("file", normalizeVideoFile(file));
   if (options?.ownerId) formData.append("ownerId", options.ownerId);
   if (typeof options?.durationSeconds === "number") {
     formData.append("durationSeconds", String(options.durationSeconds));

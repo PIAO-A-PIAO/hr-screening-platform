@@ -235,9 +235,9 @@ export function QuestionAnswerer({
           <p>{describeAsset(videoItem.video)}</p>
           {media.error && <div className="inlineStatus errorText">Media error: {media.error}</div>}
           {media.loading && <div className="inlineStatus">Loading prompt media...</div>}
-          {media.thumbnailUrl && (
+          {/* {media.thumbnailUrl && (
             <img className="mediaFrame imageFrame" src={media.thumbnailUrl} alt="Question thumbnail" />
-          )}
+          )} */}
           {media.videoUrl ? (
             <video className="mediaFrame" controls playsInline src={media.videoUrl} />
           ) : (
@@ -309,7 +309,7 @@ export function QuestionAnswerer({
         )}
 
         {question.type === "VIDEO" && videoMode === "record" && (
-          <VideoRecordingRoute onRecordingReady={onVideoRecordingReady} />
+          <VideoRecordingRoute onRecordingReady={onVideoRecordingReady} previewBelowControls />
         )}
 
         {question.type === "VIDEO" && videoMode === "text" && (

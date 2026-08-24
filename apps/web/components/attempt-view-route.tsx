@@ -2,11 +2,44 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { getAttempt, type AttemptDetailResponse } from "../lib/attempt-api";
+import { getResponseVideoBlob } from "../lib/response-api";
 
 type AttemptViewRouteProps = {
   initialAttemptId?: string;
   initialInviteToken?: string;
 };
+
+type AttemptVideoItem = {
+  video?: {
+    assetId: string;
+    mimeType: string;
+    size: number;
+    durationSeconds: number | null;
+    checksum: string;
+    createdAt: string;
+  } | null;
+};
+
+function formatBytes(bytes: number) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
+}
+
+function formatDuration(seconds: number | null) {
+  if (seconds === null) {
+    return "Unknown";
+  }
+
+  if (!Number.isFinite(seconds)) {
+    return "Unknown";
+  }
+
+  const rounded = Math.max(0, Math.round(seconds));
+  const minutes = Math.floor(rounded / 60);
+  const remainder = rounded % 60;
+  return minutes > 0 ? `${minutes}m ${remainder.toString().padStart(2, "0")}s` : `${remainder}s`;
+}
 
 export function AttemptViewRoute({
   initialAttemptId = "",
@@ -19,6 +52,7 @@ export function AttemptViewRoute({
   const [attempt, setAttempt] = useState<AttemptDetailResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [videoPreviewUrls, setVideoPreviewUrls] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (!submittedId || !submittedToken) return;
@@ -52,6 +86,50 @@ export function AttemptViewRoute({
       cancelled = true;
     };
   }, [submittedId, submittedToken]);
+
+  useEffect(() => {
+    const currentAttempt = attempt;
+    if (!currentAttempt || !submittedToken) {
+      setVideoPreviewUrls({});
+      return;
+    }
+
+    let cancelled = false;
+    const objectUrls: string[] = [];
+    const videoResponses = currentAttempt.responses.filter(
+      (response) => response.type === "VIDEO" && (response.item as AttemptVideoItem).video,
+    );
+
+    async function loadVideoPreviews() {
+      const nextEntries = await Promise.all(
+        videoResponses.map(async (response) => {
+          try {
+            const blob = await getResponseVideoBlob(response.id, submittedToken);
+            const url = URL.createObjectURL(blob);
+            objectUrls.push(url);
+            return [response.id, url] as const;
+          } catch {
+            return [response.id, null] as const;
+          }
+        }),
+      );
+
+      if (!cancelled) {
+        setVideoPreviewUrls(
+          Object.fromEntries(nextEntries.filter((entry): entry is readonly [string, string] => entry[1] !== null)),
+        );
+      }
+    }
+
+    void loadVideoPreviews();
+
+    return () => {
+      cancelled = true;
+      for (const url of objectUrls) {
+        URL.revokeObjectURL(url);
+      }
+    };
+  }, [attempt, submittedToken]);
 
   useEffect(() => {
     if (!initialAttemptId || !initialInviteToken) {
@@ -132,7 +210,54 @@ export function AttemptViewRoute({
                   </ul>
                 )}
                 {response.type === "VIDEO" && (
-                  <pre>{JSON.stringify(response.item, null, 2)}</pre>
+                  <div className="attemptVideoLayout">
+                    <div className="stateCard attemptVideoPreviewCard">
+                      <strong>Video preview</strong>
+                      {videoPreviewUrls[response.id] ? (
+                        <video
+                          className="mediaFrame attemptVideoFrame"
+                          controls
+                          playsInline
+                          src={videoPreviewUrls[response.id]}
+                        />
+                      ) : (
+                        <div className="mediaEmpty">Video preview unavailable.</div>
+                      )}
+                    </div>
+
+                    <div className="stateCard attemptVideoMetaCard">
+                      <strong>Video metadata</strong>
+                      {(() => {
+                        const video = (response.item as AttemptVideoItem).video;
+                        return video ? (
+                          <div className="attemptVideoMetaGrid">
+                            <div>
+                              <span>Mime type</span>
+                              <small>{video.mimeType}</small>
+                            </div>
+                            <div>
+                              <span>Size</span>
+                              <small>{formatBytes(video.size)}</small>
+                            </div>
+                            <div>
+                              <span>Duration</span>
+                              <small>{formatDuration(video.durationSeconds)}</small>
+                            </div>
+                            <div>
+                              <span>Checksum</span>
+                              <small>{video.checksum}</small>
+                            </div>
+                            <div>
+                              <span>Uploaded</span>
+                              <small>{new Date(video.createdAt).toLocaleString()}</small>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="mediaEmpty">No video asset was stored for this response.</div>
+                        );
+                      })()}
+                    </div>
+                  </div>
                 )}
               </div>
             ))}

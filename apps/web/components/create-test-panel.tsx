@@ -25,6 +25,7 @@ type DraftQuestionEntry = {
 type CreateTestPanelProps = {
   position: PositionResponse;
   className?: string;
+  onSaved?: () => void;
 };
 
 function normalizeTags(input: string) {
@@ -118,7 +119,7 @@ function toDraftEntry(question: TestResponse["questions"][number]): DraftQuestio
   };
 }
 
-export function CreateTestPanel({ position, className }: CreateTestPanelProps) {
+export function CreateTestPanel({ position, className, onSaved }: CreateTestPanelProps) {
   const [attachedTestId, setAttachedTestId] = useState<string | null>(position.test?.id ?? null);
   const [attachedTest, setAttachedTest] = useState<TestResponse | null>(null);
   const [attachedLoading, setAttachedLoading] = useState(false);
@@ -323,6 +324,8 @@ export function CreateTestPanel({ position, className }: CreateTestPanelProps) {
       } else {
         setSelectedDraftId(null);
       }
+
+      onSaved?.();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Failed to save test");
     } finally {
