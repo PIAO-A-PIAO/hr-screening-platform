@@ -7,5 +7,6 @@ import { ResponsesService } from "./responses.service";
   imports: [QuestionsModule],
   controllers: [ResponsesController],
   providers: [ResponsesService],
+  exports: [ResponsesService],
 })
 export class ResponsesModule {}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { VideoRecordingRoute } from "./video-recording-route";
 import {
   getQuestionThumbnailBlob,
   getQuestionVideoBlob,
@@ -18,6 +19,8 @@ type QuestionAnswererProps = {
   value: CandidateAnswer;
   onChange: (nextValue: CandidateAnswer) => void;
   compact?: boolean;
+  videoMode?: "text" | "record";
+  onVideoRecordingReady?: (file: File | null) => void;
 };
 
 type MediaState = {
@@ -80,6 +83,8 @@ export function QuestionAnswerer({
   value,
   onChange,
   compact = false,
+  videoMode = "text",
+  onVideoRecordingReady,
 }: QuestionAnswererProps) {
   const [media, setMedia] = useState<MediaState>({
     loading: false,
@@ -230,9 +235,9 @@ export function QuestionAnswerer({
           <p>{describeAsset(videoItem.video)}</p>
           {media.error && <div className="inlineStatus errorText">Media error: {media.error}</div>}
           {media.loading && <div className="inlineStatus">Loading prompt media...</div>}
-          {media.thumbnailUrl && (
+          {/* {media.thumbnailUrl && (
             <img className="mediaFrame imageFrame" src={media.thumbnailUrl} alt="Question thumbnail" />
-          )}
+          )} */}
           {media.videoUrl ? (
             <video className="mediaFrame" controls playsInline src={media.videoUrl} />
           ) : (
@@ -285,18 +290,14 @@ export function QuestionAnswerer({
           </>
         )}
 
-        {question.type !== "MULTIPLE_CHOICE" && (
+        {question.type !== "MULTIPLE_CHOICE" && question.type !== "VIDEO" && (
           <>
             <strong>Your response</strong>
             <textarea
               rows={compact ? 4 : 6}
               value={value.text}
               onChange={(event) => updateText(event.target.value)}
-              placeholder={
-                question.type === "VIDEO"
-                  ? "Summarize your answer here."
-                  : shortAnswerItem.placeholder ?? "Type your response here"
-              }
+              placeholder={shortAnswerItem.placeholder ?? "Type your response here"}
               maxLength={shortAnswerItem.maxLength ?? undefined}
             />
             {question.type === "SHORT_ANSWER" && shortAnswerItem.maxLength ? (
@@ -304,6 +305,25 @@ export function QuestionAnswerer({
                 Maximum length: {shortAnswerItem.maxLength} characters.
               </div>
             ) : null}
+          </>
+        )}
+
+        {question.type === "VIDEO" && videoMode === "record" && (
+          <VideoRecordingRoute onRecordingReady={onVideoRecordingReady} previewBelowControls />
+        )}
+
+        {question.type === "VIDEO" && videoMode === "text" && (
+          <>
+            <strong>Your response</strong>
+            <textarea
+              rows={compact ? 4 : 6}
+              value={value.text}
+              onChange={(event) => updateText(event.target.value)}
+              placeholder="Summarize your response here."
+            />
+            <div className="helperText">
+              This preview mode keeps the response local. The candidate attempt flow can record and upload video.
+            </div>
           </>
         )}
       </div>

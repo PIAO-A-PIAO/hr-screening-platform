@@ -1,3 +1,5 @@
+import { normalizeVideoFile } from "./video-file";
+
 export type QuestionType = "VIDEO" | "MULTIPLE_CHOICE" | "SHORT_ANSWER";
 export type QuestionStatus = "DRAFT" | "PUBLISHED" | "ARCHIVED";
 export type TestStatus = "DRAFT" | "PUBLISHED" | "ARCHIVED";
@@ -31,6 +33,7 @@ export type CreateQuestionInput = {
 
 export type QuestionDraftInput = CreateQuestionInput & {
   order: number;
+  questionId?: string;
 };
 
 export type CreateTestInput = {
@@ -38,6 +41,7 @@ export type CreateTestInput = {
   description?: string;
   tags?: string[];
   status?: TestStatus;
+  positionId?: string;
   questions: QuestionDraftInput[];
 };
 
@@ -50,6 +54,7 @@ export type TestResponse = {
   name: string;
   description: string | null;
   positionMetadata: Record<string, unknown> | null;
+  positionId: string | null;
   tags: string[];
   status: TestStatus;
   creatorId: string | null;
@@ -68,6 +73,7 @@ export type TestSummaryResponse = {
   description: string | null;
   tags: string[];
   status: TestStatus;
+  positionId: string | null;
   createdAt: string;
   updatedAt: string;
   questionCount: number;
@@ -168,6 +174,26 @@ export function createTest(input: CreateTestInput) {
   });
 }
 
+export function updateTest(testId: string, input: CreateTestInput) {
+  return requestJson<TestResponse>(`/tests/${encodeURIComponent(testId)}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(input),
+  });
+}
+
+export function appendTestQuestions(testId: string, input: { questions: QuestionDraftInput[] }) {
+  return requestJson<TestResponse>(`/tests/${encodeURIComponent(testId)}/questions`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(input),
+  });
+}
+
 export function getQuestion(questionId: string) {
   return requestJson<QuestionResponse>(`/questions/${encodeURIComponent(questionId)}`);
 }
@@ -206,7 +232,7 @@ export async function uploadQuestionVideo(
   options?: { ownerId?: string; durationSeconds?: number },
 ) {
   const formData = new FormData();
-  formData.append("file", file);
+  formData.append("file", normalizeVideoFile(file));
   if (options?.ownerId) formData.append("ownerId", options.ownerId);
   if (typeof options?.durationSeconds === "number") {
     formData.append("durationSeconds", String(options.durationSeconds));

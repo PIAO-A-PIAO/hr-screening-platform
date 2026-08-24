@@ -1,3 +1,5 @@
+import { normalizeVideoFile } from "./video-file";
+
 export type ResponseType = "VIDEO" | "MULTIPLE_CHOICE" | "SHORT_ANSWER";
 
 export type ResponseAsset = {
@@ -89,7 +91,7 @@ export function uploadResponseVideo(
   durationSeconds?: number,
 ) {
   const formData = new FormData();
-  formData.append("file", file);
+  formData.append("file", normalizeVideoFile(file));
   if (typeof durationSeconds === "number") {
     formData.append("durationSeconds", String(durationSeconds));
   }

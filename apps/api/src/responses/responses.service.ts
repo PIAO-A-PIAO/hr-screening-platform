@@ -48,7 +48,39 @@ export class ResponsesService {
 
   async createResponse(dto: CreateResponseDto, inviteToken?: string) {
     await this.authorizeAssignment(dto.userId, dto.testId, inviteToken);
+    return this.persistResponse(dto, { updateExisting: false });
+  }
 
+  async saveResponseInAttempt(dto: CreateResponseDto, attemptId: string) {
+    const attempt = await this.prisma.$queryRaw<Array<{
+      id: string;
+      userId: string;
+      testId: string;
+      status: string;
+    }>>(Prisma.sql`
+      SELECT "id", "userId", "testId", "status"
+      FROM "Attempt"
+      WHERE "id" = ${attemptId}
+      LIMIT 1
+    `).then((rows) => rows[0] ?? null);
+
+    if (!attempt) {
+      throw new NotFoundException("Attempt not found");
+    }
+    if (attempt.status !== "IN_PROGRESS") {
+      throw new ForbiddenException("Attempt is no longer editable");
+    }
+    if (attempt.userId !== dto.userId || attempt.testId !== dto.testId) {
+      throw new ForbiddenException("Attempt does not match the candidate and test");
+    }
+
+    return this.persistResponse(dto, { attemptId, updateExisting: true });
+  }
+
+  private async persistResponse(
+    dto: CreateResponseDto,
+    options: { attemptId?: string; updateExisting: boolean },
+  ) {
     const question = await this.prisma.question.findUnique({
       where: { id: dto.questionId },
       include: {
@@ -77,42 +109,120 @@ export class ResponsesService {
       },
       select: { id: true },
     });
-    if (duplicate) {
+
+    if (duplicate && !options.updateExisting) {
       throw new ConflictException("A response already exists for this candidate and question");
     }
 
     const item = this.validateItem(dto.type, dto.item, question);
 
     try {
-      const created = await this.prisma.response.create({
-        data: {
-          type: dto.type,
-          questionId: dto.questionId,
-          userId: dto.userId,
-          testId: dto.testId,
-          videoItem: dto.type === ResponseType.VIDEO ? { create: {} } : undefined,
-          multipleChoiceItem: dto.type === ResponseType.MULTIPLE_CHOICE
-            ? {
-                create: {
-                  selections: {
-                    create: (item.selectedOptionIds ?? []).map((optionId) => ({ optionId })),
-                  },
-                },
-              }
-            : undefined,
-          shortAnswerItem: dto.type === ResponseType.SHORT_ANSWER
-            ? { create: { textValue: item.textValue ?? "" } }
-            : undefined,
-        },
-        include: responseInclude,
-      });
-      return this.toResponse(created);
+      const saved = duplicate
+        ? await this.updateExistingResponse(duplicate.id, dto, item, options.attemptId)
+        : await this.createNewResponse(dto, item, options.attemptId);
+
+      return this.toResponse(saved);
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
         throw new ConflictException("A response already exists for this candidate and question");
       }
       throw error;
     }
+  }
+
+  private async createNewResponse(
+    dto: CreateResponseDto,
+    item: { selectedOptionIds?: string[]; textValue?: string },
+    attemptId?: string,
+  ) {
+    return this.prisma.response.create({
+      data: {
+        type: dto.type,
+        questionId: dto.questionId,
+        userId: dto.userId,
+        testId: dto.testId,
+        attemptId,
+        videoItem: dto.type === ResponseType.VIDEO ? { create: {} } : undefined,
+        multipleChoiceItem: dto.type === ResponseType.MULTIPLE_CHOICE
+          ? {
+              create: {
+                selections: {
+                  create: (item.selectedOptionIds ?? []).map((optionId) => ({ optionId })),
+                },
+              },
+            }
+          : undefined,
+        shortAnswerItem: dto.type === ResponseType.SHORT_ANSWER
+          ? { create: { textValue: item.textValue ?? "" } }
+          : undefined,
+      },
+      include: responseInclude,
+    });
+  }
+
+  private async updateExistingResponse(
+    responseId: string,
+    dto: CreateResponseDto,
+    item: { selectedOptionIds?: string[]; textValue?: string },
+    attemptId?: string,
+  ) {
+    if (dto.type === ResponseType.VIDEO) {
+      const updated = await this.prisma.response.update({
+        where: { id: responseId },
+        data: {
+          attemptId,
+          videoItem: {
+            upsert: {
+              create: {},
+              update: {},
+            },
+          },
+        },
+        include: responseInclude,
+      });
+      return updated;
+    }
+
+    if (dto.type === ResponseType.MULTIPLE_CHOICE) {
+      const updated = await this.prisma.response.update({
+        where: { id: responseId },
+        data: {
+          attemptId,
+          multipleChoiceItem: {
+            upsert: {
+              create: {
+                selections: {
+                  create: (item.selectedOptionIds ?? []).map((optionId) => ({ optionId })),
+                },
+              },
+              update: {
+                selections: {
+                  deleteMany: {},
+                  create: (item.selectedOptionIds ?? []).map((optionId) => ({ optionId })),
+                },
+              },
+            },
+          },
+        },
+        include: responseInclude,
+      });
+      return updated;
+    }
+
+    const updated = await this.prisma.response.update({
+      where: { id: responseId },
+      data: {
+        attemptId,
+        shortAnswerItem: {
+          upsert: {
+            create: { textValue: item.textValue ?? "" },
+            update: { textValue: item.textValue ?? "" },
+          },
+        },
+      },
+      include: responseInclude,
+    });
+    return updated;
   }
 
   async getResponse(responseId: string, inviteToken?: string) {
@@ -129,6 +239,7 @@ export class ResponsesService {
   ) {
     const response = await this.loadResponse(responseId);
     await this.authorizeAssignment(response.userId, response.testId, inviteToken);
+    await this.assertResponseAttemptEditable(response);
 
     if (response.type !== ResponseType.VIDEO || !response.videoItem) {
       throw new BadRequestException("Response type must be VIDEO for video uploads");
@@ -188,6 +299,26 @@ export class ResponsesService {
       checksum: asset.checksum,
       createdAt: asset.createdAt,
     };
+  }
+
+  private async assertResponseAttemptEditable(response: LoadedResponse) {
+    if (!response.attemptId) {
+      return;
+    }
+
+    const [attempt] = await this.prisma.$queryRaw<Array<{
+      id: string;
+      status: string;
+    }>>(Prisma.sql`
+      SELECT "id", "status"
+      FROM "Attempt"
+      WHERE "id" = ${response.attemptId}
+      LIMIT 1
+    `);
+
+    if (attempt?.status === "SUBMITTED") {
+      throw new ForbiddenException("Submitted attempts can no longer be modified");
+    }
   }
 
   async openVideo(responseId: string, inviteToken?: string) {
