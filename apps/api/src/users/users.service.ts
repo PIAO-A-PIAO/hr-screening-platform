@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { randomUUID } from "node:crypto";
+import { EmailService } from "../email/email.service";
 import { PrismaService } from "../prisma/prisma.service";
 import {
   GenerateUsersDto,
@@ -95,7 +96,10 @@ function rowToResponse(row: UserRow, assignments: AssignmentRow[] = []): UserRes
 
 @Injectable()
 export class UsersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly email: EmailService,
+  ) {}
   private assignmentInviteTokenSupportPromise: Promise<boolean> | null = null;
   private assignmentInvitedAtSupportPromise: Promise<boolean> | null = null;
   private userNamePartsSupportPromise: Promise<boolean> | null = null;
@@ -272,27 +276,53 @@ export class UsersService {
   }
 
   async inviteUsers(dto: InviteUsersDto): Promise<UserResponse[]> {
-    const normalized = dto.users.map((user) => normalizeSeed(user));
-    this.assertNoDuplicateEmails(normalized.map((user) => user.email));
+  const normalized = dto.users.map((user) => normalizeSeed(user));
+  this.assertNoDuplicateEmails(normalized.map((user) => user.email));
 
-    return this.prisma.$transaction(async (tx) => {
-      const results: UserResponse[] = [];
+  const results = await this.prisma.$transaction(async (tx) => {
+    const invitedUsers: UserResponse[] = [];
 
-      for (const user of normalized) {
-        const saved = await this.upsertUser(tx, {
-          ...user,
-          status: normalizeStatuses([UserStatusDto.INVITED, ...user.status]),
-        });
+    for (const user of normalized) {
+      const saved = await this.upsertUser(tx, {
+        ...user,
+        status: normalizeStatuses([
+          UserStatusDto.INVITED,
+          ...user.status,
+        ]),
+      });
 
-        const assignments = await this.upsertAssignments(tx, saved.id, user.testIds, user.status);
-        results.push({
-          ...saved,
-          assignments,
-        });
+      const assignments = await this.upsertAssignments(
+        tx,
+        saved.id,
+        user.testIds,
+        user.status,
+      );
+
+      invitedUsers.push({
+        ...saved,
+        assignments,
+      });
+    }
+
+    return invitedUsers;
+  });
+
+  for (const user of results) {
+    for (const assignment of user.assignments) {
+      if (!assignment.inviteToken) {
+        continue;
       }
 
-      return results;
-    });
+      await this.email.sendInvitationEmail({
+        to: user.email,
+        firstName: user.firstName,
+        testId: assignment.testId,
+        inviteToken: assignment.inviteToken,
+      });
+    }
+  }
+
+  return results;
   }
 
   async getUser(userId: string, inviteToken?: string): Promise<UserResponse> {
