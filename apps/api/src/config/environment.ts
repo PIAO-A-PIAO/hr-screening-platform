@@ -21,6 +21,25 @@ const environmentSchema = z.object({
     (value) => value ?? "",
     z.string().min(1, "WEB_ORIGIN is required"),
   ),
+    EMAIL_ENABLED: z
+    .string()
+    .default("false")
+    .transform((value) => value.toLowerCase() === "true"),
+
+  SMTP_HOST: z.string().optional(),
+
+  SMTP_PORT: z.coerce.number().int().positive().max(65535).default(587),
+
+  SMTP_SECURE: z
+    .string()
+    .default("false")
+    .transform((value) => value.toLowerCase() === "true"),
+
+  SMTP_USER: z.string().optional(),
+
+  SMTP_PASSWORD: z.string().optional(),
+
+  EMAIL_FROM: z.string().optional(),
   STORAGE_DRIVER: z.enum(["filesystem", "s3"]).default("filesystem"),
   STORAGE_DIR: z.preprocess(
     (value) => value ?? "",
