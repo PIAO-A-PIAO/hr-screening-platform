@@ -157,6 +157,7 @@ model UserTestAssignment {
   status    UserTestStatus[] @default([])
   inviteToken String?     @unique
   invitedAt DateTime      @default(now())
+  inviteExpiresAt DateTime?
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
 

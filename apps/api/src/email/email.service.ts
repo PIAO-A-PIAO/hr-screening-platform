@@ -29,32 +29,77 @@ export class EmailService {
   async sendInvitationEmail(input: SendInvitationEmailInput) {
     if (!this.environment.EMAIL_ENABLED) {
       this.logger.log(
-        `Email disabled. Invitation token for ${input.to}: ${input.inviteToken}`,
+        `Email disabled. Invitation would be sent to ${input.to}`,
       );
 
       return;
     }
+    
+    const invitationUrl = new URL(
+        `/tests/${encodeURIComponent(input.testId)}`,
+        this.environment.PUBLIC_WEB_URL,
+    );
 
+    invitationUrl.searchParams.set("inviteToken", input.inviteToken);
+
+    const invitationLink = invitationUrl.toString();
+        
     const transporter = this.createTransporter();
 
     await transporter.sendMail({
-      from: this.environment.EMAIL_FROM,
-      to: input.to,
-      subject: "Digital Shovel Interview Invitation",
-      text: [
+    from: this.environment.EMAIL_FROM,
+    to: input.to,
+    subject: "Digital Shovel Interview Invitation",
+
+    text: [
         `Hi ${input.firstName},`,
         "",
         "You have been invited to complete an interview with Digital Shovel.",
         "",
-        `Test ID: ${input.testId}`,
+        "Start your interview:",
+        invitationLink,
         "",
-        "Your unique invitation token:",
-        input.inviteToken,
-        "",
-        "Please keep this token private.",
+        "This invitation link is unique to you. Please do not share it.",
         "",
         "Digital Shovel HR",
-      ].join("\n"),
+    ].join("\n"),
+
+    html: `
+        <div style="font-family: Arial, sans-serif; line-height: 1.6;">
+        <h2>Digital Shovel Interview Invitation</h2>
+
+        <p>Hi ${input.firstName},</p>
+
+        <p>
+            You have been invited to complete an interview with
+            <strong>Digital Shovel</strong>.
+        </p>
+
+        <p>
+            <a
+            href="${invitationLink}"
+            style="
+                display:inline-block;
+                padding:12px 20px;
+                background:#2457d6;
+                color:#ffffff;
+                text-decoration:none;
+                border-radius:6px;
+                font-weight:bold;
+            "
+            >
+            Start Interview
+            </a>
+        </p>
+
+        <p>
+            This invitation link is unique to you.
+            Please do not share it.
+        </p>
+
+        <p>Digital Shovel HR</p>
+        </div>
+    `,
     });
 
     this.logger.log(`Invitation email sent to ${input.to}`);
