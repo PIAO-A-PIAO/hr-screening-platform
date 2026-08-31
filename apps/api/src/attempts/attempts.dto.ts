@@ -1,4 +1,4 @@
-import { IsString } from "class-validator";
+import { IsString, MinLength } from "class-validator";
 
 export type ResolveInviteTokenResponse = {
   assignmentId: string;
@@ -8,8 +8,10 @@ export type ResolveInviteTokenResponse = {
 
 export class StartAttemptDto {
   @IsString()
+  @MinLength(1)
   userId!: string;
 
   @IsString()
+  @MinLength(1)
   testId!: string;
 }
