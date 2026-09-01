@@ -15,7 +15,7 @@ import { uploadResponseVideo } from "../lib/response-api";
 
 type TestAnswerRouteProps = {
   testId: string;
-  inviteToken?: string;
+  inviteToken: string;
 };
 
 function isAnswered(
@@ -90,56 +90,66 @@ export function TestAnswerRoute({ testId, inviteToken }: TestAnswerRouteProps) {
   useEffect(() => {
     let cancelled = false;
 
-    async function load() {
-      setLoading(true);
-      setError(null);
-      setSubmitted(false);
-      setAttempt(null);
-      setVideoRecordings({});
+  async function load() {
+    setLoading(true);
+    setError(null);
+    setSubmitted(false);
+    setAttempt(null);
+    setVideoRecordings({});
 
-      try {
-        const loaded = await getTest(testId);
-        if (!cancelled) {
-          setTest(loaded);
-          setActiveIndex(0);
-          setAnswers({});
-          setVideoRecordings({});
-        }
+    try {
+      const normalizedToken = inviteToken.trim();
 
-        const normalizedToken = inviteToken?.trim();
-        if (!normalizedToken) {
-          if (!cancelled) {
-            setError("Invitation token is required to submit this test.");
-          }
-          return;
-        }
-
-        const resolved = await resolveInviteToken(normalizedToken);
-        if (resolved.testId !== testId) {
-          throw new Error("Invitation token does not match this test.");
-        }
-
-        const started = await startAttempt(
-          {
-            userId: resolved.userId,
-            testId: resolved.testId,
-          },
-          normalizedToken,
+      if (!normalizedToken) {
+        throw new Error(
+          "This interview requires a valid invitation link.",
         );
+      }
 
-        if (!cancelled) {
-          setAttempt(started);
-        }
-      } catch (caught) {
-        if (!cancelled) {
-          setError(caught instanceof Error ? caught.message : "Failed to load test");
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
+      // 1. Validate invitation first
+      const resolved = await resolveInviteToken(normalizedToken);
+
+      // 2. Make sure the token belongs to this test
+      if (resolved.testId !== testId) {
+        throw new Error(
+          "This invitation does not belong to this interview.",
+        );
+      }
+
+      // 3. Only load the test after invitation validation
+      const loaded = await getTest(resolved.testId);
+
+      // 4. Start/resume candidate attempt
+      const started = await startAttempt(
+        {
+          userId: resolved.userId,
+          testId: resolved.testId,
+        },
+        normalizedToken,
+      );
+
+      if (!cancelled) {
+        setTest(loaded);
+        setActiveIndex(0);
+        setAnswers({});
+        setVideoRecordings({});
+        setAttempt(started);
+      }
+    } catch (caught) {
+      if (!cancelled) {
+        setTest(null);
+        setError(
+          caught instanceof Error
+            ? caught.message
+            : "Failed to open interview",
+        );
+      }
+    } finally {
+      if (!cancelled) {
+        setLoading(false);
       }
     }
+  }
 
     void load();
 
@@ -171,7 +181,7 @@ export function TestAnswerRoute({ testId, inviteToken }: TestAnswerRouteProps) {
       [questionIdValue]: file,
     }));
   }
-
+  
   function moveQuestion(direction: -1 | 1) {
     if (!test) return;
     setActiveIndex((current) => {

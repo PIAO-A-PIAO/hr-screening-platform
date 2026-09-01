@@ -28,6 +28,16 @@ services:
       DATABASE_URL: ${DATABASE_URL}
       API_PORT: 4000
       WEB_ORIGIN: ${WEB_ORIGIN}
+      PUBLIC_WEB_URL: ${PUBLIC_WEB_URL}
+
+      EMAIL_ENABLED: ${EMAIL_ENABLED}
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT}
+      SMTP_SECURE: ${SMTP_SECURE}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASSWORD: ${SMTP_PASSWORD}
+      EMAIL_FROM: ${EMAIL_FROM}
+
       STORAGE_DRIVER: s3
       STORAGE_DIR: /app/var/private-storage
       LOG_LEVEL: ${LOG_LEVEL:-log}
