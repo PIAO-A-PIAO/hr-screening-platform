@@ -29,6 +29,7 @@ type AssignmentRow = {
   status: UserStatusDto[];
   inviteToken: string | null;
   invitedAt: Date;
+  inviteExpiresAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -190,6 +191,7 @@ export class UsersService {
           "status",
           "inviteToken",
           "invitedAt",
+          "inviteExpiresAt",
           "createdAt",
           "updatedAt"
         FROM "UserTestAssignment"
@@ -211,6 +213,7 @@ export class UsersService {
           rows.map((row) => ({
             ...row,
             invitedAt: row.createdAt,
+            inviteExpiresAt: null,
           })),
         )
         : supportsInvitedAt
@@ -229,6 +232,7 @@ export class UsersService {
             rows.map((row) => ({
               ...row,
               inviteToken: null,
+              inviteExpiresAt: null,
             })),
           )
           : await this.prisma.$queryRaw<AssignmentRow[]>(Prisma.sql`
@@ -246,6 +250,7 @@ export class UsersService {
               ...row,
               inviteToken: null,
               invitedAt: row.createdAt,
+              inviteExpiresAt: null,
             })),
           );
 
@@ -330,8 +335,12 @@ export class UsersService {
     const response = await this.loadUserResponse(userId, supportsInviteToken);
 
     if (response.user.role === UserRoleDto.CANDIDATE && supportsInviteToken) {
-      const authorized = typeof inviteToken === "string" && inviteToken.trim().length > 0
-        && response.assignments.some((assignment) => assignment.inviteToken === inviteToken.trim());
+      const normalizedInviteToken = typeof inviteToken === "string" ? inviteToken.trim() : "";
+      const authorized = normalizedInviteToken.length > 0
+        && response.assignments.some((assignment) =>
+          assignment.inviteToken === normalizedInviteToken
+          && (!assignment.inviteExpiresAt || assignment.inviteExpiresAt.getTime() > Date.now()),
+        );
 
       if (!authorized) {
         throw new ForbiddenException("An invite token is required to view this candidate");
@@ -472,6 +481,7 @@ export class UsersService {
           "status",
           "inviteToken",
           "invitedAt",
+          "inviteExpiresAt",
           "createdAt",
           "updatedAt"
         FROM "UserTestAssignment"
@@ -495,6 +505,7 @@ export class UsersService {
           rows.map((row) => ({
             ...row,
             invitedAt: row.createdAt,
+            inviteExpiresAt: null,
           })),
         )
         : supportsInvitedAt
@@ -514,6 +525,7 @@ export class UsersService {
             rows.map((row) => ({
               ...row,
               inviteToken: null,
+              inviteExpiresAt: null,
             })),
           )
           : await this.prisma.$queryRaw<AssignmentRow[]>(Prisma.sql`
@@ -532,6 +544,7 @@ export class UsersService {
               ...row,
               inviteToken: null,
               invitedAt: row.createdAt,
+              inviteExpiresAt: null,
             })),
           );
 
@@ -642,6 +655,9 @@ export class UsersService {
 
     for (const testId of uniqueTestIds) {
       const inviteToken = randomUUID();
+      const inviteExpiresAt = new Date(
+       Date.now() + 7 * 24 * 60 * 60 * 1000,
+      );
       const [existingAssignment] = supportsInviteToken
         ? await tx.$queryRaw<AssignmentRow[]>(Prisma.sql`
           SELECT
@@ -651,6 +667,7 @@ export class UsersService {
             "status",
             "inviteToken",
             "invitedAt",
+            "inviteExpiresAt",
             "createdAt",
             "updatedAt"
           FROM "UserTestAssignment"
@@ -675,13 +692,14 @@ export class UsersService {
             ...row,
             inviteToken: null,
             invitedAt: row.createdAt,
+            inviteExpiresAt: null,
           })),
         );
 
       if (!existingAssignment) {
         const [created] = supportsInviteToken
           ? await tx.$queryRaw<AssignmentRow[]>(Prisma.sql`
-            INSERT INTO "UserTestAssignment" ("id", "userId", "testId", "status", "inviteToken", "invitedAt", "createdAt", "updatedAt")
+            INSERT INTO "UserTestAssignment" ("id", "userId", "testId", "status", "inviteToken", "invitedAt", "inviteExpiresAt", "createdAt", "updatedAt")
             VALUES (
               ${randomUUID()},
               ${userId},
@@ -689,10 +707,11 @@ export class UsersService {
               ${enumArraySql(assignmentStatuses, "UserTestStatus")},
               ${inviteToken},
               NOW(),
+              ${inviteExpiresAt},
               NOW(),
               NOW()
             )
-            RETURNING "id", "userId", "testId", "status", "inviteToken", "invitedAt", "createdAt", "updatedAt"
+            RETURNING "id", "userId", "testId", "status", "inviteToken", "invitedAt", "inviteExpiresAt", "createdAt", "updatedAt"
           `)
           : await tx.$queryRaw<AssignmentRow[]>(Prisma.sql`
             INSERT INTO "UserTestAssignment" ("id", "userId", "testId", "status", "createdAt", "updatedAt")
@@ -710,6 +729,7 @@ export class UsersService {
               ...row,
               inviteToken: null,
               invitedAt: row.createdAt,
+              inviteExpiresAt: null,
             })),
           );
 
@@ -722,11 +742,12 @@ export class UsersService {
         ? await tx.$queryRaw<AssignmentRow[]>(Prisma.sql`
           UPDATE "UserTestAssignment"
           SET "status" = ${enumArraySql(mergedStatus, "UserTestStatus")},
-              "inviteToken" = COALESCE("inviteToken", ${inviteToken}),
-              "invitedAt" = COALESCE("invitedAt", NOW()),
+              "inviteToken" = ${inviteToken},
+              "invitedAt" = NOW(),
+              "inviteExpiresAt" = ${inviteExpiresAt},
               "updatedAt" = NOW()
           WHERE "id" = ${existingAssignment.id}
-          RETURNING "id", "userId", "testId", "status", "inviteToken", "invitedAt", "createdAt", "updatedAt"
+          RETURNING "id", "userId", "testId", "status", "inviteToken", "invitedAt", "inviteExpiresAt", "createdAt", "updatedAt"
         `)
         : await tx.$queryRaw<AssignmentRow[]>(Prisma.sql`
           UPDATE "UserTestAssignment"
@@ -739,6 +760,7 @@ export class UsersService {
             ...row,
             inviteToken: null,
             invitedAt: row.createdAt,
+            inviteExpiresAt: null,
           })),
         );
 

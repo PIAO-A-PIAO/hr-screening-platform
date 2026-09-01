@@ -19,5 +19,10 @@ export default async function TestViewPage({ params, searchParams }: TestPagePro
   const resolvedParams = await params;
   const resolvedSearchParams = await searchParams;
 
-  return <TestAnswerRoute testId={resolvedParams.testId} inviteToken={resolvedSearchParams.inviteToken} />;
+ return (
+    <TestAnswerRoute
+      testId={resolvedParams.testId}
+      inviteToken={resolvedSearchParams.inviteToken ?? ""}
+    />
+  );
 }

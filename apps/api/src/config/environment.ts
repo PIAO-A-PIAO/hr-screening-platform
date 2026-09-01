@@ -21,6 +21,11 @@ const environmentSchema = z.object({
     (value) => value ?? "",
     z.string().min(1, "WEB_ORIGIN is required"),
   ),
+  PUBLIC_WEB_URL: z
+    .string()
+    .url()
+    .default("http://localhost:3000"),
+
     EMAIL_ENABLED: z
     .string()
     .default("false")
