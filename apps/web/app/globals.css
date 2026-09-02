@@ -211,6 +211,47 @@ h1 {
   font-size: clamp(26px, 2vw, 32px);
 }
 
+.templateManagerLayout {
+  display: grid;
+  grid-template-columns: minmax(240px, 0.32fr) minmax(0, 0.68fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.templateListPanel,
+.templateEditor {
+  min-width: 0;
+}
+
+.templateList li {
+  padding: 0;
+  border: 1px solid transparent;
+}
+
+.templateList li.selected {
+  border-color: rgba(31, 111, 235, 0.28);
+  background: rgba(31, 111, 235, 0.08);
+}
+
+.templateListButton {
+  display: grid;
+  width: 100%;
+  gap: 5px;
+  padding: 12px;
+  border: 0;
+  color: inherit;
+  text-align: left;
+  background: transparent;
+  cursor: pointer;
+}
+
+.templateListButton small {
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .routeCard p {
   margin: 0;
   color: var(--muted);

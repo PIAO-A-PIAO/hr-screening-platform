@@ -65,6 +65,11 @@ export default async function Home() {
       </section>
 
       <section className="routeGrid" aria-label="Question routes">
+        <Link className="routeCard" href="/email-templates">
+          <span className="sectionLabel">Email</span>
+          <h2>Edit email templates</h2>
+          <p>Manage reusable global HTML and plain-text templates used by multiple positions.</p>
+        </Link>
         <Link className="routeCard" href="/questions/create">
           <span className="sectionLabel">Create</span>
           <h2>Create a screening question</h2>
