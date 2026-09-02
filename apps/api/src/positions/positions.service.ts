@@ -1,7 +1,20 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
-import { Prisma, PositionStatus, TestStatus, UserTestStatus } from "@prisma/client";
+import {
+  EmailDelayUnit,
+  EmailSequenceStopCondition,
+  Prisma,
+  PositionStatus,
+  TestStatus,
+  UserTestStatus,
+} from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
-import { CreatePositionDto, PositionStatusDto } from "./positions.dto";
+import {
+  CreatePositionDto,
+  EmailSequenceStopConditionDto,
+  UpdatePositionEmailSequenceDto,
+  UpdatePositionEmailSequenceStepDto,
+  PositionStatusDto,
+} from "./positions.dto";
 
 const SUBMITTED_STATUSES = new Set<UserTestStatus>([
   UserTestStatus.TO_BE_EVALUATED,
@@ -42,6 +55,37 @@ export type PositionTestSummary = {
   updatedAt: Date;
 };
 
+export type EmailTemplateSummary = {
+  id: string;
+  key: string;
+  name: string;
+  subject: string;
+  html: string;
+  text: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type EmailSequenceStepSummary = {
+  id: string;
+  templateId: string;
+  delayValue: number;
+  delayUnit: EmailDelayUnit;
+  order: number;
+  stopCondition: EmailSequenceStopCondition | null;
+  createdAt: Date;
+  updatedAt: Date;
+  template: EmailTemplateSummary;
+};
+
+export type EmailSequenceSummary = {
+  id: string;
+  positionId: string;
+  createdAt: Date;
+  updatedAt: Date;
+  steps: EmailSequenceStepSummary[];
+};
+
 export type PositionSummaryResponse = {
   id: string;
   title: string;
@@ -56,6 +100,7 @@ export type PositionSummaryResponse = {
   submittedCount: number;
   testState: TestStatus | "NO_TEST";
   test: PositionTestSummary | null;
+  emails: EmailSequenceSummary | null;
 };
 
 export type PositionResponse = PositionSummaryResponse & {
@@ -137,6 +182,7 @@ export class PositionsService {
               updatedAt: position.test.updatedAt,
             }
           : null,
+        emails: null,
       };
     });
   }
@@ -210,6 +256,39 @@ export class PositionsService {
             },
           },
         },
+        emails: {
+          select: {
+            id: true,
+            positionId: true,
+            createdAt: true,
+            updatedAt: true,
+            steps: {
+              orderBy: { order: "asc" },
+              select: {
+                id: true,
+                templateId: true,
+                delayValue: true,
+                delayUnit: true,
+                order: true,
+                stopCondition: true,
+                createdAt: true,
+                updatedAt: true,
+                template: {
+                  select: {
+                    id: true,
+                    key: true,
+                    name: true,
+                    subject: true,
+                    html: true,
+                    text: true,
+                    createdAt: true,
+                    updatedAt: true,
+                  },
+                },
+              },
+            },
+          },
+        },
       },
     });
 
@@ -270,9 +349,108 @@ export class PositionsService {
             updatedAt: position.test.updatedAt,
           }
         : null,
+      emails: position.emails
+        ? {
+            id: position.emails.id,
+            positionId: position.emails.positionId,
+            createdAt: position.emails.createdAt,
+            updatedAt: position.emails.updatedAt,
+            steps: position.emails.steps.map((step) => ({
+              id: step.id,
+              templateId: step.templateId,
+              delayValue: step.delayValue,
+              delayUnit: step.delayUnit,
+              order: step.order,
+              stopCondition: step.stopCondition,
+              createdAt: step.createdAt,
+              updatedAt: step.updatedAt,
+              template: {
+                id: step.template.id,
+                key: step.template.key,
+                name: step.template.name,
+                subject: step.template.subject,
+                html: step.template.html,
+                text: step.template.text,
+                createdAt: step.template.createdAt,
+                updatedAt: step.template.updatedAt,
+              },
+            })),
+          }
+        : null,
       invitedCandidates,
       submittedCandidates,
     };
+  }
+
+  async updateEmailSequence(
+    positionId: string,
+    dto: UpdatePositionEmailSequenceDto,
+  ): Promise<PositionResponse> {
+    this.assertValidEmailSequencePayload(dto.steps);
+
+    const templateIds = [...new Set(dto.steps.map((step) => step.templateId))];
+    const templates = await this.prisma.emailTemplate.findMany({
+      where: {
+        id: {
+          in: templateIds,
+        },
+      },
+      select: { id: true },
+    });
+
+    if (templates.length !== templateIds.length) {
+      throw new BadRequestException("One or more email templates do not exist");
+    }
+
+    const position = await this.prisma.position.findUnique({
+      where: { id: positionId },
+      select: {
+        id: true,
+        emails: {
+          select: {
+            id: true,
+          },
+        },
+      },
+    });
+
+    if (!position) {
+      throw new NotFoundException("Position not found");
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      const sequenceId = position.emails?.id
+        ?? (await tx.emailSequence.create({
+          data: {
+            positionId,
+          },
+          select: { id: true },
+        })).id;
+
+      await tx.emailSequenceStep.deleteMany({
+        where: {
+          sequenceId,
+        },
+      });
+
+      const sortedSteps = [...dto.steps].sort((left, right) => left.order - right.order);
+      for (const step of sortedSteps) {
+        await tx.emailSequenceStep.create({
+          data: {
+            sequenceId,
+            templateId: step.templateId,
+            delayValue: step.delayValue,
+            delayUnit: step.delayUnit as EmailDelayUnit,
+            order: step.order,
+            stopCondition: step.stopCondition
+              ? (step.stopCondition as EmailSequenceStopCondition)
+              : null,
+          },
+        });
+      }
+    });
+
+    return this.getPosition(positionId);
   }
 
   async assertPositionAcceptsNewTest(positionId: string) {
@@ -295,5 +473,31 @@ export class PositionsService {
     }
 
     return position;
+  }
+
+  private assertValidEmailSequencePayload(steps: UpdatePositionEmailSequenceStepDto[]) {
+    if (steps.length < 2) {
+      throw new BadRequestException("At least two email steps are required");
+    }
+
+    const orders = steps.map((step) => step.order);
+    const uniqueOrders = new Set(orders);
+    if (uniqueOrders.size !== orders.length) {
+      throw new BadRequestException("Email step order values must be unique");
+    }
+
+    const normalizedOrders = [...orders].sort((left, right) => left - right);
+    for (let index = 0; index < normalizedOrders.length; index += 1) {
+      const expectedOrder = index + 1;
+      if (normalizedOrders[index] !== expectedOrder) {
+        throw new BadRequestException("Email step order values must start at 1 and be consecutive");
+      }
+    }
+
+    for (const step of steps) {
+      if (step.delayValue < 1) {
+        throw new BadRequestException("Email delays must be positive");
+      }
+    }
   }
 }
