@@ -37,7 +37,7 @@ export class EmailService {
     
     const invitationUrl = new URL(
         `/tests/${encodeURIComponent(input.testId)}`,
-        this.environment.PUBLIC_WEB_URL,
+        this.environment.WEB_ORIGIN,
     );
 
     invitationUrl.searchParams.set("inviteToken", input.inviteToken);
