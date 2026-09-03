@@ -348,7 +348,7 @@ export class EmailWorkerService implements OnModuleInit, OnModuleDestroy {
     },
   ) {
     const assignments = [
-      Prisma.sql`"status" = ${data.status}`,
+      Prisma.sql`"status" = CAST(${data.status} AS "EmailTaskStatus")`,
       Prisma.sql`"processedAt" = ${data.processedAt}`,
       Prisma.sql`"lastError" = ${data.lastError ?? null}`,
       Prisma.sql`"updatedAt" = NOW()`,
@@ -430,9 +430,9 @@ export class EmailWorkerService implements OnModuleInit, OnModuleDestroy {
 
       await this.prisma.$transaction(async (tx) => {
         await tx.$executeRaw(Prisma.sql`
-          UPDATE "EmailTask"
-          SET
-            "status" = 'SENT',
+        UPDATE "EmailTask"
+        SET
+            "status" = CAST('SENT' AS "EmailTaskStatus"),
             "sentAt" = ${sentAt},
             "processedAt" = ${sentAt},
             "lastError" = NULL,
