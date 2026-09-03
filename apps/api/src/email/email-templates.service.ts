@@ -1,4 +1,5 @@
 import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
+import { Prisma } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { CreateEmailTemplateDto, UpdateEmailTemplateDto } from "./email-template.dto";
 
@@ -55,12 +56,25 @@ export class EmailTemplatesService {
   async deleteTemplate(templateId: string) {
     const existing = await this.prisma.emailTemplate.findUnique({
       where: { id: templateId },
-      include: { _count: { select: { steps: true, tasks: true } } },
+      select: { id: true },
     });
     if (!existing) {
       throw new NotFoundException("Email template not found");
     }
-    if (existing._count.steps > 0 || existing._count.tasks > 0) {
+
+    const [stepCountRow] = await this.prisma.$queryRaw<Array<{ count: bigint }>>(Prisma.sql`
+      SELECT COUNT(*)::bigint AS count
+      FROM "EmailSequenceStep"
+      WHERE "templateId" = ${templateId}
+    `);
+
+    const [taskCountRow] = await this.prisma.$queryRaw<Array<{ count: bigint }>>(Prisma.sql`
+      SELECT COUNT(*)::bigint AS count
+      FROM "EmailTask"
+      WHERE "templateId" = ${templateId}
+    `);
+
+    if ((stepCountRow?.count ?? 0n) > 0n || (taskCountRow?.count ?? 0n) > 0n) {
       throw new ConflictException("This template is used by one or more email sequences or queued tasks");
     }
 
