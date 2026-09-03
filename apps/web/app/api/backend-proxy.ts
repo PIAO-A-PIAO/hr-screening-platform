@@ -44,4 +44,15 @@ export async function proxyRequest(request: NextRequest, backendPath: string) {
       );
     }
   }
+
+  return Response.json(
+    {
+      statusCode: 503,
+      error: "Service Unavailable",
+      message: "API backend is not reachable from the web server",
+      attempts: urls,
+      cause: lastError instanceof Error ? lastError.message : String(lastError ?? "unknown"),
+    },
+    { status: 503 },
+  );
 }
