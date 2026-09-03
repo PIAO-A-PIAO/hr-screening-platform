@@ -1,6 +1,6 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post } from "@nestjs/common";
 import { ApiBody, ApiOperation, ApiParam, ApiTags } from "@nestjs/swagger";
-import { CreatePositionDto } from "./positions.dto";
+import { CreatePositionDto, UpdatePositionEmailSequenceDto } from "./positions.dto";
 import { PositionsService } from "./positions.service";
 
 @ApiTags("positions")

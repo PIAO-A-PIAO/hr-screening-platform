@@ -9,6 +9,7 @@ import {
   getPosition,
   type PositionResponse,
 } from "../lib/position-api";
+import { PositionEmailSequencePanel } from "./position-email-sequence-panel";
 
 type PositionDetailRouteProps = {
   positionId: string;
@@ -156,6 +157,8 @@ export function PositionDetailRoute({ positionId }: PositionDetailRouteProps) {
         <CreateTestPanel position={position} className="positionAccordionCard" onSaved={() => void refreshPosition()} />
 
         <InviteCandidatePanel position={position} className="positionAccordionCard" onInvited={() => void refreshPosition()} />
+
+        <PositionEmailSequencePanel position={position} className="positionAccordionCard" onSaved={() => void refreshPosition()} />
       </div>
 
       <div className="detailGrid positionCandidateGrid">
