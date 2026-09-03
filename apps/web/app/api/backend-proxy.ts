@@ -4,13 +4,23 @@ function trimTrailingSlash(value: string) {
   return value.replace(/\/$/, "");
 }
 
-function getBackendBaseUrl() {
-  const configured = process.env.API_URL?.trim();
-  if (!configured) {
-    throw new Error("API_URL is not configured");
+function getBackendBaseUrls() {
+  const configured = process.env.API_URL?.trim()
+    || process.env.NEXT_PUBLIC_API_URL?.trim()
+    || "http://127.0.0.1:4000/api";
+  const candidates = [configured];
+
+  try {
+    const url = new URL(configured);
+    if (url.hostname === "localhost") {
+      url.hostname = "127.0.0.1";
+      candidates.push(url.toString());
+    }
+  } catch {
+    // Keep the configured value even if it is not a fully qualified URL.
   }
 
-  return trimTrailingSlash(configured);
+  return [...new Set(candidates.map(trimTrailingSlash))];
 }
 
 export async function proxyRequest(request: NextRequest, backendPath: string) {
@@ -22,31 +32,38 @@ export async function proxyRequest(request: NextRequest, backendPath: string) {
   headers.delete("connection");
   headers.delete("content-length");
 
-  const baseUrl = getBackendBaseUrl();
-  const url = `${baseUrl}${backendPath}${request.nextUrl.search}`;
+  const attempts: string[] = [];
+  let lastError: unknown;
 
-  try {
-    const response = await fetch(url, {
-      method,
-      headers,
-      body,
-      cache: "no-store",
-    });
+  for (const baseUrl of getBackendBaseUrls()) {
+    const url = `${baseUrl}${backendPath}${request.nextUrl.search}`;
+    attempts.push(url);
 
-    return new Response(response.body, {
-      status: response.status,
-      headers: response.headers,
-    });
-  } catch (error) {
-    return Response.json(
-      {
-        statusCode: 503,
-        error: "Service Unavailable",
-        message: "API backend is not reachable from the web server",
-        attempts: [url],
-        cause: error instanceof Error ? error.message : String(error ?? "unknown"),
-      },
-      { status: 503 },
-    );
+    try {
+      const response = await fetch(url, {
+        method,
+        headers,
+        body,
+        cache: "no-store",
+      });
+
+      return new Response(response.body, {
+        status: response.status,
+        headers: response.headers,
+      });
+    } catch (error) {
+      lastError = error;
+    }
   }
+
+  return Response.json(
+    {
+      statusCode: 503,
+      error: "Service Unavailable",
+      message: "API backend is not reachable from the web server",
+      attempts,
+      cause: lastError instanceof Error ? lastError.message : String(lastError ?? "unknown"),
+    },
+    { status: 503 },
+  );
 }

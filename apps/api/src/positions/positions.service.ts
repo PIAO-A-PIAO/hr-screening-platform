@@ -10,7 +10,6 @@ import {
 import { PrismaService } from "../prisma/prisma.service";
 import {
   CreatePositionDto,
-  EmailSequenceStopConditionDto,
   UpdatePositionEmailSequenceDto,
   UpdatePositionEmailSequenceStepDto,
   PositionStatusDto,
