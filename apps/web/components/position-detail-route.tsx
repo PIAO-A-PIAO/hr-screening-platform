@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { CreateTestPanel } from "./create-test-panel";
 import { InviteCandidatePanel } from "./invite-candidate-panel";
+import { PositionEmailSequencePanel } from "./position-email-sequence-panel";
 import { getPosition, type PositionResponse } from "../lib/position-api";
 
 type PositionDetailRouteProps = {
@@ -137,6 +138,8 @@ export function PositionDetailRoute({ positionId }: PositionDetailRouteProps) {
         <CreateTestPanel position={position} className="positionAccordionCard" onSaved={() => void refreshPosition()} />
 
         <InviteCandidatePanel position={position} className="positionAccordionCard" onInvited={() => void refreshPosition()} />
+
+        <PositionEmailSequencePanel position={position} className="positionAccordionCard" onSaved={() => void refreshPosition()} />
       </div>
 
       <div className="detailGrid positionCandidateGrid">
