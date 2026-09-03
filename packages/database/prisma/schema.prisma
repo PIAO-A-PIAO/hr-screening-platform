@@ -49,18 +49,6 @@ enum PositionStatus {
   CLOSED
 }
 
-enum EmailDelayUnit {
-  MINUTES
-  HOURS
-  DAYS
-}
-
-enum EmailSequenceStopCondition {
-  CANDIDATE_SUBMITTED
-  CANDIDATE_DISCARDED
-  POSITION_CLOSED
-}
-
 enum UserRole {
   RECRUITER
   CANDIDATE
@@ -136,49 +124,6 @@ model Position {
   updatedAt   DateTime       @updatedAt
 
   test Test?
-  emails EmailSequence?
-}
-
-model EmailTemplate {
-  id        String   @id @default(cuid())
-  key       String   @unique
-  name      String
-  subject   String
-  html      String
-  text      String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  steps EmailSequenceStep[]
-}
-
-model EmailSequence {
-  id         String               @id @default(cuid())
-  positionId String               @unique
-  createdAt  DateTime             @default(now())
-  updatedAt  DateTime             @updatedAt
-
-  position Position @relation(fields: [positionId], references: [id], onDelete: Cascade)
-  steps    EmailSequenceStep[]
-}
-
-model EmailSequenceStep {
-  id              String                     @id @default(cuid())
-  sequenceId      String
-  templateId      String
-  delayValue      Int
-  delayUnit       EmailDelayUnit
-  order           Int
-  stopCondition   EmailSequenceStopCondition?
-  createdAt       DateTime                   @default(now())
-  updatedAt       DateTime                   @updatedAt
-
-  sequence EmailSequence @relation(fields: [sequenceId], references: [id], onDelete: Cascade)
-  template EmailTemplate @relation(fields: [templateId], references: [id], onDelete: Restrict)
-
-  @@unique([sequenceId, order])
-  @@index([sequenceId])
-  @@index([templateId])
 }
 
 model Question {
