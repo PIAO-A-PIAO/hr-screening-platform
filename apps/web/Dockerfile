@@ -2,9 +2,6 @@ FROM node:24-bookworm-slim AS build
 
 WORKDIR /app
 
-ARG NEXT_PUBLIC_API_URL=http://localhost:4000/api
-ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
-
 COPY package*.json ./
 COPY apps/api/package.json apps/api/package.json
 COPY apps/web/package.json apps/web/package.json

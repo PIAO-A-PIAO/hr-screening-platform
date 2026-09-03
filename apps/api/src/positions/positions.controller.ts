@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Patch, Post } from "@nestjs/common";
 import { ApiBody, ApiOperation, ApiParam, ApiTags } from "@nestjs/swagger";
 import { CreatePositionDto, UpdatePositionEmailSequenceDto } from "./positions.dto";
 import { PositionsService } from "./positions.service";
@@ -39,6 +39,17 @@ export class PositionsController {
   @ApiParam({ name: "positionId" })
   getPosition(@Param("positionId") positionId: string) {
     return this.positions.getPosition(positionId);
+  }
+
+  @Delete(":positionId/assignments/:assignmentId")
+  @ApiOperation({ summary: "Delete a candidate assignment from a position" })
+  @ApiParam({ name: "positionId" })
+  @ApiParam({ name: "assignmentId" })
+  deleteAssignment(
+    @Param("positionId") positionId: string,
+    @Param("assignmentId") assignmentId: string,
+  ) {
+    return this.positions.deleteAssignment(positionId, assignmentId);
   }
 
   @Patch(":positionId/email-sequence")

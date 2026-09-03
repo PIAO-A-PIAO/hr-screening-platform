@@ -1,13 +1,147 @@
 import { Injectable, Logger } from "@nestjs/common";
+import { EmailDelayUnit, EmailSequenceStopCondition, Prisma, PositionStatus, UserTestStatus } from "@prisma/client";
+import { randomUUID } from "node:crypto";
 import * as nodemailer from "nodemailer";
 import { getEnvironment } from "../config/environment";
 
-type SendInvitationEmailInput = {
-  to: string;
-  firstName: string;
-  testId: string;
-  inviteToken: string;
+type TemplateVariables = Record<string, unknown>;
+type EmailTaskStatus = "PENDING" | "PROCESSING" | "SENT" | "FAILED" | "CANCELLED";
+
+type EmailTemplateRecord = {
+  id: string;
+  key: string;
+  name: string;
+  subject: string;
+  html: string;
+  text: string | null;
+  createdAt: Date;
+  updatedAt: Date;
 };
+
+type AssignmentTemplateStep = {
+  id: string;
+  order: number;
+  delayValue: number;
+  delayUnit: EmailDelayUnit;
+  stopCondition: EmailSequenceStopCondition | null;
+  template: EmailTemplateRecord;
+};
+
+type AssignmentTemplateContext = {
+  assignment: {
+    id: string;
+    inviteToken: string | null;
+    invitedAt: Date;
+    status: UserTestStatus[];
+    user: {
+      id: string;
+      name: string;
+      email: string;
+    };
+    test: {
+      id: string;
+      name: string;
+      position: {
+        id: string;
+        title: string;
+        status: PositionStatus;
+        emails: {
+          id: string;
+          steps: AssignmentTemplateStep[];
+        } | null;
+      } | null;
+    };
+  };
+};
+
+type QueueInvitationEmailInput = {
+  assignmentId: string;
+};
+
+type EmailTaskRecord = {
+  id: string;
+  assignmentId: string;
+  templateId: string;
+  sequenceStepOrder: number;
+  dueAt: Date;
+  to: string;
+  subject: string;
+  html: string;
+  text: string | null;
+  variables: Prisma.JsonValue;
+  status: EmailTaskStatus;
+  attemptCount: number;
+  lastError: string | null;
+  idempotencyKey: string;
+  stopCondition: EmailSequenceStopCondition | null;
+  sentAt: Date | null;
+  processedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type SendTaskResult = {
+  messageId: string | null;
+  skipped: boolean;
+};
+
+function stringifyTemplateValue(value: unknown) {
+  if (value === null || value === undefined) {
+    return "";
+  }
+
+  if (typeof value === "string") {
+    return value;
+  }
+
+  if (typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+
+  return JSON.stringify(value);
+}
+
+function resolveTemplateValue(variables: TemplateVariables, path: string) {
+  return path.split(".").reduce<unknown>((current, segment) => {
+    if (current === null || current === undefined || typeof current !== "object") {
+      return undefined;
+    }
+
+    return (current as Record<string, unknown>)[segment];
+  }, variables);
+}
+
+function splitName(name: string) {
+  const trimmed = name.trim();
+  if (!trimmed) {
+    return { firstName: "", lastName: "" };
+  }
+
+  const [firstName, ...rest] = trimmed.split(/\s+/);
+  return {
+    firstName,
+    lastName: rest.join(" "),
+  };
+}
+
+function asDate(value: Date | string) {
+  return value instanceof Date ? value : new Date(value);
+}
+
+function delayToMilliseconds(delayValue: number, delayUnit: EmailDelayUnit) {
+  switch (delayUnit) {
+    case EmailDelayUnit.MINUTES:
+      return delayValue * 60_000;
+    case EmailDelayUnit.HOURS:
+      return delayValue * 60 * 60_000;
+    case EmailDelayUnit.DAYS:
+      return delayValue * 24 * 60 * 60_000;
+    default:
+      return delayValue * 60_000;
+  }
+}
+
+const EMAIL_QUEUE_NOTIFY_CHANNEL = "email_task_queue";
 
 @Injectable()
 export class EmailService {
@@ -19,89 +153,387 @@ export class EmailService {
       host: this.environment.SMTP_HOST,
       port: this.environment.SMTP_PORT,
       secure: this.environment.SMTP_SECURE,
-      auth: {
-        user: this.environment.SMTP_USER,
-        pass: this.environment.SMTP_PASSWORD,
-      },
+      auth: this.environment.SMTP_USER && this.environment.SMTP_PASSWORD
+        ? {
+            user: this.environment.SMTP_USER,
+            pass: this.environment.SMTP_PASSWORD,
+          }
+        : undefined,
     });
   }
 
-  async sendInvitationEmail(input: SendInvitationEmailInput) {
-    if (!this.environment.EMAIL_ENABLED) {
-      this.logger.log(
-        `Email disabled. Invitation would be sent to ${input.to}`,
-      );
+  private renderTemplate(template: string, variables: TemplateVariables) {
+    return template.replace(/\{\{\s*([A-Za-z0-9_.-]+)\s*\}\}/g, (_match, key: string) => {
+      return stringifyTemplateValue(resolveTemplateValue(variables, key));
+    });
+  }
 
-      return;
-    }
-    
-    const invitationUrl = new URL(
-        `/tests/${encodeURIComponent(input.testId)}`,
-        this.environment.WEB_ORIGIN,
-    );
+  private buildInvitationUrl(testId: string, inviteToken: string) {
+    const invitationUrl = new URL(`/tests/${encodeURIComponent(testId)}`, this.environment.WEB_ORIGIN);
+    invitationUrl.searchParams.set("inviteToken", inviteToken);
+    return invitationUrl.toString();
+  }
 
-    invitationUrl.searchParams.set("inviteToken", input.inviteToken);
+  private buildTemplateVariables(context: AssignmentTemplateContext) {
+    const { firstName, lastName } = splitName(context.assignment.user.name);
 
-    const invitationLink = invitationUrl.toString();
-        
-    const transporter = this.createTransporter();
+    return {
+      firstName,
+      lastName,
+      candidate: {
+        id: context.assignment.user.id,
+        name: context.assignment.user.name,
+        firstName,
+        lastName,
+        email: context.assignment.user.email,
+      },
+      assignment: {
+        id: context.assignment.id,
+        inviteToken: context.assignment.inviteToken,
+        invitedAt: context.assignment.invitedAt.toISOString(),
+      },
+      test: {
+        id: context.assignment.test.id,
+        name: context.assignment.test.name,
+      },
+      position: context.assignment.test.position
+        ? {
+            id: context.assignment.test.position.id,
+            title: context.assignment.test.position.title,
+            status: context.assignment.test.position.status,
+          }
+        : null,
+      inviteUrl: context.assignment.inviteToken
+        ? this.buildInvitationUrl(context.assignment.test.id, context.assignment.inviteToken)
+        : "",
+    };
+  }
 
-    await transporter.sendMail({
-    from: this.environment.EMAIL_FROM,
-    to: input.to,
-    subject: "Digital Shovel Interview Invitation",
-
-    text: [
-        `Hi ${input.firstName},`,
-        "",
-        "You have been invited to complete an interview with Digital Shovel.",
-        "",
-        "Start your interview:",
-        invitationLink,
-        "",
-        "This invitation link is unique to you. Please do not share it.",
-        "",
-        "Digital Shovel HR",
-    ].join("\n"),
-
-    html: `
-        <div style="font-family: Arial, sans-serif; line-height: 1.6;">
-        <h2>Digital Shovel Interview Invitation</h2>
-
-        <p>Hi ${input.firstName},</p>
-
-        <p>
-            You have been invited to complete an interview with
-            <strong>Digital Shovel</strong>.
-        </p>
-
-        <p>
-            <a
-            href="${invitationLink}"
-            style="
-                display:inline-block;
-                padding:12px 20px;
-                background:#2457d6;
-                color:#ffffff;
-                text-decoration:none;
-                border-radius:6px;
-                font-weight:bold;
-            "
-            >
-            Start Interview
-            </a>
-        </p>
-
-        <p>
-            This invitation link is unique to you.
-            Please do not share it.
-        </p>
-
-        <p>Digital Shovel HR</p>
-        </div>
-    `,
+  async loadAssignmentTemplateContext(
+    tx: Prisma.TransactionClient,
+    assignmentId: string,
+  ): Promise<AssignmentTemplateContext> {
+    const assignment = await tx.userTestAssignment.findUnique({
+      where: { id: assignmentId },
+      select: {
+        id: true,
+        inviteToken: true,
+        invitedAt: true,
+        status: true,
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+        test: {
+          select: {
+            id: true,
+            name: true,
+            position: {
+              select: {
+                id: true,
+                title: true,
+                status: true,
+                emails: {
+                  select: {
+                    id: true,
+                    steps: {
+                      orderBy: { order: "asc" },
+                      select: {
+                        id: true,
+                        order: true,
+                        delayValue: true,
+                        delayUnit: true,
+                        stopCondition: true,
+                        template: {
+                          select: {
+                            id: true,
+                            key: true,
+                            name: true,
+                            subject: true,
+                            html: true,
+                            text: true,
+                            createdAt: true,
+                            updatedAt: true,
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
     });
 
-    this.logger.log(`Invitation email sent to ${input.to}`);
+    if (!assignment) {
+      throw new Error(`Assignment not found: ${assignmentId}`);
+    }
+
+    if (!assignment.test) {
+      throw new Error(`Assignment ${assignmentId} is not attached to a test`);
+    }
+
+    return {
+      assignment: {
+        ...assignment,
+        invitedAt: asDate(assignment.invitedAt),
+        test: {
+          ...assignment.test,
+          position: assignment.test.position
+            ? {
+                ...assignment.test.position,
+                emails: assignment.test.position.emails
+                  ? {
+                      ...assignment.test.position.emails,
+                      steps: assignment.test.position.emails.steps.map((step) => ({
+                        ...step,
+                        template: {
+                          ...step.template,
+                          createdAt: asDate(step.template.createdAt),
+                          updatedAt: asDate(step.template.updatedAt),
+                        },
+                      })),
+                    }
+                  : null,
+              }
+            : null,
+        },
+      },
+    };
+  }
+
+  private async upsertTask(
+    tx: Prisma.TransactionClient,
+    input: {
+      assignmentId: string;
+      templateId: string;
+      sequenceStepOrder: number;
+      stopCondition: EmailSequenceStopCondition | null;
+      dueAt: Date;
+      to: string;
+      subject: string;
+      html: string;
+      text: string | null;
+      variables: TemplateVariables;
+    },
+  ): Promise<EmailTaskRecord> {
+    const idempotencyKey = `${input.assignmentId}:${input.sequenceStepOrder}`;
+
+    const [task] = await tx.$queryRaw<EmailTaskRecord[]>(Prisma.sql`
+      INSERT INTO "EmailTask" (
+        "id",
+        "assignmentId",
+        "templateId",
+        "sequenceStepOrder",
+        "dueAt",
+        "to",
+        "subject",
+        "html",
+        "text",
+        "variables",
+        "status",
+        "attemptCount",
+        "lastError",
+        "idempotencyKey",
+        "stopCondition",
+        "sentAt",
+        "processedAt",
+        "createdAt",
+        "updatedAt"
+      ) VALUES (
+        ${randomUUID()},
+        ${input.assignmentId},
+        ${input.templateId},
+        ${input.sequenceStepOrder},
+        ${input.dueAt},
+        ${input.to},
+        ${input.subject},
+        ${input.html},
+        ${input.text},
+        ${input.variables},
+        'PENDING',
+        0,
+        NULL,
+        ${idempotencyKey},
+        CAST(${input.stopCondition} AS "EmailSequenceStopCondition"),
+        NULL,
+        NULL,
+        NOW(),
+        NOW()
+      )
+      ON CONFLICT ("idempotencyKey") DO UPDATE SET
+        "assignmentId" = EXCLUDED."assignmentId",
+        "templateId" = EXCLUDED."templateId",
+        "sequenceStepOrder" = EXCLUDED."sequenceStepOrder",
+        "dueAt" = EXCLUDED."dueAt",
+        "to" = EXCLUDED."to",
+        "subject" = EXCLUDED."subject",
+        "html" = EXCLUDED."html",
+        "text" = EXCLUDED."text",
+        "variables" = EXCLUDED."variables",
+        "status" = 'PENDING',
+        "attemptCount" = 0,
+        "lastError" = NULL,
+        "stopCondition" = EXCLUDED."stopCondition",
+        "sentAt" = NULL,
+        "processedAt" = NULL,
+        "updatedAt" = NOW()
+      RETURNING
+        "id",
+        "assignmentId",
+        "templateId",
+        "sequenceStepOrder",
+        "dueAt",
+        "to",
+        "subject",
+        "html",
+        "text",
+        "variables",
+        "status",
+        "attemptCount",
+        "lastError",
+        "idempotencyKey",
+        "stopCondition",
+        "sentAt",
+        "processedAt",
+        "createdAt",
+        "updatedAt"
+    `);
+
+    return task;
+  }
+
+  private getStepByOrder(context: AssignmentTemplateContext, order: number) {
+    return context.assignment.test.position?.emails?.steps.find((step) => step.order === order) ?? null;
+  }
+
+  private logQueuedTask(task: EmailTaskRecord, label: string) {
+    this.logger.log(
+      `${label}: queued email task ${task.id} assignment=${task.assignmentId} step=${task.sequenceStepOrder} dueAt=${task.dueAt.toISOString()} to=${task.to}`,
+    );
+  }
+
+  private async notifyWorker(tx: Prisma.TransactionClient, taskId: string, dueAt: Date) {
+    if (dueAt.getTime() - Date.now() > 5_000) {
+      return;
+    }
+
+    await tx.$executeRaw(Prisma.sql`
+      SELECT pg_notify(${EMAIL_QUEUE_NOTIFY_CHANNEL}, ${taskId})
+    `);
+  }
+
+  async queueInvitationEmail(
+    tx: Prisma.TransactionClient,
+    input: QueueInvitationEmailInput,
+  ): Promise<EmailTaskRecord> {
+    const context = await this.loadAssignmentTemplateContext(tx, input.assignmentId);
+    const variables = this.buildTemplateVariables(context);
+    const firstStep = this.getStepByOrder(context, 1);
+
+    if (firstStep) {
+      const task = await this.upsertTask(tx, {
+        assignmentId: context.assignment.id,
+        templateId: firstStep.template.id,
+        sequenceStepOrder: firstStep.order,
+        stopCondition: firstStep.stopCondition,
+        dueAt: new Date(),
+        to: context.assignment.user.email,
+        subject: this.renderTemplate(firstStep.template.subject, variables),
+        html: this.renderTemplate(firstStep.template.html, variables),
+        text: firstStep.template.text ? this.renderTemplate(firstStep.template.text, variables) : null,
+        variables,
+      });
+      this.logQueuedTask(task, "Invitation");
+      await this.notifyWorker(tx, task.id, task.dueAt);
+      return task;
+    }
+
+    const fallbackTemplate = await tx.emailTemplate.findUnique({
+      where: { key: "invitation_default" },
+    });
+
+    if (!fallbackTemplate) {
+      throw new Error("Email template not found: invitation_default");
+    }
+
+    const task = await this.upsertTask(tx, {
+      assignmentId: context.assignment.id,
+      templateId: fallbackTemplate.id,
+      sequenceStepOrder: 1,
+      stopCondition: null,
+      dueAt: new Date(),
+      to: context.assignment.user.email,
+      subject: this.renderTemplate(fallbackTemplate.subject, variables),
+      html: this.renderTemplate(fallbackTemplate.html, variables),
+      text: fallbackTemplate.text ? this.renderTemplate(fallbackTemplate.text, variables) : null,
+      variables,
+    });
+    this.logQueuedTask(task, "Invitation");
+    await this.notifyWorker(tx, task.id, task.dueAt);
+    return task;
+  }
+
+  async queueNextSequenceEmail(
+    tx: Prisma.TransactionClient,
+    input: {
+      assignmentId: string;
+      currentStepOrder: number;
+      sentAt: Date;
+    },
+  ) {
+    const context = await this.loadAssignmentTemplateContext(tx, input.assignmentId);
+    const variables = this.buildTemplateVariables(context);
+    const nextStep = this.getStepByOrder(context, input.currentStepOrder + 1);
+
+    if (!nextStep) {
+      return null;
+    }
+
+    const task = await this.upsertTask(tx, {
+      assignmentId: context.assignment.id,
+      templateId: nextStep.template.id,
+      sequenceStepOrder: nextStep.order,
+      stopCondition: nextStep.stopCondition,
+      dueAt: new Date(input.sentAt.getTime() + delayToMilliseconds(nextStep.delayValue, nextStep.delayUnit)),
+      to: context.assignment.user.email,
+      subject: this.renderTemplate(nextStep.template.subject, variables),
+      html: this.renderTemplate(nextStep.template.html, variables),
+      text: nextStep.template.text ? this.renderTemplate(nextStep.template.text, variables) : null,
+      variables,
+    });
+    this.logQueuedTask(task, "Sequence");
+    await this.notifyWorker(tx, task.id, task.dueAt);
+    return task;
+  }
+
+  async sendTask(task: EmailTaskRecord): Promise<SendTaskResult> {
+    if (!this.environment.EMAIL_ENABLED) {
+      this.logger.log(`Email disabled. Would send task ${task.id} to ${task.to}`);
+      return { messageId: null, skipped: true };
+    }
+
+    const transporter = this.createTransporter();
+    const info = await transporter.sendMail({
+      from: this.environment.EMAIL_FROM,
+      to: task.to,
+      subject: task.subject,
+      html: task.html,
+      text: task.text ?? undefined,
+      headers: {
+        "X-DS-HR-Idempotency-Key": task.idempotencyKey,
+      },
+    });
+
+    this.logger.log(`Sent task ${task.id} to ${task.to}`);
+    return {
+      messageId: typeof info.messageId === "string" ? info.messageId : null,
+      skipped: false,
+    };
   }
 }

@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import Link from "next/link";
-import { headers } from "next/headers";
+import { getApiBaseUrlCandidates } from "../lib/api-base-url";
 
 type ApiState = {
   connected: boolean;
@@ -10,25 +10,31 @@ type ApiState = {
 };
 
 async function getApiState(): Promise<ApiState> {
-  try {
-    const requestHeaders = await headers();
-    const host = requestHeaders.get("host") ?? "localhost:3000";
-    const protocol = requestHeaders.get("x-forwarded-proto") ?? "http";
-    const response = await fetch(`${protocol}://${host}/api/health/ready`, {
-      cache: "no-store",
-    });
-    if (!response.ok) return { connected: true, database: false, storage: false };
-    const data = await response.json() as {
-      checks?: { database?: boolean; storage?: boolean };
-    };
-    return {
-      connected: true,
-      database: data.checks?.database === true,
-      storage: data.checks?.storage === true,
-    };
-  } catch {
-    return { connected: false, database: false, storage: false };
+  for (const baseUrl of getApiBaseUrlCandidates()) {
+    try {
+      const response = await fetch(`${baseUrl}/health/ready`, {
+        cache: "no-store",
+      });
+
+      if (!response.ok) {
+        continue;
+      }
+
+      const data = (await response.json()) as {
+        checks?: { database?: boolean; storage?: boolean };
+      };
+
+      return {
+        connected: true,
+        database: data.checks?.database === true,
+        storage: data.checks?.storage === true,
+      };
+    } catch {
+      continue;
+    }
   }
+
+  return { connected: false, database: false, storage: false };
 }
 
 function Status({ label, ready }: { label: string; ready: boolean }) {

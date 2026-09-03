@@ -1,17 +1,5 @@
 import { NextRequest } from "next/server";
-
-function trimTrailingSlash(value: string) {
-  return value.replace(/\/$/, "");
-}
-
-function getBackendBaseUrl() {
-  const configured = process.env.API_URL?.trim();
-  if (!configured) {
-    throw new Error("API_URL is not configured");
-  }
-
-  return trimTrailingSlash(configured);
-}
+import { getApiBaseUrlCandidates } from "../../lib/api-base-url";
 
 export async function proxyRequest(request: NextRequest, backendPath: string) {
   const method = request.method;
@@ -22,31 +10,38 @@ export async function proxyRequest(request: NextRequest, backendPath: string) {
   headers.delete("connection");
   headers.delete("content-length");
 
-  const baseUrl = getBackendBaseUrl();
-  const url = `${baseUrl}${backendPath}${request.nextUrl.search}`;
+  const attempts = getApiBaseUrlCandidates().map(
+    (baseUrl) => `${baseUrl}${backendPath}${request.nextUrl.search}`,
+  );
 
-  try {
-    const response = await fetch(url, {
-      method,
-      headers,
-      body,
-      cache: "no-store",
-    });
+  for (const url of attempts) {
+    try {
+      const response = await fetch(url, {
+        method,
+        headers,
+        body,
+        cache: "no-store",
+      });
 
-    return new Response(response.body, {
-      status: response.status,
-      headers: response.headers,
-    });
-  } catch (error) {
-    return Response.json(
-      {
-        statusCode: 503,
-        error: "Service Unavailable",
-        message: "API backend is not reachable from the web server",
-        attempts: [url],
-        cause: error instanceof Error ? error.message : String(error ?? "unknown"),
-      },
-      { status: 503 },
-    );
+      return new Response(response.body, {
+        status: response.status,
+        headers: response.headers,
+      });
+    } catch (error) {
+      if (url !== attempts.at(-1)) {
+        continue;
+      }
+
+      return Response.json(
+        {
+          statusCode: 503,
+          error: "Service Unavailable",
+          message: "API backend is not reachable from the web server",
+          attempts,
+          cause: error instanceof Error ? error.message : String(error ?? "unknown"),
+        },
+        { status: 503 },
+      );
+    }
   }
 }

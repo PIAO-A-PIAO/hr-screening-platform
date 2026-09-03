@@ -40,13 +40,31 @@ services:
       timeout: 5s
       retries: 10
 
+  worker:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    command: ["node", "apps/api/dist/worker.js"]
+    environment:
+      APP_ENV: local
+      NODE_ENV: production
+      DATABASE_URL: postgresql://ds_hr:ds_hr@postgres:5432/ds_hr?schema=public
+      WEB_ORIGIN: http://localhost:3000
+      STORAGE_DIR: /app/var/private-storage
+      EMAIL_ENABLED: false
+      LOG_LEVEL: log
+    volumes:
+      - foundation_private_storage:/app/var/private-storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   web:
     build:
       context: .
       dockerfile: apps/web/Dockerfile
     environment:
       API_URL: http://api:4000/api
-      NEXT_PUBLIC_API_URL: http://127.0.0.1:4000/api
     ports:
       - "3000:3000"
     depends_on:
