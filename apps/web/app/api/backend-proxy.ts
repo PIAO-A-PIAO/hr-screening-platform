@@ -1,26 +1,22 @@
 import { NextRequest } from "next/server";
 
+function unique(values: string[]) {
+  return [...new Set(values)];
+}
+
 function trimTrailingSlash(value: string) {
   return value.replace(/\/$/, "");
 }
 
 function getBackendBaseUrls() {
-  const configured = process.env.API_URL?.trim()
-    || process.env.NEXT_PUBLIC_API_URL?.trim()
-    || "http://127.0.0.1:4000/api";
-  const candidates = [configured];
+  const configured = process.env.API_URL?.trim();
+  const publicConfigured = process.env.NEXT_PUBLIC_API_URL?.trim();
 
-  try {
-    const url = new URL(configured);
-    if (url.hostname === "localhost") {
-      url.hostname = "127.0.0.1";
-      candidates.push(url.toString());
-    }
-  } catch {
-    // Keep the configured value even if it is not a fully qualified URL.
-  }
-
-  return [...new Set(candidates.map(trimTrailingSlash))];
+  return unique(
+    [configured, publicConfigured, "http://api:4000/api", "http://127.0.0.1:4000/api", "http://localhost:4000/api"]
+      .filter((value): value is string => Boolean(value))
+      .map(trimTrailingSlash),
+  );
 }
 
 export async function proxyRequest(request: NextRequest, backendPath: string) {
@@ -32,13 +28,10 @@ export async function proxyRequest(request: NextRequest, backendPath: string) {
   headers.delete("connection");
   headers.delete("content-length");
 
-  const attempts: string[] = [];
-  let lastError: unknown;
+  const urls = getBackendBaseUrls().map((baseUrl) => `${baseUrl}${backendPath}${request.nextUrl.search}`);
 
-  for (const baseUrl of getBackendBaseUrls()) {
-    const url = `${baseUrl}${backendPath}${request.nextUrl.search}`;
-    attempts.push(url);
-
+  let lastError: unknown = null;
+  for (const url of urls) {
     try {
       const response = await fetch(url, {
         method,
@@ -61,7 +54,7 @@ export async function proxyRequest(request: NextRequest, backendPath: string) {
       statusCode: 503,
       error: "Service Unavailable",
       message: "API backend is not reachable from the web server",
-      attempts,
+      attempts: urls,
       cause: lastError instanceof Error ? lastError.message : String(lastError ?? "unknown"),
     },
     { status: 503 },
