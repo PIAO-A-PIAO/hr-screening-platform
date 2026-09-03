@@ -38,7 +38,7 @@ function createBlankStep(templates: EmailTemplateSummary[], index: number): Sequ
   };
 }
 
-function fromSequence(position: PositionResponse, templates: EmailTemplateSummary[]) {
+function fromSequence(position: PositionResponse, templates: EmailTemplateSummary[]): SequenceDraftStep[] {
   if (!position.emails) {
     return [createBlankStep(templates, 0), createBlankStep(templates, 1)];
   }
@@ -49,7 +49,7 @@ function fromSequence(position: PositionResponse, templates: EmailTemplateSummar
     delayValue: step.delayValue,
     delayUnit: step.delayUnit,
     stopCondition: step.stopCondition ?? "",
-  }));
+  })) as SequenceDraftStep[];
 }
 
 function describeStep(step: SequenceDraftStep, index: number, templates: EmailTemplateSummary[]) {

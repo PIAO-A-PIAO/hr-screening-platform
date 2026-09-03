@@ -1,5 +1,6 @@
 CREATE TYPE "EmailDelayUnit" AS ENUM ('MINUTES', 'HOURS', 'DAYS');
 CREATE TYPE "EmailSequenceStopCondition" AS ENUM ('CANDIDATE_SUBMITTED', 'CANDIDATE_DISCARDED', 'POSITION_CLOSED');
+CREATE TYPE "EmailTaskStatus" AS ENUM ('PENDING', 'PROCESSING', 'SENT', 'FAILED', 'CANCELLED');
 
 CREATE TABLE "EmailTemplate" (
   "id" TEXT NOT NULL,
@@ -12,6 +13,30 @@ CREATE TABLE "EmailTemplate" (
   "updatedAt" TIMESTAMP(3) NOT NULL,
 
   CONSTRAINT "EmailTemplate_pkey" PRIMARY KEY ("id")
+);
+
+CREATE TABLE "EmailTask" (
+  "id" TEXT NOT NULL,
+  "assignmentId" TEXT NOT NULL,
+  "templateId" TEXT NOT NULL,
+  "sequenceStepOrder" INTEGER NOT NULL,
+  "dueAt" TIMESTAMP(3) NOT NULL,
+  "to" TEXT NOT NULL,
+  "subject" TEXT NOT NULL,
+  "html" TEXT NOT NULL,
+  "text" TEXT,
+  "variables" JSONB NOT NULL,
+  "status" "EmailTaskStatus" NOT NULL DEFAULT 'PENDING',
+  "attemptCount" INTEGER NOT NULL DEFAULT 0,
+  "lastError" TEXT,
+  "idempotencyKey" TEXT NOT NULL,
+  "stopCondition" "EmailSequenceStopCondition",
+  "sentAt" TIMESTAMP(3),
+  "processedAt" TIMESTAMP(3),
+  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updatedAt" TIMESTAMP(3) NOT NULL,
+
+  CONSTRAINT "EmailTask_pkey" PRIMARY KEY ("id")
 );
 
 CREATE TABLE "EmailSequence" (
@@ -38,6 +63,11 @@ CREATE TABLE "EmailSequenceStep" (
 );
 
 CREATE UNIQUE INDEX "EmailTemplate_key_key" ON "EmailTemplate"("key");
+CREATE UNIQUE INDEX "EmailTask_idempotencyKey_key" ON "EmailTask"("idempotencyKey");
+CREATE INDEX "EmailTask_status_createdAt_idx" ON "EmailTask"("status", "createdAt");
+CREATE INDEX "EmailTask_status_dueAt_idx" ON "EmailTask"("status", "dueAt");
+CREATE INDEX "EmailTask_assignmentId_sequenceStepOrder_idx" ON "EmailTask"("assignmentId", "sequenceStepOrder");
+CREATE INDEX "EmailTask_templateId_idx" ON "EmailTask"("templateId");
 CREATE UNIQUE INDEX "EmailSequence_positionId_key" ON "EmailSequence"("positionId");
 CREATE UNIQUE INDEX "EmailSequenceStep_sequenceId_order_key" ON "EmailSequenceStep"("sequenceId", "order");
 CREATE INDEX "EmailSequenceStep_sequenceId_idx" ON "EmailSequenceStep"("sequenceId");
@@ -55,6 +85,16 @@ ALTER TABLE "EmailSequenceStep"
 
 ALTER TABLE "EmailSequenceStep"
   ADD CONSTRAINT "EmailSequenceStep_templateId_fkey"
+  FOREIGN KEY ("templateId") REFERENCES "EmailTemplate"("id")
+  ON DELETE RESTRICT ON UPDATE CASCADE;
+
+ALTER TABLE "EmailTask"
+  ADD CONSTRAINT "EmailTask_assignmentId_fkey"
+  FOREIGN KEY ("assignmentId") REFERENCES "UserTestAssignment"("id")
+  ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE "EmailTask"
+  ADD CONSTRAINT "EmailTask_templateId_fkey"
   FOREIGN KEY ("templateId") REFERENCES "EmailTemplate"("id")
   ON DELETE RESTRICT ON UPDATE CASCADE;
 

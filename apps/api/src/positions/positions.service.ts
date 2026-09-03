@@ -382,6 +382,33 @@ export class PositionsService {
     };
   }
 
+  async deleteAssignment(positionId: string, assignmentId: string): Promise<{ id: string }> {
+    const [assignment] = await this.prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+      SELECT uta."id"
+      FROM "UserTestAssignment" uta
+      INNER JOIN "Test" t ON t."id" = uta."testId"
+      WHERE uta."id" = ${assignmentId}
+        AND t."positionId" = ${positionId}
+      LIMIT 1
+    `);
+
+    if (!assignment) {
+      throw new NotFoundException("Assignment not found");
+    }
+
+    const [deleted] = await this.prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+      DELETE FROM "UserTestAssignment"
+      WHERE "id" = ${assignmentId}
+      RETURNING "id"
+    `);
+
+    if (!deleted) {
+      throw new NotFoundException("Assignment not found");
+    }
+
+    return deleted;
+  }
+
   async updateEmailSequence(
     positionId: string,
     dto: UpdatePositionEmailSequenceDto,

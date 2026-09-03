@@ -281,53 +281,46 @@ export class UsersService {
   }
 
   async inviteUsers(dto: InviteUsersDto): Promise<UserResponse[]> {
-  const normalized = dto.users.map((user) => normalizeSeed(user));
-  this.assertNoDuplicateEmails(normalized.map((user) => user.email));
+    const normalized = dto.users.map((user) => normalizeSeed(user));
+    this.assertNoDuplicateEmails(normalized.map((user) => user.email));
 
-  const results = await this.prisma.$transaction(async (tx) => {
-    const invitedUsers: UserResponse[] = [];
+    return this.prisma.$transaction(async (tx) => {
+      const invitedUsers: UserResponse[] = [];
 
-    for (const user of normalized) {
-      const saved = await this.upsertUser(tx, {
-        ...user,
-        status: normalizeStatuses([
-          UserStatusDto.INVITED,
-          ...user.status,
-        ]),
-      });
+      for (const user of normalized) {
+        const saved = await this.upsertUser(tx, {
+          ...user,
+          status: normalizeStatuses([
+            UserStatusDto.INVITED,
+            ...user.status,
+          ]),
+        });
 
-      const assignments = await this.upsertAssignments(
-        tx,
-        saved.id,
-        user.testIds,
-        user.status,
-      );
+        const assignments = await this.upsertAssignments(
+          tx,
+          saved.id,
+          user.testIds,
+          user.status,
+        );
 
-      invitedUsers.push({
-        ...saved,
-        assignments,
-      });
-    }
+        for (const assignment of assignments) {
+          if (!assignment.inviteToken) {
+            continue;
+          }
 
-    return invitedUsers;
-  });
+          await this.email.queueInvitationEmail(tx, {
+            assignmentId: assignment.id,
+          });
+        }
 
-  for (const user of results) {
-    for (const assignment of user.assignments) {
-      if (!assignment.inviteToken) {
-        continue;
+        invitedUsers.push({
+          ...saved,
+          assignments,
+        });
       }
 
-      await this.email.sendInvitationEmail({
-        to: user.email,
-        firstName: user.firstName,
-        testId: assignment.testId,
-        inviteToken: assignment.inviteToken,
-      });
-    }
-  }
-
-  return results;
+      return invitedUsers;
+    });
   }
 
   async getUser(userId: string, inviteToken?: string): Promise<UserResponse> {

@@ -170,6 +170,15 @@ export function updatePositionEmailSequence(
   });
 }
 
+export function deletePositionAssignment(positionId: string, assignmentId: string) {
+  return requestJson<{ id: string }>(
+    `/positions/${encodeURIComponent(positionId)}/assignments/${encodeURIComponent(assignmentId)}`,
+    {
+      method: "DELETE",
+    },
+  );
+}
+
 export function listEmailTemplates() {
   return requestJson<EmailTemplateSummary[]>("/email/templates");
 }
