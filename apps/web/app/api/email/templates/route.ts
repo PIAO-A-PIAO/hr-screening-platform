@@ -11,10 +11,6 @@ export async function GET(request: NextRequest) {
   return proxy(request);
 }
 
-export async function POST(request: NextRequest) {
-  return proxy(request);
-}
-
 export async function OPTIONS() {
   return new Response(null, { status: 204 });
 }
