@@ -2,42 +2,6 @@ import { ApiError, type TestStatus } from "./question-api";
 import type { UserStatus } from "./user-api";
 
 export type PositionStatus = "DRAFT" | "OPEN" | "ON_HOLD" | "CLOSED";
-export type EmailDelayUnit = "MINUTES" | "HOURS" | "DAYS";
-export type EmailSequenceStopCondition =
-  | "CANDIDATE_SUBMITTED"
-  | "CANDIDATE_DISCARDED"
-  | "POSITION_CLOSED";
-
-export type EmailTemplateSummary = {
-  id: string;
-  key: string;
-  name: string;
-  subject: string;
-  html: string;
-  text: string | null;
-  createdAt: string;
-  updatedAt: string;
-};
-
-export type EmailSequenceStepSummary = {
-  id: string;
-  templateId: string;
-  delayValue: number;
-  delayUnit: EmailDelayUnit;
-  order: number;
-  stopCondition: EmailSequenceStopCondition | null;
-  createdAt: string;
-  updatedAt: string;
-  template: EmailTemplateSummary;
-};
-
-export type EmailSequenceSummary = {
-  id: string;
-  positionId: string;
-  createdAt: string;
-  updatedAt: string;
-  steps: EmailSequenceStepSummary[];
-};
 
 export type PositionTestSummary = {
   id: string;
@@ -63,7 +27,6 @@ export type PositionSummaryResponse = {
   submittedCount: number;
   testState: TestStatus | "NO_TEST";
   test: PositionTestSummary | null;
-  emails: EmailSequenceSummary | null;
 };
 
 export type PositionCandidateSummary = {
@@ -83,16 +46,6 @@ export type PositionCandidateSummary = {
 export type PositionResponse = PositionSummaryResponse & {
   invitedCandidates: PositionCandidateSummary[];
   submittedCandidates: PositionCandidateSummary[];
-};
-
-export type UpdatePositionEmailSequenceInput = {
-  steps: Array<{
-    templateId: string;
-    delayValue: number;
-    delayUnit: EmailDelayUnit;
-    order: number;
-    stopCondition?: EmailSequenceStopCondition | null;
-  }>;
 };
 
 export type CreatePositionInput = {
@@ -155,21 +108,4 @@ export function getPosition(positionId: string) {
 
 export function listPositions() {
   return requestJson<PositionSummaryResponse[]>("/positions");
-}
-
-export function updatePositionEmailSequence(
-  positionId: string,
-  input: UpdatePositionEmailSequenceInput,
-) {
-  return requestJson<PositionResponse>(`/positions/${encodeURIComponent(positionId)}/email-sequence`, {
-    method: "PATCH",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(input),
-  });
-}
-
-export function listEmailTemplates() {
-  return requestJson<EmailTemplateSummary[]>("/email/templates");
 }
