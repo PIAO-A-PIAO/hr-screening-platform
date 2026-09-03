@@ -68,14 +68,8 @@ export class EmailTemplatesService {
       WHERE "templateId" = ${templateId}
     `);
 
-    const [taskCountRow] = await this.prisma.$queryRaw<Array<{ count: bigint }>>(Prisma.sql`
-      SELECT COUNT(*)::bigint AS count
-      FROM "EmailTask"
-      WHERE "templateId" = ${templateId}
-    `);
-
-    if ((stepCountRow?.count ?? 0n) > 0n || (taskCountRow?.count ?? 0n) > 0n) {
-      throw new ConflictException("This template is used by one or more email sequences or queued tasks");
+    if ((stepCountRow?.count ?? 0n) > 0n) {
+      throw new ConflictException("This template is used by one or more email sequences");
     }
 
     await this.prisma.emailTemplate.delete({ where: { id: templateId } });
