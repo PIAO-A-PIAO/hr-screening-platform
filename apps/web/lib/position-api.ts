@@ -173,33 +173,3 @@ export function updatePositionEmailSequence(
 export function listEmailTemplates() {
   return requestJson<EmailTemplateSummary[]>("/email/templates");
 }
-
-export type EmailTemplateInput = {
-  key?: string;
-  name: string;
-  subject: string;
-  html: string;
-  text?: string;
-};
-
-export function createEmailTemplate(input: Required<EmailTemplateInput>) {
-  return requestJson<EmailTemplateSummary>("/email/templates", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(input),
-  });
-}
-
-export function updateEmailTemplate(templateId: string, input: Omit<EmailTemplateInput, "key">) {
-  return requestJson<EmailTemplateSummary>(`/email/templates/${encodeURIComponent(templateId)}`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(input),
-  });
-}
-
-export function deleteEmailTemplate(templateId: string) {
-  return requestJson<{ id: string }>(`/email/templates/${encodeURIComponent(templateId)}`, {
-    method: "DELETE",
-  });
-}
