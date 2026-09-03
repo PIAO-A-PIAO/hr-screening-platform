@@ -1,7 +1,6 @@
 import { Module } from "@nestjs/common";
 import { AppController } from "./app.controller";
 import { HealthModule } from "./health/health.module";
-import { EmailModule } from "./email/email.module";
 import { PrismaModule } from "./prisma/prisma.module";
 import { PositionsModule } from "./positions/positions.module";
 import { QuestionsModule } from "./questions/questions.module";
@@ -11,7 +10,7 @@ import { ResponsesModule } from "./responses/responses.module";
 import { AttemptsModule } from "./attempts/attempts.module";
 
 @Module({
-  imports: [PrismaModule, HealthModule, EmailModule, QuestionsModule, TestsModule, UsersModule, ResponsesModule, AttemptsModule, PositionsModule],
+  imports: [PrismaModule, HealthModule, QuestionsModule, TestsModule, UsersModule, ResponsesModule, AttemptsModule, PositionsModule],
   controllers: [AppController],
 })
 export class AppModule {}
