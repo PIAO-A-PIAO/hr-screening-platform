@@ -4,8 +4,12 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { CreateTestPanel } from "./create-test-panel";
 import { InviteCandidatePanel } from "./invite-candidate-panel";
+import {
+  deletePositionAssignment,
+  getPosition,
+  type PositionResponse,
+} from "../lib/position-api";
 import { PositionEmailSequencePanel } from "./position-email-sequence-panel";
-import { getPosition, type PositionResponse } from "../lib/position-api";
 
 type PositionDetailRouteProps = {
   positionId: string;
@@ -27,6 +31,7 @@ export function PositionDetailRoute({ positionId }: PositionDetailRouteProps) {
   const [position, setPosition] = useState<PositionResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [deletingAssignmentId, setDeletingAssignmentId] = useState<string | null>(null);
   useEffect(() => {
     let cancelled = false;
 
@@ -64,6 +69,20 @@ export function PositionDetailRoute({ positionId }: PositionDetailRouteProps) {
       setPosition(loaded);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Failed to refresh position");
+    }
+  }
+
+  async function handleDeleteAssignment(assignmentId: string) {
+    setDeletingAssignmentId(assignmentId);
+    setError(null);
+
+    try {
+      await deletePositionAssignment(positionId, assignmentId);
+      await refreshPosition();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Failed to delete assignment");
+    } finally {
+      setDeletingAssignmentId((current) => (current === assignmentId ? null : current));
     }
   }
 
@@ -190,11 +209,21 @@ export function PositionDetailRoute({ positionId }: PositionDetailRouteProps) {
             <ul className="dataList">
               {position.invitedCandidates.map((candidate) => (
                 <li key={candidate.id}>
-                  <strong>{candidate.name}</strong>
-                  <span>{candidate.email}</span>
-                  <small>{formatStatuses(candidate.status)}</small>
-                  <small>Invited {new Date(candidate.invitedAt).toLocaleString()}</small>
-                  <small>{candidate.inviteToken}</small>
+                  <div>
+                    <strong>{candidate.name}</strong>
+                    <span>{candidate.email}</span>
+                    <small>{formatStatuses(candidate.status)}</small>
+                    <small>Invited {new Date(candidate.invitedAt).toLocaleString()}</small>
+                    <small>{candidate.inviteToken}</small>
+                  </div>
+                  <button
+                    className="secondaryButton inlineButton"
+                    type="button"
+                    onClick={() => void handleDeleteAssignment(candidate.id)}
+                    disabled={deletingAssignmentId === candidate.id}
+                  >
+                    {deletingAssignmentId === candidate.id ? "Deleting..." : "Delete assignment"}
+                  </button>
                 </li>
               ))}
             </ul>
