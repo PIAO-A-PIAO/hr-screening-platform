@@ -48,8 +48,8 @@ function fromSequence(position: PositionResponse, templates: EmailTemplateSummar
     templateId: step.templateId,
     delayValue: step.delayValue,
     delayUnit: step.delayUnit,
-    stopCondition: (step.stopCondition ?? "") as SequenceDraftStep["stopCondition"],
-  }));
+    stopCondition: step.stopCondition ?? "",
+  })) as SequenceDraftStep[];
 }
 
 function describeStep(step: SequenceDraftStep, index: number, templates: EmailTemplateSummary[]) {

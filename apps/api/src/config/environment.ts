@@ -26,7 +26,7 @@ const environmentSchema = z.object({
     .url()
     .default("http://localhost:3000"),
 
-    EMAIL_ENABLED: z
+  EMAIL_ENABLED: z
     .string()
     .default("false")
     .transform((value) => value.toLowerCase() === "true"),
@@ -45,6 +45,11 @@ const environmentSchema = z.object({
   SMTP_PASSWORD: z.string().optional(),
 
   EMAIL_FROM: z.string().optional(),
+  EMAIL_WORKER_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(5000),
+  EMAIL_WORKER_BATCH_SIZE: z.coerce.number().int().positive().max(100).default(25),
+  EMAIL_WORKER_LOCK_TIMEOUT_MS: z.coerce.number().int().positive().default(1800000),
+  EMAIL_WORKER_MAX_ATTEMPTS: z.coerce.number().int().positive().default(5),
+  EMAIL_WORKER_RETRY_DELAY_MS: z.coerce.number().int().positive().default(900000),
   STORAGE_DRIVER: z.enum(["filesystem", "s3"]).default("filesystem"),
   STORAGE_DIR: z.preprocess(
     (value) => value ?? "",

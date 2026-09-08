@@ -61,6 +61,14 @@ enum EmailSequenceStopCondition {
   POSITION_CLOSED
 }
 
+enum EmailTaskStatus {
+  PENDING
+  PROCESSING
+  SENT
+  FAILED
+  CANCELLED
+}
+
 enum UserRole {
   RECRUITER
   CANDIDATE
@@ -150,28 +158,58 @@ model EmailTemplate {
   updatedAt DateTime @updatedAt
 
   steps EmailSequenceStep[]
+  tasks EmailTask[]
+}
+
+model EmailTask {
+  id                String              @id @default(cuid())
+  assignmentId      String
+  templateId        String
+  sequenceStepOrder Int
+  dueAt             DateTime
+  to                String
+  subject           String
+  html              String
+  text              String?
+  variables         Json
+  status            EmailTaskStatus     @default(PENDING)
+  attemptCount      Int                 @default(0)
+  lastError         String?
+  idempotencyKey    String              @unique
+  stopCondition     EmailSequenceStopCondition?
+  sentAt            DateTime?
+  processedAt       DateTime?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  assignment UserTestAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  template   EmailTemplate      @relation(fields: [templateId], references: [id], onDelete: Restrict)
+
+  @@index([status, dueAt])
+  @@index([assignmentId, sequenceStepOrder])
+  @@index([templateId])
 }
 
 model EmailSequence {
-  id         String            @id @default(cuid())
-  positionId String            @unique
-  createdAt  DateTime          @default(now())
-  updatedAt  DateTime          @updatedAt
+  id         String               @id @default(cuid())
+  positionId String               @unique
+  createdAt  DateTime             @default(now())
+  updatedAt  DateTime             @updatedAt
 
   position Position @relation(fields: [positionId], references: [id], onDelete: Cascade)
   steps    EmailSequenceStep[]
 }
 
 model EmailSequenceStep {
-  id            String                     @id @default(cuid())
-  sequenceId    String
-  templateId    String
-  delayValue    Int
-  delayUnit     EmailDelayUnit
-  order         Int
-  stopCondition EmailSequenceStopCondition?
-  createdAt     DateTime                   @default(now())
-  updatedAt     DateTime                   @updatedAt
+  id              String                     @id @default(cuid())
+  sequenceId      String
+  templateId      String
+  delayValue      Int
+  delayUnit       EmailDelayUnit
+  order           Int
+  stopCondition   EmailSequenceStopCondition?
+  createdAt       DateTime                   @default(now())
+  updatedAt       DateTime                   @updatedAt
 
   sequence EmailSequence @relation(fields: [sequenceId], references: [id], onDelete: Cascade)
   template EmailTemplate @relation(fields: [templateId], references: [id], onDelete: Restrict)
@@ -219,6 +257,7 @@ model UserTestAssignment {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   test Test @relation(fields: [testId], references: [id], onDelete: Cascade)
   attempt Attempt?
+  emailTasks EmailTask[]
 
   @@unique([userId, testId])
   @@index([testId])
