@@ -1,6 +1,42 @@
-CREATE TYPE "EmailDelayUnit" AS ENUM ('MINUTES', 'HOURS', 'DAYS');
-CREATE TYPE "EmailSequenceStopCondition" AS ENUM ('CANDIDATE_SUBMITTED', 'CANDIDATE_DISCARDED', 'POSITION_CLOSED');
-CREATE TYPE "EmailTaskStatus" AS ENUM ('PENDING', 'PROCESSING', 'SENT', 'FAILED', 'CANCELLED');
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_type WHERE typname = 'EmailDelayUnit'
+  ) THEN
+    CREATE TYPE "EmailDelayUnit" AS ENUM ('MINUTES', 'HOURS', 'DAYS');
+  END IF;
+END
+$$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_type WHERE typname = 'EmailSequenceStopCondition'
+  ) THEN
+    CREATE TYPE "EmailSequenceStopCondition" AS ENUM (
+      'CANDIDATE_SUBMITTED',
+      'CANDIDATE_DISCARDED',
+      'POSITION_CLOSED'
+    );
+  END IF;
+END
+$$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_type WHERE typname = 'EmailTaskStatus'
+  ) THEN
+    CREATE TYPE "EmailTaskStatus" AS ENUM (
+      'PENDING',
+      'PROCESSING',
+      'SENT',
+      'FAILED',
+      'CANCELLED'
+    );
+  END IF;
+END
+$$;
 
 CREATE TABLE "EmailTemplate" (
   "id" TEXT NOT NULL,
