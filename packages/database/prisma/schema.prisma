@@ -258,6 +258,9 @@ model UserTestAssignment {
   test Test @relation(fields: [testId], references: [id], onDelete: Cascade)
   attempt Attempt?
   emailTasks EmailTask[]
+  candidateStage CandidateStage?
+  stageRevision Int @default(0)
+  stageChanges CandidateStageChange[]
 
   @@unique([userId, testId])
   @@index([testId])
@@ -436,4 +439,36 @@ model ResponseAsset {
   videoResponseItem VideoResponseItem?
 
   @@index([ownerId])
+}
+
+
+enum CandidateStage {
+  NOT_INVITED
+  INVITED
+  IN_PROGRESS
+  TO_BE_EVALUATED
+  STAGE_1
+  STAGE_2
+  STAGE_3
+  SHORTLISTED
+  ON_HOLD
+  DISCARDED
+  HIRED
+  WITHDRAWN
+}
+
+model CandidateStageChange {
+  id String @id @default(cuid())
+  assignmentId String?
+  positionId String
+  candidateId String
+  fromStage CandidateStage
+  toStage CandidateStage
+  actorId String
+  actorName String
+  changedAt DateTime @default(now())
+  assignment UserTestAssignment? @relation(fields: [assignmentId], references: [id], onDelete: SetNull)
+
+  @@index([assignmentId, changedAt])
+  @@index([positionId, changedAt])
 }

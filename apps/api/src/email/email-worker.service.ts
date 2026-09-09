@@ -379,6 +379,17 @@ export class EmailWorkerService implements OnModuleInit, OnModuleDestroy {
       task.assignmentId,
     );
 
+    const currentApplication = await this.prisma.userTestAssignment.findUnique({
+      where: { id: task.assignmentId }, select: { candidateStage: true },
+    });
+    if (!currentApplication || ['DISCARDED', 'HIRED', 'WITHDRAWN'].includes(currentApplication.candidateStage ?? '')) {
+      await this.markTask(task.id, {
+        status: "CANCELLED", processedAt: new Date(),
+        lastError: "Application ended or was removed",
+      });
+      return;
+    }
+
     const email = context.assignment.user.email.trim();
     if (!isValidEmail(email)) {
       this.logger.warn(
