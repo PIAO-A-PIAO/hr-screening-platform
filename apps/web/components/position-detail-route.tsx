@@ -1,11 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
+import { CandidateStagesPanel } from "./candidate-stages-panel";
 import { CreateTestPanel } from "./create-test-panel";
 import { InviteCandidatePanel } from "./invite-candidate-panel";
 import {
-  deletePositionAssignment,
   getPosition,
   type PositionResponse,
 } from "../lib/position-api";
@@ -15,23 +14,10 @@ type PositionDetailRouteProps = {
   positionId: string;
 };
 
-function formatStatuses(statuses: string[]) {
-  return statuses.length === 0 ? "No status" : statuses.join(", ");
-}
-
-function buildAttemptViewHref(candidate: PositionResponse["submittedCandidates"][number]) {
-  if (!candidate.attemptId || !candidate.inviteToken) {
-    return null;
-  }
-
-  return `/attempts/view?attemptId=${encodeURIComponent(candidate.attemptId)}&inviteToken=${encodeURIComponent(candidate.inviteToken)}`;
-}
-
 export function PositionDetailRoute({ positionId }: PositionDetailRouteProps) {
   const [position, setPosition] = useState<PositionResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [deletingAssignmentId, setDeletingAssignmentId] = useState<string | null>(null);
   useEffect(() => {
     let cancelled = false;
 
@@ -69,20 +55,6 @@ export function PositionDetailRoute({ positionId }: PositionDetailRouteProps) {
       setPosition(loaded);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Failed to refresh position");
-    }
-  }
-
-  async function handleDeleteAssignment(assignmentId: string) {
-    setDeletingAssignmentId(assignmentId);
-    setError(null);
-
-    try {
-      await deletePositionAssignment(positionId, assignmentId);
-      await refreshPosition();
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Failed to delete assignment");
-    } finally {
-      setDeletingAssignmentId((current) => (current === assignmentId ? null : current));
     }
   }
 
@@ -161,75 +133,7 @@ export function PositionDetailRoute({ positionId }: PositionDetailRouteProps) {
         <PositionEmailSequencePanel position={position} className="positionAccordionCard" onSaved={() => void refreshPosition()} />
       </div>
 
-      <div className="detailGrid positionCandidateGrid">
-        <div className="detailCard">
-          <strong>Submitted attempts</strong>
-          {position.submittedCandidates.length === 0 ? (
-            <div className="stateCard emptyStateInline">No candidates have submitted yet.</div>
-          ) : (
-            <ul className="dataList">
-              {position.submittedCandidates.map((candidate) => (
-                <li key={candidate.id}>
-                  {(() => {
-                    const href = buildAttemptViewHref(candidate);
-
-                    if (!href) {
-                      return (
-                        <>
-                          <strong>{candidate.name}</strong>
-                          <span>{candidate.email}</span>
-                          <small>{formatStatuses(candidate.status)}</small>
-                          <small>Invited {new Date(candidate.invitedAt).toLocaleString()}</small>
-                          <small>{candidate.inviteToken}</small>
-                        </>
-                      );
-                    }
-
-                    return (
-                      <Link className="candidateRowLink" href={href}>
-                        <strong>{candidate.name}</strong>
-                        <span>{candidate.email}</span>
-                        <small>{formatStatuses(candidate.status)}</small>
-                        <small>Invited {new Date(candidate.invitedAt).toLocaleString()}</small>
-                        <small>{candidate.inviteToken}</small>
-                      </Link>
-                    );
-                  })()}
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-
-        <div className="detailCard">
-          <strong>Invited candidates not yet submitted</strong>
-          {position.invitedCandidates.length === 0 ? (
-            <div className="stateCard emptyStateInline">No invited candidates remain pending.</div>
-          ) : (
-            <ul className="dataList">
-              {position.invitedCandidates.map((candidate) => (
-                <li key={candidate.id}>
-                  <div>
-                    <strong>{candidate.name}</strong>
-                    <span>{candidate.email}</span>
-                    <small>{formatStatuses(candidate.status)}</small>
-                    <small>Invited {new Date(candidate.invitedAt).toLocaleString()}</small>
-                    <small>{candidate.inviteToken}</small>
-                  </div>
-                  <button
-                    className="secondaryButton inlineButton"
-                    type="button"
-                    onClick={() => void handleDeleteAssignment(candidate.id)}
-                    disabled={deletingAssignmentId === candidate.id}
-                  >
-                    {deletingAssignmentId === candidate.id ? "Deleting..." : "Delete assignment"}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      </div>
+      <CandidateStagesPanel key={position.id} positionId={position.id} updatedAt={position.updatedAt} candidateCount={position.candidateCount} onChanged={() => void refreshPosition()} />
     </section>
   );
 }
