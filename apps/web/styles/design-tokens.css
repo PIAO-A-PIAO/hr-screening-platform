@@ -1,0 +1,34 @@
+:root {
+  --ds-font-body: Inter, Roboto, "Segoe UI", system-ui, -apple-system, sans-serif;
+  --ds-navy-950: oklch(0.18 0.08 245);
+  --ds-navy-900: oklch(0.23 0.1 245);
+  --ds-blue-700: oklch(0.4 0.15 245);
+  --ds-blue-600: oklch(0.45 0.16 245);
+  --ds-blue-500: oklch(0.55 0.18 245);
+  --ds-blue-100: oklch(0.89 0.05 240);
+  --ds-blue-50: oklch(0.96 0.02 240);
+  --ds-gray-900: oklch(0.23 0.03 240);
+  --ds-gray-700: oklch(0.36 0.03 240);
+  --ds-gray-600: oklch(0.43 0.02 240);
+  --ds-gray-500: oklch(0.49 0.02 240);
+  --ds-gray-200: oklch(0.84 0.02 240);
+  --ds-gray-100: oklch(0.92 0.01 240);
+  --ds-gray-50: oklch(0.97 0.01 240);
+  --ds-white: #fff;
+  --ds-danger: oklch(0.55 0.21 20);
+  --ds-space-1: 4px;
+  --ds-space-2: 8px;
+  --ds-space-3: 12px;
+  --ds-space-4: 16px;
+  --ds-space-5: 20px;
+  --ds-space-6: 24px;
+  --ds-space-8: 32px;
+  --ds-space-10: 40px;
+  --ds-radius-sm: 8px;
+  --ds-radius-md: 12px;
+  --ds-radius-pill: 999px;
+  --ds-border: 1px solid var(--ds-gray-200);
+  --ds-shadow-sm: 0 1px 3px rgba(20, 45, 76, 0.06);
+  --ds-sidebar-width: 248px;
+  --ds-header-height: 72px;
+}
