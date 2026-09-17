@@ -3,6 +3,7 @@ import { ApplicationFrame } from "../components/layout/application-frame";
 import "../styles/design-tokens.css";
 import "../styles/ui-components.css";
 import "../styles/recruiter-shell.css";
+import "../styles/positions-dashboard.css";
 import "./globals.css";
 
 export const metadata: Metadata = {
