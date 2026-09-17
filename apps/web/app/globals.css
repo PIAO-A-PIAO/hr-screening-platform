@@ -1,15 +1,16 @@
 :root {
-  --ink: #12151d;
-  --muted: #5e687a;
-  --line: rgba(18, 21, 29, 0.12);
-  --surface: rgba(255, 255, 255, 0.84);
-  --surface-strong: #ffffff;
-  --canvas: #f3f5f8;
-  --brand: #1f6feb;
-  --brand-soft: rgba(31, 111, 235, 0.12);
+  /* Compatibility aliases for Phase 1 pages. New UI uses --ds-* tokens. */
+  --ink: var(--ds-text);
+  --muted: var(--ds-text-muted);
+  --line: color-mix(in srgb, var(--ds-gray-900) 12%, transparent);
+  --surface: color-mix(in srgb, var(--ds-white) 84%, transparent);
+  --surface-strong: var(--ds-surface);
+  --canvas: var(--ds-page);
+  --brand: var(--ds-blue-600);
+  --brand-soft: var(--ds-blue-50);
   --accent: #db5c31;
-  --ready: #16845b;
-  --danger: #b42318;
+  --ready: var(--ds-success-600);
+  --danger: var(--ds-danger-600);
   --shadow: 0 24px 80px rgba(16, 24, 40, 0.12);
   color-scheme: light;
 }
@@ -30,7 +31,46 @@ body {
     radial-gradient(circle at top left, rgba(31, 111, 235, 0.18), transparent 28%),
     radial-gradient(circle at top right, rgba(219, 92, 49, 0.12), transparent 26%),
     linear-gradient(180deg, #f8fafc 0%, var(--canvas) 100%);
-  font-family: Inter, "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--ds-font-body);
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+:focus-visible {
+  outline: 3px solid var(--ds-focus-ring);
+  outline-offset: 2px;
+}
+
+:disabled,
+[aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
+.dsSrOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 body::before {
