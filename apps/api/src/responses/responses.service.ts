@@ -101,8 +101,8 @@ export class ResponsesService {
 
     const duplicate = await this.prisma.response.findUnique({
       where: {
-        userId_testId_questionId: {
-          userId: dto.userId,
+        candidateId_testId_questionId: {
+          candidateId: dto.userId,
           testId: dto.testId,
           questionId: dto.questionId,
         },
@@ -139,7 +139,7 @@ export class ResponsesService {
       data: {
         type: dto.type,
         questionId: dto.questionId,
-        userId: dto.userId,
+        candidateId: dto.userId,
         testId: dto.testId,
         attemptId,
         videoItem: dto.type === ResponseType.VIDEO ? { create: {} } : undefined,
@@ -227,7 +227,7 @@ export class ResponsesService {
 
   async getResponse(responseId: string, inviteToken?: string) {
     const response = await this.loadResponse(responseId);
-    await this.authorizeAssignment(response.userId, response.testId, inviteToken);
+    await this.authorizeAssignment(response.candidateId, response.testId, inviteToken);
     return this.toResponse(response);
   }
 
@@ -238,7 +238,7 @@ export class ResponsesService {
     inviteToken?: string,
   ) {
     const response = await this.loadResponse(responseId);
-    await this.authorizeAssignment(response.userId, response.testId, inviteToken);
+    await this.authorizeAssignment(response.candidateId, response.testId, inviteToken);
     await this.assertResponseAttemptEditable(response);
 
     if (response.type !== ResponseType.VIDEO || !response.videoItem) {
@@ -262,7 +262,7 @@ export class ResponsesService {
         size: prepared.preparedSize,
         durationSeconds: prepared.preparedDurationSeconds ?? dto.durationSeconds ?? null,
         checksum: createHash("sha256").update(buffer).digest("hex"),
-        ownerId: response.userId,
+        ownerId: response.candidateId,
         originalName: file.originalname,
       },
     });
@@ -323,7 +323,7 @@ export class ResponsesService {
 
   async openVideo(responseId: string, inviteToken?: string) {
     const response = await this.loadResponse(responseId);
-    await this.authorizeAssignment(response.userId, response.testId, inviteToken);
+    await this.authorizeAssignment(response.candidateId, response.testId, inviteToken);
     const asset = response.videoItem?.asset;
 
     if (response.type !== ResponseType.VIDEO || !asset) {
@@ -341,8 +341,8 @@ export class ResponsesService {
   }
 
   private async authorizeAssignment(userId: string, testId: string, inviteToken?: string) {
-    const assignment = await this.prisma.userTestAssignment.findUnique({
-      where: { userId_testId: { userId, testId } },
+    const assignment = await this.prisma.interview.findFirst({
+      where: { candidateId: userId, testId },
       select: { inviteToken: true },
     });
 
@@ -431,7 +431,7 @@ export class ResponsesService {
       id: response.id,
       type: response.type,
       questionId: response.questionId,
-      userId: response.userId,
+      userId: response.candidateId,
       testId: response.testId,
       attemptId: response.attemptId,
       score: response.score,

@@ -1,5 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { EmailDelayUnit, EmailSequenceStopCondition, Prisma, PositionStatus, UserTestStatus } from "@prisma/client";
+import { AttemptStatus, EmailDelayUnit, EmailSequenceStopCondition, InterviewWorkflowStatus, Prisma, PositionStatus } from "@prisma/client";
 import { randomUUID } from "node:crypto";
 import * as nodemailer from "nodemailer";
 import { getEnvironment } from "../config/environment";
@@ -32,7 +32,8 @@ type AssignmentTemplateContext = {
     id: string;
     inviteToken: string | null;
     invitedAt: Date;
-    status: UserTestStatus[];
+    workflowStatus: InterviewWorkflowStatus;
+    attempt: { status: AttemptStatus } | null;
     user: {
       id: string;
       name: string;
@@ -213,14 +214,15 @@ export class EmailService {
     tx: Prisma.TransactionClient,
     assignmentId: string,
   ): Promise<AssignmentTemplateContext> {
-    const assignment = await tx.userTestAssignment.findUnique({
+    const interview = await tx.interview.findUnique({
       where: { id: assignmentId },
       select: {
         id: true,
         inviteToken: true,
         invitedAt: true,
-        status: true,
-        user: {
+        workflowStatus: true,
+        attempt: { select: { status: true } },
+        candidate: {
           select: {
             id: true,
             name: true,
@@ -270,27 +272,24 @@ export class EmailService {
       },
     });
 
-    if (!assignment) {
+    if (!interview) {
       throw new Error(`Assignment not found: ${assignmentId}`);
-    }
-
-    if (!assignment.test) {
-      throw new Error(`Assignment ${assignmentId} is not attached to a test`);
     }
 
     return {
       assignment: {
-        ...assignment,
-        invitedAt: asDate(assignment.invitedAt),
+        ...interview,
+        user: interview.candidate,
+        invitedAt: asDate(interview.invitedAt),
         test: {
-          ...assignment.test,
-          position: assignment.test.position
+          ...interview.test,
+          position: interview.test.position
             ? {
-                ...assignment.test.position,
-                emails: assignment.test.position.emails
+                ...interview.test.position,
+                emails: interview.test.position.emails
                   ? {
-                      ...assignment.test.position.emails,
-                      steps: assignment.test.position.emails.steps.map((step) => ({
+                      ...interview.test.position.emails,
+                      steps: interview.test.position.emails.steps.map((step) => ({
                         ...step,
                         template: {
                           ...step.template,

@@ -45,8 +45,14 @@ enum AttemptScoreState {
 enum PositionStatus {
   DRAFT
   OPEN
-  ON_HOLD
   CLOSED
+}
+
+enum InterviewWorkflowStatus {
+  INVITED
+  TO_EVALUATE
+  SHORTLISTED
+  DISCARDED
 }
 
 enum EmailDelayUnit {
@@ -104,10 +110,30 @@ model User {
 
   createdTests     Test[]     @relation("TestCreator")
   createdQuestions Question[] @relation("QuestionCreator")
-  testAssignments  UserTestAssignment[]
-  attempts         Attempt[]
-  responses        Response[] @relation("CandidateResponses")
   evaluatedResponses Response[] @relation("ResponseEvaluator")
+  departments      Department[]
+}
+
+model Candidate {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  interviews Interview[]
+  attempts   Attempt[]
+  responses  Response[] @relation("CandidateResponses")
+}
+
+model Department {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  positions Position[]
+  users     User[]
 }
 
 model Test {
@@ -127,7 +153,7 @@ model Test {
   createdAt        DateTime   @default(now())
   updatedAt        DateTime   @updatedAt
 
-  assignments      UserTestAssignment[]
+  interviews       Interview[]
   attempts         Attempt[]
   responses        Response[]
 }
@@ -136,15 +162,15 @@ model Position {
   id          String         @id @default(cuid())
   title       String
   description String?
-  department  String
-  location    String
+  tags        String[]       @default([])
   status      PositionStatus @default(DRAFT)
-  owner       String
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
 
-  test Test?
-  emails EmailSequence?
+  departments Department[]
+  interviews  Interview[]
+  test        Test?
+  emails      EmailSequence?
 }
 
 model EmailTemplate {
@@ -163,7 +189,7 @@ model EmailTemplate {
 
 model EmailTask {
   id                String              @id @default(cuid())
-  assignmentId      String
+  interviewId       String              @map("assignmentId")
   templateId        String
   sequenceStepOrder Int
   dueAt             DateTime
@@ -182,11 +208,11 @@ model EmailTask {
   createdAt         DateTime            @default(now())
   updatedAt         DateTime            @updatedAt
 
-  assignment UserTestAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
-  template   EmailTemplate      @relation(fields: [templateId], references: [id], onDelete: Restrict)
+  interview Interview     @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+  template  EmailTemplate @relation(fields: [templateId], references: [id], onDelete: Restrict)
 
   @@index([status, dueAt])
-  @@index([assignmentId, sequenceStepOrder])
+  @@index([interviewId, sequenceStepOrder])
   @@index([templateId])
 }
 
@@ -243,35 +269,38 @@ model Question {
   @@index([type])
 }
 
-model UserTestAssignment {
-  id        String        @id @default(cuid())
-  userId    String
-  testId    String
-  status    UserTestStatus[] @default([])
-  inviteToken String?     @unique
-  invitedAt DateTime      @default(now())
+model Interview {
+  id             String                  @id @default(cuid())
+  candidateId    String                  @map("userId")
+  positionId     String
+  testId         String
+  workflowStatus InterviewWorkflowStatus @default(INVITED)
+  inviteToken    String?                 @unique
+  invitedAt      DateTime                @default(now())
   inviteExpiresAt DateTime?
-  createdAt DateTime      @default(now())
-  updatedAt DateTime      @updatedAt
+  createdAt      DateTime                @default(now())
+  updatedAt      DateTime                @updatedAt
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  test Test @relation(fields: [testId], references: [id], onDelete: Cascade)
-  attempt Attempt?
-  emailTasks EmailTask[]
-  candidateStage CandidateStage?
-  stageRevision Int @default(0)
-  stageChanges CandidateStageChange[]
+  candidate        Candidate               @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  position         Position                @relation(fields: [positionId], references: [id], onDelete: Cascade)
+  test             Test                    @relation(fields: [testId], references: [id], onDelete: Cascade)
+  attempt          Attempt?
+  emailTasks       EmailTask[]
+  workflowRevision Int                     @default(0) @map("stageRevision")
+  statusChanges    InterviewStatusChange[]
 
-  @@unique([userId, testId])
+  @@unique([candidateId, positionId])
+  @@index([positionId, workflowStatus])
   @@index([testId])
-  @@index([userId])
+  @@index([candidateId])
+  @@map("UserTestAssignment")
 }
 
 model Attempt {
   id            String            @id @default(cuid())
-  assignmentId   String            @unique
+  interviewId    String            @unique @map("assignmentId")
   testId         String
-  userId         String
+  candidateId    String            @map("userId")
   status         AttemptStatus     @default(IN_PROGRESS)
   startedAt      DateTime          @default(now())
   submittedAt    DateTime?
@@ -280,14 +309,14 @@ model Attempt {
   createdAt      DateTime          @default(now())
   updatedAt      DateTime          @updatedAt
 
-  assignment UserTestAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
-  test       Test               @relation(fields: [testId], references: [id], onDelete: Cascade)
-  user       User               @relation(fields: [userId], references: [id], onDelete: Cascade)
-  responses  Response[]
+  interview Interview @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+  test      Test      @relation(fields: [testId], references: [id], onDelete: Cascade)
+  candidate Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  responses Response[]
 
-  @@unique([userId, testId])
+  @@unique([candidateId, testId])
   @@index([testId])
-  @@index([userId])
+  @@index([candidateId])
 }
 
 model VideoQuestionItem {
@@ -362,7 +391,7 @@ model Response {
   id              String       @id @default(cuid())
   type            ResponseType
   questionId      String
-  userId          String
+  candidateId     String       @map("userId")
   testId          String
   attemptId       String?
   score           Float?
@@ -372,7 +401,7 @@ model Response {
   updatedAt       DateTime     @updatedAt
 
   question  Question @relation(fields: [questionId], references: [id], onDelete: Restrict)
-  user      User     @relation("CandidateResponses", fields: [userId], references: [id], onDelete: Cascade)
+  candidate Candidate @relation("CandidateResponses", fields: [candidateId], references: [id], onDelete: Cascade)
   test      Test     @relation(fields: [testId], references: [id], onDelete: Cascade)
   attempt   Attempt?  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
   evaluator User?    @relation("ResponseEvaluator", fields: [evaluatorUserId], references: [id], onDelete: SetNull)
@@ -381,8 +410,8 @@ model Response {
   multipleChoiceItem MultipleChoiceResponseItem?
   shortAnswerItem    ShortAnswerResponseItem?
 
-  @@unique([userId, testId, questionId])
-  @@index([testId, userId])
+  @@unique([candidateId, testId, questionId])
+  @@index([testId, candidateId])
   @@index([questionId])
   @@index([attemptId])
 }
@@ -442,33 +471,19 @@ model ResponseAsset {
 }
 
 
-enum CandidateStage {
-  NOT_INVITED
-  INVITED
-  IN_PROGRESS
-  TO_BE_EVALUATED
-  STAGE_1
-  STAGE_2
-  STAGE_3
-  SHORTLISTED
-  ON_HOLD
-  DISCARDED
-  HIRED
-  WITHDRAWN
-}
-
-model CandidateStageChange {
+model InterviewStatusChange {
   id String @id @default(cuid())
-  assignmentId String?
+  interviewId String? @map("assignmentId")
   positionId String
   candidateId String
-  fromStage CandidateStage
-  toStage CandidateStage
+  fromStatus InterviewWorkflowStatus @map("fromStage")
+  toStatus InterviewWorkflowStatus @map("toStage")
   actorId String
   actorName String
   changedAt DateTime @default(now())
-  assignment UserTestAssignment? @relation(fields: [assignmentId], references: [id], onDelete: SetNull)
+  interview Interview? @relation(fields: [interviewId], references: [id], onDelete: SetNull)
 
-  @@index([assignmentId, changedAt])
+  @@index([interviewId, changedAt])
   @@index([positionId, changedAt])
+  @@map("CandidateStageChange")
 }

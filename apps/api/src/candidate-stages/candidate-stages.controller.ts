@@ -2,14 +2,14 @@ import { Body, Controller, Delete, Get, Param, Patch } from '@nestjs/common';
 import { IsIn, IsInt, Min } from 'class-validator';
 import { CandidateStagesService } from './candidate-stages.service';
 import { ReviewerAuth } from './reviewer-auth';
-import { Stage, STAGES } from './stage-policy';
+import { WorkflowStatus, WORKFLOW_STATUSES } from './stage-policy';
 
 export class ChangeStageDto {
-  @IsIn(STAGES)
-  stage!: Stage;
+  @IsIn(WORKFLOW_STATUSES)
+  stage!: WorkflowStatus;
 
-  @IsIn(STAGES)
-  expectedStage!: Stage;
+  @IsIn(WORKFLOW_STATUSES)
+  expectedStage!: WorkflowStatus;
 
   @IsInt()
   @Min(0)

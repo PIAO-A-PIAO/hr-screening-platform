@@ -338,12 +338,8 @@ export class AttemptsService {
       this.prisma.$executeRaw(Prisma.sql`
         UPDATE "UserTestAssignment"
         SET
-          "status" = ARRAY(
-            SELECT DISTINCT unnest(
-              "status" ||
-              ARRAY['TO_BE_EVALUATED']::"UserTestStatus"[]
-            )
-          ),
+          "workflowStatus" = 'TO_EVALUATE'::"InterviewWorkflowStatus",
+          "stageRevision" = "stageRevision" + 1,
           "updatedAt" = NOW()
         WHERE "id" = ${attempt.assignmentId}
       `),
@@ -453,7 +449,7 @@ export class AttemptsService {
           t."description" AS "testDescription",
           t."status" AS "testStatus"
         FROM "Attempt" a
-        JOIN "User" u
+        JOIN "Candidate" u
           ON u."id" = a."userId"
         JOIN "Test" t
           ON t."id" = a."testId"
@@ -532,17 +528,12 @@ export class AttemptsService {
     const normalizedToken = this.requireInviteToken(inviteToken);
 
     const assignment =
-      await this.prisma.userTestAssignment.findUnique({
-        where: {
-          userId_testId: {
-            userId,
-            testId,
-          },
-        },
+      await this.prisma.interview.findFirst({
+        where: { candidateId: userId, testId },
 
         select: {
           id: true,
-          userId: true,
+          candidateId: true,
           testId: true,
           inviteToken: true,
           inviteExpiresAt: true,
@@ -565,7 +556,10 @@ export class AttemptsService {
       assignment.inviteExpiresAt,
     );
 
-    return assignment satisfies AssignmentAuthorizationRow;
+    return {
+      ...assignment,
+      userId: assignment.candidateId,
+    } satisfies AssignmentAuthorizationRow;
   }
 
   private async loadAttemptByAssignmentId(
@@ -635,7 +629,7 @@ export class AttemptsService {
         JOIN "UserTestAssignment" ua
           ON ua."id" = a."assignmentId"
 
-        JOIN "User" u
+        JOIN "Candidate" u
           ON u."id" = a."userId"
 
         JOIN "Test" t
