@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { ApplicationFrame } from "../components/layout/application-frame";
 import "../styles/design-tokens.css";
+import "../styles/ui-components.css";
 import "../styles/recruiter-shell.css";
 import "./globals.css";
 
