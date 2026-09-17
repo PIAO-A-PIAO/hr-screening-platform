@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { PositionsIndexRoute } from "../../components/positions-index-route";
+import { AppIcon } from "../../components/ui/app-icon";
+import { ButtonLink } from "../../components/ui/button";
+import { PageHeader } from "../../components/ui/page-header";
 
 export const metadata: Metadata = {
   title: "All Positions | DS-HR",
@@ -10,16 +12,16 @@ export const metadata: Metadata = {
 export default function PositionsPage() {
   return (
     <main className="pageShell">
-      <section className="hero compactHero">
-        <div className="eyebrow">DS-HR - Positions</div>
-        <h1>Browse positions</h1>
-        <p>Track each role from draft to attached test, candidate invitations, and submitted attempts.</p>
-        <div className="heroActions">
-          <Link className="primaryButton inlineButton" href="/positions/create">
+      <PageHeader
+        eyebrow="Recruiting workspace"
+        title="Positions"
+        description="Manage open roles, monitor candidate activity, and keep every interview process moving."
+        actions={
+          <ButtonLink href="/positions/create" leadingIcon={<AppIcon name="plus" size={18} />}>
             Create position
-          </Link>
-        </div>
-      </section>
+          </ButtonLink>
+        }
+      />
 
       <PositionsIndexRoute />
     </main>
