@@ -1,0 +1,69 @@
+.positionPipelinePage { display:grid; gap:var(--ds-space-5); }
+.positionPipelineHero { display:flex; align-items:flex-end; justify-content:space-between; gap:var(--ds-space-6); padding:var(--ds-space-6); border:var(--ds-border); border-radius:var(--ds-radius-md); background:var(--ds-white); box-shadow:var(--ds-shadow-sm); }
+.positionPipelineHero>div { display:grid; justify-items:start; gap:var(--ds-space-2); }
+.positionPipelineHero .dsButton { margin-bottom:var(--ds-space-2); }
+.positionPipelineHero h1 { margin:0; color:var(--ds-navy-900); font-size:clamp(1.65rem,3vw,2.35rem); letter-spacing:-.035em; }
+.positionPipelineHero p { max-width:72ch; margin:0; color:var(--ds-text-muted); }
+.positionPipelineMeta { padding-inline:var(--ds-space-2); }
+.positionPipelineHeaderActions { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:var(--ds-space-2); }
+.inviteCandidateForm,.candidateCsvImport { display:grid; gap:var(--ds-space-4); margin-top:var(--ds-space-4); }
+.inviteCandidateNameGrid { display:grid; grid-template-columns:1fr 1fr; gap:var(--ds-space-3); }
+.candidateImportResults { max-height:280px; overflow:auto; border:var(--ds-border); border-radius:var(--ds-radius-sm); }
+.candidateImportResults table { width:100%; border-collapse:collapse; font-size:var(--ds-font-size-sm); }
+.candidateImportResults th,.candidateImportResults td { padding:10px 12px; border-bottom:1px solid var(--ds-gray-100); text-align:left; vertical-align:top; }
+.candidatePipeline { overflow:hidden; border:var(--ds-border); border-radius:var(--ds-radius-md); background:var(--ds-white); box-shadow:var(--ds-shadow-sm); }
+.candidatePipelineHeader { display:flex; align-items:flex-end; justify-content:space-between; gap:var(--ds-space-5); padding:var(--ds-space-5); border-bottom:1px solid var(--ds-gray-100); }
+.candidatePipelineHeader>div { display:grid; gap:4px; }
+.candidatePipelineHeader h2 { margin:0; color:var(--ds-navy-900); font-size:var(--ds-font-size-2xl); }
+.candidateReviewer { color:var(--ds-text-subtle); font-size:var(--ds-font-size-xs); }
+.candidatePipelineTabs { padding:var(--ds-space-4) var(--ds-space-5) 0; }
+.candidatePipelineToolbar { display:grid; grid-template-columns:minmax(260px,1fr) minmax(190px,.35fr) auto; align-items:end; gap:var(--ds-space-3); padding:var(--ds-space-4) var(--ds-space-5); }
+.candidatePipelineToolbar label,.applicationCardActions label { display:grid; gap:7px; min-width:0; }
+.candidatePipelineToolbar label>span,.applicationCardActions label>span { color:var(--ds-gray-800); font-size:var(--ds-font-size-xs); font-weight:var(--ds-weight-bold); }
+.candidatePipelineToolbar input,.candidatePipelineToolbar select,.applicationCardActions select { width:100%; min-height:42px; padding:9px 12px; border:1px solid var(--ds-border-strong); border-radius:var(--ds-radius-sm); color:var(--ds-text); background:var(--ds-white); font:inherit; font-size:var(--ds-font-size-sm); }
+.candidatePipeline>.dsFeedback { margin:var(--ds-space-5); }
+.applicationList { display:grid; border-top:1px solid var(--ds-gray-100); }
+.applicationCard { display:grid; grid-template-columns:minmax(280px,1fr) auto minmax(330px,.8fr); align-items:center; border-bottom:1px solid var(--ds-gray-100); }
+.applicationCard:last-child { border-bottom:0; }
+.applicationCardBody { display:grid; grid-template-columns:minmax(180px,1fr) minmax(170px,.75fr); gap:var(--ds-space-5); align-items:center; min-width:0; padding:var(--ds-space-5); color:inherit; text-decoration:none; }
+.applicationCardBody:not(.applicationCardBodyStatic):hover { background:var(--ds-blue-50); }
+.applicationIdentity,.applicationTiming { display:grid; gap:5px; min-width:0; }
+.applicationIdentity strong { overflow:hidden; color:var(--ds-navy-900); font-size:var(--ds-font-size-lg); text-overflow:ellipsis; white-space:nowrap; }
+.applicationIdentity span,.applicationTiming span,.applicationTiming small { overflow:hidden; color:var(--ds-text-subtle); font-size:var(--ds-font-size-xs); text-overflow:ellipsis; white-space:nowrap; }
+.applicationTiming strong { color:var(--ds-gray-700); font-size:var(--ds-font-size-xs); font-weight:var(--ds-weight-bold); }
+.applicationCardStatus { display:grid; justify-items:start; gap:6px; padding:var(--ds-space-4); }
+.applicationCardStatus small { color:var(--ds-text-subtle); font-size:11px; }
+.workflowPill { display:inline-flex; padding:5px 9px; border-radius:999px; color:var(--ds-blue-700); background:var(--ds-blue-50); font-size:var(--ds-font-size-xs); font-weight:var(--ds-weight-bold); white-space:nowrap; }
+.workflowPill-to-evaluate { color:var(--ds-warning-700); background:var(--ds-warning-50); }
+.workflowPill-shortlisted { color:var(--ds-success-700); background:var(--ds-success-50); }
+.workflowPill-discarded { color:var(--ds-danger-700); background:var(--ds-danger-50); }
+.applicationCardActions { display:flex; flex-wrap:wrap; align-items:end; justify-content:flex-end; gap:var(--ds-space-2); padding:var(--ds-space-4) var(--ds-space-5); }
+.applicationCardActions label { min-width:145px; }
+.applicationCardActions select { min-height:34px; padding:5px 9px; }
+.applicationCardHistory { grid-column:1/-1; display:grid; gap:var(--ds-space-2); padding:var(--ds-space-4) var(--ds-space-5); border-top:1px solid var(--ds-gray-100); background:var(--ds-surface-muted); }
+.applicationCardHistory>strong { color:var(--ds-navy-900); font-size:var(--ds-font-size-sm); }
+.applicationCardHistory>small { color:var(--ds-text-subtle); }
+.applicationCardHistory ul { display:grid; gap:var(--ds-space-2); margin:0; padding:0; list-style:none; }
+.applicationCardHistory li { display:grid; gap:3px; padding:var(--ds-space-3); border:1px solid var(--ds-gray-100); border-radius:var(--ds-radius-sm); background:var(--ds-white); }
+.applicationCardHistory li span { color:var(--ds-gray-800); font-size:var(--ds-font-size-sm); font-weight:var(--ds-weight-bold); }
+.applicationCardHistory li small { color:var(--ds-text-subtle); }
+.positionSetupTools { border:var(--ds-border); border-radius:var(--ds-radius-md); background:var(--ds-white); }
+.positionSetupTools>summary { padding:var(--ds-space-4) var(--ds-space-5); color:var(--ds-navy-900); font-weight:var(--ds-weight-bold); cursor:pointer; }
+.positionSetupTools>.positionDetailStack { padding:0 var(--ds-space-5) var(--ds-space-5); }
+@media (max-width:1100px) {
+  .applicationCard { grid-template-columns:minmax(0,1fr) auto; }
+  .applicationCardActions { grid-column:1/-1; justify-content:flex-start; border-top:1px solid var(--ds-gray-100); }
+}
+@media (max-width:760px) {
+  .positionPipelineHero,.candidatePipelineHeader { align-items:flex-start; flex-direction:column; }
+  .positionPipelineHeaderActions,.positionPipelineHeaderActions .dsButton { width:100%; }
+  .inviteCandidateNameGrid { grid-template-columns:1fr; }
+  .candidatePipelineToolbar { grid-template-columns:1fr; padding-inline:var(--ds-space-4); }
+  .candidatePipelineTabs { overflow-x:auto; padding-inline:var(--ds-space-4); }
+  .applicationCard { grid-template-columns:1fr auto; }
+  .applicationCardBody { grid-column:1/-1; grid-template-columns:1fr; gap:var(--ds-space-3); padding:var(--ds-space-4); }
+  .applicationCardStatus { grid-column:1; padding:0 var(--ds-space-4) var(--ds-space-4); }
+  .applicationCardActions { grid-column:1/-1; padding:var(--ds-space-4); }
+  .applicationCardActions label { width:100%; }
+  .applicationCardHistory { padding-inline:var(--ds-space-4); }
+}

@@ -11,6 +11,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { ResponsesService } from "../responses/responses.service";
 import { CreateResponseDto } from "../responses/responses.dto";
 import { StartAttemptDto } from "./attempts.dto";
+import { EmailService } from "../email/email.service";
 
 type AttemptRow = {
   id: string;
@@ -104,6 +105,7 @@ export class AttemptsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly responses: ResponsesService,
+    private readonly email: EmailService,
   ) {}
 
   async resolveInviteToken(inviteToken: string) {
@@ -323,8 +325,8 @@ export class AttemptsService {
           ? "FINAL"
           : "PARTIAL";
 
-    await this.prisma.$transaction([
-      this.prisma.$executeRaw(Prisma.sql`
+    await this.prisma.$transaction(async (tx) => {
+      await tx.$executeRaw(Prisma.sql`
         UPDATE "Attempt"
         SET
           "status" = 'SUBMITTED',
@@ -333,17 +335,22 @@ export class AttemptsService {
           "scoreState" = ${scoreState}::"AttemptScoreState",
           "updatedAt" = NOW()
         WHERE "id" = ${attemptId}
-      `),
+      `);
 
-      this.prisma.$executeRaw(Prisma.sql`
+      await tx.$executeRaw(Prisma.sql`
         UPDATE "UserTestAssignment"
         SET
           "workflowStatus" = 'TO_EVALUATE'::"InterviewWorkflowStatus",
           "stageRevision" = "stageRevision" + 1,
           "updatedAt" = NOW()
         WHERE "id" = ${attempt.assignmentId}
-      `),
-    ]);
+      `);
+      await tx.emailTask.updateMany({
+        where: { interviewId: attempt.assignmentId, status: "PENDING" },
+        data: { status: "CANCELLED", processedAt: new Date(), lastError: "Candidate submitted" },
+      });
+      await this.email.queueCompletionEmail(tx, { assignmentId: attempt.assignmentId });
+    });
 
     return this.getAttempt(attemptId, inviteToken);
   }

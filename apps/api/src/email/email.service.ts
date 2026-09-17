@@ -1,5 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { AttemptStatus, EmailDelayUnit, EmailSequenceStopCondition, InterviewWorkflowStatus, Prisma, PositionStatus } from "@prisma/client";
+import { AttemptStatus, EmailDelayUnit, EmailSequenceStopCondition, EmailSequenceTrigger, InterviewWorkflowStatus, Prisma, PositionStatus } from "@prisma/client";
 import { randomUUID } from "node:crypto";
 import * as nodemailer from "nodemailer";
 import { getEnvironment } from "../config/environment";
@@ -23,6 +23,7 @@ type AssignmentTemplateStep = {
   order: number;
   delayValue: number;
   delayUnit: EmailDelayUnit;
+  trigger: EmailSequenceTrigger;
   stopCondition: EmailSequenceStopCondition | null;
   template: EmailTemplateRecord;
 };
@@ -248,6 +249,7 @@ export class EmailService {
                         order: true,
                         delayValue: true,
                         delayUnit: true,
+                        trigger: true,
                         stopCondition: true,
                         template: {
                           select: {
@@ -407,8 +409,8 @@ export class EmailService {
     return task;
   }
 
-  private getStepByOrder(context: AssignmentTemplateContext, order: number) {
-    return context.assignment.test.position?.emails?.steps.find((step) => step.order === order) ?? null;
+  private getStepByTrigger(context: AssignmentTemplateContext, trigger: EmailSequenceTrigger) {
+    return context.assignment.test.position?.emails?.steps.find((step) => step.trigger === trigger) ?? null;
   }
 
   private logQueuedTask(task: EmailTaskRecord, label: string) {
@@ -433,7 +435,7 @@ export class EmailService {
   ): Promise<EmailTaskRecord> {
     const context = await this.loadAssignmentTemplateContext(tx, input.assignmentId);
     const variables = this.buildTemplateVariables(context);
-    const firstStep = this.getStepByOrder(context, 1);
+    const firstStep = this.getStepByTrigger(context, EmailSequenceTrigger.INVITATION);
 
     if (firstStep) {
       const task = await this.upsertTask(tx, {
@@ -488,7 +490,9 @@ export class EmailService {
   ) {
     const context = await this.loadAssignmentTemplateContext(tx, input.assignmentId);
     const variables = this.buildTemplateVariables(context);
-    const nextStep = this.getStepByOrder(context, input.currentStepOrder + 1);
+    const nextStep = context.assignment.test.position?.emails?.steps.find(
+      (step) => step.trigger === EmailSequenceTrigger.NO_RESPONSE && step.order > input.currentStepOrder,
+    ) ?? null;
 
     if (!nextStep) {
       return null;
@@ -507,6 +511,28 @@ export class EmailService {
       variables,
     });
     this.logQueuedTask(task, "Sequence");
+    await this.notifyWorker(tx, task.id, task.dueAt);
+    return task;
+  }
+
+  async queueCompletionEmail(tx: Prisma.TransactionClient, input: { assignmentId: string }) {
+    const context = await this.loadAssignmentTemplateContext(tx, input.assignmentId);
+    const step = this.getStepByTrigger(context, EmailSequenceTrigger.INTERVIEW_COMPLETED);
+    if (!step) return null;
+    const variables = this.buildTemplateVariables(context);
+    const task = await this.upsertTask(tx, {
+      assignmentId: context.assignment.id,
+      templateId: step.template.id,
+      sequenceStepOrder: step.order,
+      stopCondition: step.stopCondition,
+      dueAt: new Date(Date.now() + delayToMilliseconds(step.delayValue, step.delayUnit)),
+      to: context.assignment.user.email,
+      subject: this.renderTemplate(step.template.subject, variables),
+      html: this.renderTemplate(step.template.html, variables),
+      text: step.template.text ? this.renderTemplate(step.template.text, variables) : null,
+      variables,
+    });
+    this.logQueuedTask(task, "Completion");
     await this.notifyWorker(tx, task.id, task.dueAt);
     return task;
   }

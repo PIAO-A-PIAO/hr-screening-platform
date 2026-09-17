@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from "@nestjs/comm
 import {
   EmailDelayUnit,
   EmailSequenceStopCondition,
+  EmailSequenceTrigger,
   InterviewWorkflowStatus,
   PositionStatus,
   Prisma,
@@ -67,6 +68,7 @@ export type EmailSequenceSummary = {
     delayValue: number;
     delayUnit: EmailDelayUnit;
     order: number;
+    trigger: EmailSequenceTrigger;
     stopCondition: EmailSequenceStopCondition | null;
     createdAt: Date;
     updatedAt: Date;
@@ -109,6 +111,7 @@ const emailInclude = {
           delayValue: true,
           delayUnit: true,
           order: true,
+          trigger: true,
           stopCondition: true,
           createdAt: true,
           updatedAt: true,
@@ -293,6 +296,7 @@ export class PositionsService {
             delayValue: step.delayValue,
             delayUnit: step.delayUnit as EmailDelayUnit,
             order: step.order,
+            trigger: step.trigger as EmailSequenceTrigger,
             stopCondition: step.stopCondition ? step.stopCondition as EmailSequenceStopCondition : null,
           },
         });
@@ -316,6 +320,12 @@ export class PositionsService {
     if (normalized.some((order, index) => order !== index + 1)) {
       throw new BadRequestException("Email step order values must start at 1 and be consecutive");
     }
-    if (steps.some((step) => step.delayValue < 1)) throw new BadRequestException("Email delays must be positive");
+    if (steps.some((step) => step.delayValue < 0)) throw new BadRequestException("Email delays cannot be negative");
+    if (steps.filter((step) => step.trigger === "INVITATION").length !== 1) {
+      throw new BadRequestException("Email sequence must contain exactly one invitation trigger");
+    }
+    if (steps.filter((step) => step.trigger === "INTERVIEW_COMPLETED").length > 1) {
+      throw new BadRequestException("Email sequence can contain at most one completion trigger");
+    }
   }
 }

@@ -4,6 +4,7 @@ export type PositionStatus = "DRAFT" | "OPEN" | "CLOSED";
 export type WorkflowStatus = "INVITED" | "TO_EVALUATE" | "SHORTLISTED" | "DISCARDED";
 export type PositionSort = "CREATED_DESC" | "CREATED_ASC" | "TITLE_ASC";
 export type EmailDelayUnit = "MINUTES" | "HOURS" | "DAYS";
+export type EmailSequenceTrigger = "INVITATION" | "NO_RESPONSE" | "INTERVIEW_COMPLETED";
 export type EmailSequenceStopCondition = "CANDIDATE_SUBMITTED" | "CANDIDATE_DISCARDED" | "POSITION_CLOSED";
 
 export type EmailTemplateSummary = {
@@ -12,6 +13,7 @@ export type EmailTemplateSummary = {
 };
 export type EmailSequenceStepSummary = {
   id: string; templateId: string; delayValue: number; delayUnit: EmailDelayUnit; order: number;
+  trigger: EmailSequenceTrigger;
   stopCondition: EmailSequenceStopCondition | null; createdAt: string; updatedAt: string;
   template: EmailTemplateSummary;
 };
@@ -48,7 +50,7 @@ export type ListPositionsInput = {
   status: PositionStatus; search?: string; tags?: string[]; sort?: PositionSort; page?: number; pageSize?: number;
 };
 export type UpdatePositionEmailSequenceInput = {
-  steps: Array<{ templateId: string; delayValue: number; delayUnit: EmailDelayUnit; order: number; stopCondition?: EmailSequenceStopCondition | null }>;
+  steps: Array<{ templateId: string; delayValue: number; delayUnit: EmailDelayUnit; order: number; trigger: EmailSequenceTrigger; stopCondition?: EmailSequenceStopCondition | null }>;
 };
 
 async function readErrorMessage(response: Response) {

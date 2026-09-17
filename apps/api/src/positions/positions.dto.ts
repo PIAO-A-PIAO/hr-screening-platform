@@ -91,6 +91,12 @@ export enum EmailDelayUnitDto {
   DAYS = "DAYS",
 }
 
+export enum EmailSequenceTriggerDto {
+  INVITATION = "INVITATION",
+  NO_RESPONSE = "NO_RESPONSE",
+  INTERVIEW_COMPLETED = "INTERVIEW_COMPLETED",
+}
+
 export enum EmailSequenceStopConditionDto {
   CANDIDATE_SUBMITTED = "CANDIDATE_SUBMITTED",
   CANDIDATE_DISCARDED = "CANDIDATE_DISCARDED",
@@ -102,7 +108,7 @@ export class UpdatePositionEmailSequenceStepDto {
   templateId!: string;
 
   @IsInt()
-  @Min(1)
+  @Min(0)
   delayValue!: number;
 
   @IsEnum(EmailDelayUnitDto)
@@ -111,6 +117,9 @@ export class UpdatePositionEmailSequenceStepDto {
   @IsInt()
   @Min(1)
   order!: number;
+
+  @IsEnum(EmailSequenceTriggerDto)
+  trigger!: EmailSequenceTriggerDto;
 
   @IsOptional()
   @IsEnum(EmailSequenceStopConditionDto)

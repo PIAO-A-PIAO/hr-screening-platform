@@ -5,9 +5,10 @@ import { Module } from "@nestjs/common";
 import { PrismaModule } from "../prisma/prisma.module";
 import { PositionsController } from "./positions.controller";
 import { PositionsService } from "./positions.service";
+import { EmailModule } from "../email/email.module";
 
 @Module({
-  imports: [PrismaModule],
+  imports: [PrismaModule, EmailModule],
   controllers: [PositionsController, CandidateStagesController],
   providers: [PositionsService, CandidateStagesService, ReviewerAuth],
 })

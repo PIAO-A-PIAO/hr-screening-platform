@@ -1,131 +1,153 @@
-'use client';
+"use client";
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import Link from 'next/link';
+import Link from "next/link";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "./ui/button";
+import { FeedbackState } from "./ui/feedback-state";
+import { Tabs } from "./ui/tabs";
 
-type Candidate = {
-  id: string; stage: string; stageRevision: number; inviteToken: string | null;
-  invitedAt: string; allowedTransitions: string[];
-  user: { id: string; name: string; email: string };
+const STATUSES = ["INVITED", "TO_EVALUATE", "SHORTLISTED", "DISCARDED"] as const;
+type WorkflowStatus = typeof STATUSES[number];
+type PipelineSort = "INVITED_DESC" | "INVITED_ASC" | "NAME_ASC";
+type EmailHistoryItem = { id: string; type: string; templateName: string; subject: string; sentAt: string; sequenceStepOrder: number };
+type Interview = {
+  id: string; workflowStatus: WorkflowStatus; workflowRevision: number; inviteToken: string | null;
+  invitedAt: string; allowedTransitions: WorkflowStatus[];
+  candidate: { id: string; name: string; email: string };
   attempt: { id: string; status: string; submittedAt: string | null; scoreSum: number | null } | null;
+  emailHistory: EmailHistoryItem[];
 };
-type Board = { stages: string[]; counts: Record<string, number>; candidates: Candidate[]; reviewer: { id: string; name: string } };
+type Pipeline = {
+  activeStatus: WorkflowStatus; counts: Record<WorkflowStatus, number>; interviews: Interview[];
+  reviewer: { id: string; name: string };
+};
 type Change = { id: string; fromStage: string; toStage: string; actorName: string; changedAt: string };
-const label = (value: string) => value.toLowerCase().split('_').map((word) => word[0].toUpperCase() + word.slice(1)).join(' ');
+
+const label = (value: string) => value.toLowerCase().split("_").map((word) => word[0].toUpperCase() + word.slice(1)).join(" ");
+const slug = (status: WorkflowStatus) => status.toLowerCase().replaceAll("_", "-");
 
 async function request<T>(url: string, body?: unknown, method?: string): Promise<T> {
-  const response = await fetch(url, {
-    method: method ?? (body ? 'PATCH' : 'GET'), cache: 'no-store',
-    headers: body ? { 'Content-Type': 'application/json' } : undefined,
-    ...(body ? { body: JSON.stringify(body) } : {}),
-  });
+  const response = await fetch(url, { method: method ?? (body ? "PATCH" : "GET"), cache: "no-store", headers: body ? { "Content-Type": "application/json" } : undefined, ...(body ? { body: JSON.stringify(body) } : {}) });
   const payload = await response.json();
-  if (!response.ok) throw new Error(Array.isArray(payload.message) ? payload.message.join(', ') : payload.message ?? 'Request failed');
+  if (!response.ok) throw new Error(Array.isArray(payload.message) ? payload.message.join(", ") : payload.message ?? "Request failed");
   return payload as T;
 }
 
-export function CandidateStagesPanel({ positionId, updatedAt, candidateCount, onChanged }: {
-  positionId: string; updatedAt: string; candidateCount: number; onChanged: () => void;
+export function CandidateStagesPanel({ positionId, initialStatus, updatedAt, candidateCount, onChanged }: {
+  positionId: string; initialStatus: WorkflowStatus; updatedAt: string; candidateCount: number; onChanged: () => void;
 }) {
-  const [board, setBoard] = useState<Board | null>(null);
-  const [active, setActive] = useState('ALL');
-  const [error, setError] = useState('');
-  const [busy, setBusy] = useState(false);
+  const router = useRouter();
+  const [pipeline, setPipeline] = useState<Pipeline | null>(null);
+  const [active, setActive] = useState<WorkflowStatus>(initialStatus);
+  const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch] = useState("");
+  const [sort, setSort] = useState<PipelineSort>("INVITED_DESC");
+  const [loading, setLoading] = useState(true);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [error, setError] = useState("");
   const [history, setHistory] = useState<Record<string, Change[]>>({});
   const [historyOpen, setHistoryOpen] = useState<string | null>(null);
+  const [emailOpen, setEmailOpen] = useState<string | null>(null);
   const generation = useRef(0);
   const base = `/api/positions/${encodeURIComponent(positionId)}/candidates`;
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => setSearch(searchInput.trim()), 300);
+    return () => window.clearTimeout(timeout);
+  }, [searchInput]);
+
+  useEffect(() => {
+    setActive(initialStatus);
+  }, [initialStatus]);
+
   const refresh = useCallback(async () => {
     const current = ++generation.current;
-    const next = await request<Board>(base);
-    if (current === generation.current) setBoard(next);
-  }, [base]);
+    const query = new URLSearchParams({ status: active, sort });
+    if (search) query.set("search", search);
+    const next = await request<Pipeline>(`${base}?${query.toString()}`);
+    if (current === generation.current) setPipeline(next);
+  }, [active, base, search, sort]);
 
   useEffect(() => {
     let cancelled = false;
-    const load = () => { void refresh().catch((e: unknown) => {
-      if (!cancelled) setError(e instanceof Error ? e.message : 'Refresh failed');
-    }); };
-    load();
-    window.addEventListener('focus', load);
-    return () => { cancelled = true; generation.current += 1; window.removeEventListener('focus', load); };
+    setLoading(true); setError("");
+    void refresh().catch((caught: unknown) => { if (!cancelled) setError(caught instanceof Error ? caught.message : "Pipeline could not be loaded"); }).finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; generation.current += 1; };
   }, [refresh, updatedAt, candidateCount]);
-  async function change(candidate: Candidate, stage: string) {
-    if (!stage) return;
-    if (['HIRED', 'DISCARDED', 'WITHDRAWN'].includes(stage) && !window.confirm(`Move ${candidate.user.name} to ${label(stage)}? This ends this application's pipeline and cancels pending reminders.`)) return;
-    setBusy(true); setError('');
-    try {
-      await request(`${base}/${encodeURIComponent(candidate.id)}/stage`, {
-        stage, expectedStage: candidate.stage, expectedRevision: candidate.stageRevision,
-      });
-      setHistory({}); setHistoryOpen(null);
-      await refresh();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Stage update failed');
-      await refresh().catch(() => undefined);
-    } finally { setBusy(false); }
+
+  function changeTab(status: WorkflowStatus) {
+    setActive(status); setSearchInput(""); setSearch(""); setHistoryOpen(null); setEmailOpen(null);
+    router.replace(`/positions/${encodeURIComponent(positionId)}?status=${slug(status)}`, { scroll: false });
   }
-  async function showHistory(id: string) {
-    if (historyOpen === id) { setHistoryOpen(null); return; }
-    setBusy(true); setError('');
+
+  async function change(interview: Interview, status: WorkflowStatus) {
+    if (status === "DISCARDED" && !window.confirm(`Move ${interview.candidate.name} to Discarded and cancel pending reminders?`)) return;
+    setBusyId(interview.id); setError("");
     try {
-      const items = await request<Change[]>(`${base}/${encodeURIComponent(id)}/history`);
-      setHistory((current) => ({ ...current, [id]: items })); setHistoryOpen(id);
-    } catch (e) { setError(e instanceof Error ? e.message : 'History failed'); }
-    finally { setBusy(false); }
+      await request(`${base}/${encodeURIComponent(interview.id)}/status`, { stage: status, expectedStage: interview.workflowStatus, expectedRevision: interview.workflowRevision });
+      setHistory({}); setHistoryOpen(null); setEmailOpen(null); await refresh(); onChanged();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Status update failed"); await refresh().catch(() => undefined);
+    } finally { setBusyId(null); }
   }
-  return <div className="detailCard" style={{ display: 'grid', gap: 16 }}>
-    <div><h3>Candidate stages</h3><p>Track each candidate independently for this position.</p></div>
-    {error && <div role="alert" className="stateCard errorState">{error}</div>}
-    <>
-      <div className="pillRow">
-        <span>Reviewer: {board?.reviewer.name}</span>
-        <button type="button" className="secondaryButton" disabled={busy} onClick={() => {
-          setBusy(true); setError('');
-          void refresh().catch((e: unknown) => setError(e instanceof Error ? e.message : 'Refresh failed')).finally(() => setBusy(false));
-        }}>Refresh</button>
+
+  async function showHistory(interviewId: string) {
+    if (historyOpen === interviewId) { setHistoryOpen(null); return; }
+    if (!history[interviewId]) {
+      setBusyId(interviewId); setError("");
+      try { const items = await request<Change[]>(`${base}/${encodeURIComponent(interviewId)}/history`); setHistory((current) => ({ ...current, [interviewId]: items })); }
+      catch (caught) { setError(caught instanceof Error ? caught.message : "History could not be loaded"); }
+      finally { setBusyId(null); }
+    }
+    setHistoryOpen(interviewId); setEmailOpen(null);
+  }
+
+  async function remove(interview: Interview) {
+    if (!window.confirm(`Remove ${interview.candidate.name} from this position? Their interview and attempt data will be deleted.`)) return;
+    setBusyId(interview.id); setError("");
+    try { await request(`${base}/${encodeURIComponent(interview.id)}`, undefined, "DELETE"); await refresh(); onChanged(); }
+    catch (caught) { setError(caught instanceof Error ? caught.message : "Interview could not be removed"); }
+    finally { setBusyId(null); }
+  }
+
+  const tabItems = STATUSES.map((status) => ({ id: status, label: label(status), count: pipeline?.counts[status] ?? 0 }));
+  return (
+    <section className="candidatePipeline" aria-labelledby="candidate-pipeline-title">
+      <header className="candidatePipelineHeader">
+        <div><span className="positionsKicker">Candidate pipeline</span><h2 id="candidate-pipeline-title">Applications</h2></div>
+        <span className="candidateReviewer">Reviewer: {pipeline?.reviewer.name ?? "Temporary reviewer"}</span>
+      </header>
+      <div className="candidatePipelineTabs"><Tabs label="Candidate workflow status" items={tabItems} activeId={active} onChange={(id) => changeTab(id as WorkflowStatus)} /></div>
+      <div className="candidatePipelineToolbar">
+        <label><span>Search candidate name</span><input type="search" value={searchInput} placeholder="Candidate name" onChange={(event) => setSearchInput(event.target.value)} /></label>
+        <label><span>Sort by</span><select value={sort} onChange={(event) => setSort(event.target.value as PipelineSort)}><option value="INVITED_DESC">Newest invitation</option><option value="INVITED_ASC">Oldest invitation</option><option value="NAME_ASC">Candidate name A–Z</option></select></label>
+        <Button variant="secondary" loading={loading} onClick={() => void refresh()}>Refresh</Button>
       </div>
-      {board && <>
-        <div role="group" aria-label="Filter by candidate stage" style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-          {['ALL', ...board.stages].map((stage) => <button key={stage} type="button"
-            className={active === stage ? 'primaryButton' : 'secondaryButton'} aria-pressed={active === stage}
-            onClick={() => setActive(stage)}>
-            {stage === 'ALL' ? 'All' : label(stage)} ({stage === 'ALL' ? board.candidates.length : board.counts[stage]})
-          </button>)}
-        </div>
-        {board.candidates.filter((c) => active === 'ALL' || c.stage === active).length === 0 && <p>No candidates in this stage.</p>}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))', gap: 16 }}>
-          {board.candidates.filter((c) => active === 'ALL' || c.stage === active).map((candidate) => <article key={candidate.id} className="detailCard" style={{ display: 'grid', gap: 10, alignContent: 'start', overflowWrap: 'anywhere' }}>
-            <strong>{candidate.user.name}</strong><span>{candidate.user.email}</span>
-            <span className="pill">{label(candidate.stage)}</span>
-            <small>Invited {new Date(candidate.invitedAt).toLocaleString()}</small>
-            {candidate.attempt && <small>Attempt: {label(candidate.attempt.status)}{candidate.attempt.scoreSum !== null ? ` · Score: ${candidate.attempt.scoreSum}` : ''}</small>}
-            {candidate.attempt?.submittedAt && <small>Submitted {new Date(candidate.attempt.submittedAt).toLocaleString()}</small>}
-            {candidate.attempt && candidate.inviteToken && <Link href={`/attempts/view?attemptId=${encodeURIComponent(candidate.attempt.id)}&inviteToken=${encodeURIComponent(candidate.inviteToken)}`}>View attempt</Link>}
-            {candidate.allowedTransitions.length > 0 ? <label style={{ display: 'grid', gap: 6 }}>Move to
-              <select aria-label={`Change stage for ${candidate.user.name}`} value="" disabled={busy}
-                onChange={(event) => void change(candidate, event.target.value)}>
-                <option value="">Choose stage</option>
-                {candidate.allowedTransitions.map((stage) => <option key={stage} value={stage}>{label(stage)}</option>)}
-              </select>
-            </label> : <small>No further transitions available.</small>}
-            <button type="button" className="secondaryButton" disabled={busy} onClick={() => {
-              if (!window.confirm(`Delete ${candidate.user.name}'s assignment and attempt for this position?`)) return;
-              setBusy(true); setError('');
-              void request(`${base}/${encodeURIComponent(candidate.id)}`, undefined, 'DELETE')
-                .then(() => refresh()).then(onChanged)
-                .catch((e: unknown) => setError(e instanceof Error ? e.message : 'Delete failed'))
-                .finally(() => setBusy(false));
-            }}>Delete assignment</button>
-            <button type="button" className="secondaryButton" disabled={busy} onClick={() => void showHistory(candidate.id)} aria-expanded={historyOpen === candidate.id}>Stage history</button>
-            {historyOpen === candidate.id && <div>
-              {history[candidate.id]?.length === 0 ? <small>No reviewer changes yet. Invitation and attempt progress are tracked automatically.</small> : <ul>
-                {history[candidate.id]?.map((item) => <li key={item.id}>{label(item.fromStage)} → {label(item.toStage)}<br /><small>{item.actorName} · {new Date(item.changedAt).toLocaleString()}</small></li>)}
-              </ul>}
-            </div>}
-          </article>)}
-        </div>
-      </>}
-    </>
-  </div>;
+      {error && <FeedbackState kind="error" title="Candidate pipeline could not be updated" description={error} />}
+      {loading && !pipeline && <FeedbackState kind="loading" title="Loading candidates" description="Retrieving interviews for this workflow status." />}
+      {!loading && pipeline?.interviews.length === 0 && <FeedbackState kind="empty" title={`No ${label(active).toLowerCase()} candidates`} description={search ? "No candidate names match the current search." : "Candidates in this workflow status will appear here."} />}
+      {pipeline && pipeline.interviews.length > 0 && <div className="applicationList">
+        {pipeline.interviews.map((interview) => {
+          const reviewHref = `/positions/${encodeURIComponent(positionId)}/interview/${encodeURIComponent(interview.id)}?status=${slug(active)}`;
+          return <article className="applicationCard" key={interview.id}>
+            {active === "INVITED" ? <div className="applicationCardBody applicationCardBodyStatic"><ApplicationIdentity interview={interview} /></div> : <Link className="applicationCardBody" href={reviewHref}><ApplicationIdentity interview={interview} /></Link>}
+            <div className="applicationCardStatus"><span className={`workflowPill workflowPill-${slug(interview.workflowStatus)}`}>{label(interview.workflowStatus)}</span>{interview.attempt && <small>{label(interview.attempt.status)}</small>}</div>
+            <div className="applicationCardActions">
+              {interview.allowedTransitions.length > 0 && <label><span>Move to</span><select value="" disabled={busyId === interview.id} onChange={(event) => void change(interview, event.target.value as WorkflowStatus)}><option value="">Choose status</option>{interview.allowedTransitions.map((status) => <option key={status} value={status}>{label(status)}</option>)}</select></label>}
+              <Button variant="ghost" size="small" disabled={busyId === interview.id} onClick={() => { setEmailOpen(emailOpen === interview.id ? null : interview.id); setHistoryOpen(null); }}>Email history ({interview.emailHistory.length})</Button>
+              <Button variant="ghost" size="small" disabled={busyId === interview.id} onClick={() => void showHistory(interview.id)}>Status history</Button>
+              <Button variant="danger" size="small" loading={busyId === interview.id} onClick={() => void remove(interview)}>Remove</Button>
+            </div>
+            {emailOpen === interview.id && <div className="applicationCardHistory"><strong>Email history</strong>{interview.emailHistory.length === 0 ? <small>No emails have been sent for this interview.</small> : <ul>{interview.emailHistory.map((email) => <li key={email.id}><span>{email.templateName}</span><small>{email.subject} · {new Date(email.sentAt).toLocaleString()}</small></li>)}</ul>}</div>}
+            {historyOpen === interview.id && <div className="applicationCardHistory"><strong>Status history</strong>{history[interview.id]?.length === 0 ? <small>No reviewer status changes yet.</small> : <ul>{history[interview.id]?.map((item) => <li key={item.id}><span>{label(item.fromStage)} → {label(item.toStage)}</span><small>{item.actorName} · {new Date(item.changedAt).toLocaleString()}</small></li>)}</ul>}</div>}
+          </article>;
+        })}
+      </div>}
+    </section>
+  );
+}
+
+function ApplicationIdentity({ interview }: { interview: Interview }) {
+  return <><div className="applicationIdentity"><strong>{interview.candidate.name}</strong><span>{interview.candidate.email}</span></div><div className="applicationTiming"><span>Invited</span><strong>{new Date(interview.invitedAt).toLocaleString()}</strong>{interview.attempt?.submittedAt && <small>Submitted {new Date(interview.attempt.submittedAt).toLocaleString()}</small>}</div></>;
 }
