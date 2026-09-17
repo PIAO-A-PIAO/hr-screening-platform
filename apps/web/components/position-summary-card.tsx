@@ -1,37 +1,57 @@
 import Link from "next/link";
 import type { PositionSummaryResponse } from "../lib/position-api";
+import { AppIcon } from "./ui/app-icon";
+import { ButtonLink } from "./ui/button";
+import { StatusBadge } from "./ui/status-badge";
 
 type PositionSummaryCardProps = {
   position: PositionSummaryResponse;
 };
 
 export function PositionSummaryCard({ position }: PositionSummaryCardProps) {
-  const testLabel = position.test ? `${position.test.status} test` : "No test";
+  const updated = new Intl.DateTimeFormat("en-CA", { month: "short", day: "numeric", year: "numeric" })
+    .format(new Date(position.updatedAt));
+  const testLabel = position.test
+    ? `${position.test.status === "PUBLISHED" ? "Published" : "Draft"} test`
+    : "No test";
+  const testTone = position.testState === "PUBLISHED" ? "success" : position.test ? "warning" : "neutral";
 
   return (
-    <article className="detailCard positionSummaryCard">
-      <div className="positionSummaryHeader">
-        <div>
-          <span className="sectionLabel">{position.department}</span>
-          <h3>{position.title}</h3>
+    <article className="positionRow">
+      <div className="positionRowIdentity">
+        <div className="positionRowTitle">
+          <Link href={`/positions/${encodeURIComponent(position.id)}`}>{position.title}</Link>
+          <StatusBadge status={position.status} />
         </div>
-        <span className="pill">{position.status}</span>
+        <p>{position.description ?? "No position description has been added."}</p>
+        <div className="positionRowMeta">
+          <span>{position.department}</span>
+          <span>{position.location}</span>
+          <span>Owner: {position.owner}</span>
+        </div>
       </div>
 
-      <p>{position.description ?? "No description"}</p>
-
-      <div className="pillRow">
-        <span className="pill">{position.location}</span>
-        <span className="pill">{position.owner}</span>
-        <span className="pill">{position.candidateCount} candidates</span>
-        <span className="pill">{position.submittedCount} submitted</span>
-        <span className="pill">{testLabel}</span>
+      <div className="positionRowTest">
+        <span>Interview test</span>
+        <StatusBadge status={position.testState} label={testLabel} tone={testTone} />
+        <small>{position.test ? `${position.test.questionCount} questions` : "Setup required"}</small>
       </div>
 
-      <div className="positionSummaryActions">
-        <Link className="primaryButton inlineButton" href={`/positions/${encodeURIComponent(position.id)}`}>
-          Open position
-        </Link>
+      <div className="positionRowNumber">
+        <span><AppIcon name="people" size={17} /> Candidates</span>
+        <strong>{position.candidateCount}</strong>
+      </div>
+
+      <div className="positionRowNumber">
+        <span><AppIcon name="review" size={17} /> Submitted</span>
+        <strong>{position.submittedCount}</strong>
+      </div>
+
+      <div className="positionRowAction">
+        <small>Updated {updated}</small>
+        <ButtonLink href={`/positions/${encodeURIComponent(position.id)}`} variant="secondary" size="small" trailingIcon={<AppIcon name="arrow" size={16} />}>
+          View Position
+        </ButtonLink>
       </div>
     </article>
   );
