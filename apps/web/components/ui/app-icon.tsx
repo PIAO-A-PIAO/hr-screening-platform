@@ -1,7 +1,7 @@
 import type { RecruiterNavIcon } from "../../lib/recruiter-navigation";
 
 type AppIconProps = {
-  name: RecruiterNavIcon | "arrow" | "plus" | "briefcase" | "people" | "review" | "published";
+  name: RecruiterNavIcon | "arrow" | "plus" | "briefcase" | "people" | "review" | "published" | "menu" | "close" | "logout";
   size?: number;
 };
 
@@ -18,6 +18,9 @@ const paths: Record<AppIconProps["name"], React.ReactNode> = {
   people: <><path d="M16 20v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2" /><circle cx="9.5" cy="7" r="4" /><path d="M17 11a4 4 0 0 1 4 4v1" /></>,
   review: <><path d="M7 3h10v4H7zM5 5H4a1 1 0 0 0-1 1v14h18V6a1 1 0 0 0-1-1h-1" /><path d="M8 12h8M8 16h5" /></>,
   published: <><circle cx="12" cy="12" r="9" /><path d="m8 12 2.5 2.5L16 9" /></>,
+  menu: <><path d="M4 7h16M4 12h16M4 17h16" /></>,
+  close: <><path d="m6 6 12 12M18 6 6 18" /></>,
+  logout: <><path d="M10 17l5-5-5-5M15 12H3M14 4h5a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-5" /></>,
 };
 
 export function AppIcon({ name, size = 20 }: AppIconProps) {

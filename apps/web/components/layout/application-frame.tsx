@@ -23,6 +23,7 @@ function getPageContext(pathname: string): PageContext {
   if (pathname === "/") return { title: "Dashboard" };
   if (pathname === "/dev") return { title: "Development", eyebrow: "Internal tools" };
   if (pathname === "/dev/ui") return { title: "UI foundations", eyebrow: "Development" };
+  if (pathname.startsWith("/email")) return { title: "Email", eyebrow: "Recruiting" };
   if (pathname === "/positions/create") return { title: "Create position" };
   if (/^\/positions\/[^/]+\/test$/.test(pathname)) return { title: "Interview test" };
   if (/^\/positions\/[^/]+$/.test(pathname)) return { title: "Position details" };
@@ -32,7 +33,6 @@ function getPageContext(pathname: string): PageContext {
   if (pathname === "/questions/create") return { title: "Create question" };
   if (pathname === "/questions/view") return { title: "Question details" };
   if (pathname.startsWith("/questions")) return { title: "Question bank" };
-  if (pathname.startsWith("/email-templates")) return { title: "Email templates" };
   if (pathname.startsWith("/attempts")) return { title: "Candidate review" };
   if (pathname.startsWith("/users")) return { title: "Users" };
   if (pathname.startsWith("/responses")) return { title: "Responses" };
