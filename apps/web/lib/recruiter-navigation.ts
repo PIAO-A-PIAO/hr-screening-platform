@@ -15,9 +15,7 @@ export type RecruiterNavItem = {
 export const recruiterNavigation: RecruiterNavItem[] = [
   { label: "Dashboard", href: "/", icon: "dashboard" },
   { label: "Positions", href: "/positions", icon: "positions" },
-  { label: "Interview tests", href: "/tests", icon: "tests" },
-  { label: "Question bank", href: "/questions", icon: "questions" },
-  { label: "Email templates", href: "/email-templates", icon: "email" },
+  { label: "Email", href: "/email", icon: "email" },
 ];
 
 export const recruiterUtilityNavigation: RecruiterNavItem[] = [
