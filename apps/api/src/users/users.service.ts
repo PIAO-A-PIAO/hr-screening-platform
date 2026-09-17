@@ -1,769 +1,137 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
-import { Prisma } from "@prisma/client";
+import { InterviewWorkflowStatus, UserRole, UserTestStatus } from "@prisma/client";
 import { randomUUID } from "node:crypto";
 import { EmailService } from "../email/email.service";
 import { PrismaService } from "../prisma/prisma.service";
-import {
-  GenerateUsersDto,
-  InviteUsersDto,
-  UserRoleDto,
-  UserSeedDto,
-  UserStatusDto,
-} from "./users.dto";
-
-type UserRow = {
-  id: string;
-  firstName: string;
-  lastName: string;
-  email: string;
-  role: UserRoleDto;
-  status: UserStatusDto[];
-  createdAt: Date;
-  updatedAt: Date;
-};
+import { GenerateUsersDto, InviteUsersDto, UserRoleDto, UserSeedDto, UserStatusDto } from "./users.dto";
 
 type AssignmentRow = {
-  id: string;
-  userId: string;
-  testId: string;
-  status: UserStatusDto[];
-  inviteToken: string | null;
-  invitedAt: Date;
-  inviteExpiresAt: Date | null;
-  createdAt: Date;
-  updatedAt: Date;
+  id: string; userId: string; testId: string; status: UserStatusDto[]; inviteToken: string | null;
+  invitedAt: Date; inviteExpiresAt: Date | null; createdAt: Date; updatedAt: Date;
+};
+export type UserResponse = {
+  id: string; firstName: string; lastName: string; email: string; role: UserRoleDto; status: UserStatusDto[];
+  createdAt: Date; updatedAt: Date; assignments: AssignmentRow[];
 };
 
-export type UserResponse = UserRow & {
-  assignments: AssignmentRow[];
-};
-
-function normalizeEmail(email: string) {
-  return email.trim().toLowerCase();
-}
-
-function normalizeStatuses(status?: UserStatusDto[]) {
-  return [...new Set(status ?? [])];
-}
-
-function combineName(firstName: string, lastName: string) {
-  return `${firstName.trim()} ${lastName.trim()}`.trim();
-}
-
-function splitLegacyName(name: string) {
-  const trimmed = name.trim();
-  if (!trimmed) {
-    return { firstName: "", lastName: "" };
-  }
-
-  const [firstName, ...rest] = trimmed.split(/\s+/);
-  return {
-    firstName,
-    lastName: rest.join(" "),
-  };
-}
-
-function enumArraySql(values: string[], enumName: string) {
-  const enumType = Prisma.raw(`"${enumName}"[]`);
-  if (values.length === 0) {
-    return Prisma.sql`CAST(ARRAY[] AS ${enumType})`;
-  }
-
-  return Prisma.sql`CAST(ARRAY[${Prisma.join(values.map((value) => Prisma.sql`${value}`))}] AS ${enumType})`;
-}
-
+function normalizeEmail(value: string) { return value.trim().toLowerCase(); }
+function combineName(first: string, last: string) { return `${first.trim()} ${last.trim()}`.trim(); }
+function splitName(value: string) { const [firstName = "", ...rest] = value.trim().split(/\s+/); return { firstName, lastName: rest.join(" ") }; }
 function normalizeSeed(input: UserSeedDto & { testIds?: string[] }) {
-  const role = input.role ?? UserRoleDto.CANDIDATE;
-  const status = normalizeStatuses(
-    input.status ?? (role === UserRoleDto.CANDIDATE ? [UserStatusDto.NOT_INVITED] : []),
-  );
-
-  return {
-    firstName: input.firstName.trim(),
-    lastName: input.lastName.trim(),
-    email: normalizeEmail(input.email),
-    role,
-    status,
-    testIds: [...new Set(input.testIds ?? [])],
-  };
+  return { name: combineName(input.firstName, input.lastName), email: normalizeEmail(input.email), role: input.role ?? UserRoleDto.CANDIDATE, status: [...new Set(input.status ?? [])], testIds: [...new Set(input.testIds ?? [])] };
 }
-
-function rowToResponse(row: UserRow, assignments: AssignmentRow[] = []): UserResponse {
-  return {
-    ...row,
-    assignments,
-  };
+function workflowToLegacy(status: InterviewWorkflowStatus): UserStatusDto {
+  if (status === "TO_EVALUATE") return UserStatusDto.TO_BE_EVALUATED;
+  return status as UserStatusDto;
+}
+function legacyToWorkflow(statuses: UserStatusDto[]): InterviewWorkflowStatus {
+  if (statuses.includes(UserStatusDto.DISCARDED)) return InterviewWorkflowStatus.DISCARDED;
+  if (statuses.includes(UserStatusDto.SHORTLISTED) || statuses.includes(UserStatusDto.HIRED)) return InterviewWorkflowStatus.SHORTLISTED;
+  if (statuses.some((status) => [UserStatusDto.TO_BE_EVALUATED, UserStatusDto.STAGE_1, UserStatusDto.STAGE_2, UserStatusDto.STAGE_3].includes(status))) return InterviewWorkflowStatus.TO_EVALUATE;
+  return InterviewWorkflowStatus.INVITED;
+}
+function assignmentResponse(interview: { id: string; candidateId: string; testId: string; workflowStatus: InterviewWorkflowStatus; inviteToken: string | null; invitedAt: Date; inviteExpiresAt: Date | null; createdAt: Date; updatedAt: Date }): AssignmentRow {
+  return { id: interview.id, userId: interview.candidateId, testId: interview.testId, status: [workflowToLegacy(interview.workflowStatus)], inviteToken: interview.inviteToken, invitedAt: interview.invitedAt, inviteExpiresAt: interview.inviteExpiresAt, createdAt: interview.createdAt, updatedAt: interview.updatedAt };
 }
 
 @Injectable()
 export class UsersService {
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly email: EmailService,
-  ) {}
-  private assignmentInviteTokenSupportPromise: Promise<boolean> | null = null;
-  private assignmentInvitedAtSupportPromise: Promise<boolean> | null = null;
-  private userNamePartsSupportPromise: Promise<boolean> | null = null;
-
-  private supportsAssignmentInviteToken() {
-    this.assignmentInviteTokenSupportPromise ??= this.prisma.$queryRaw<Array<{ exists: boolean }>>(Prisma.sql`
-      SELECT EXISTS (
-        SELECT 1
-        FROM information_schema.columns
-        WHERE table_schema = current_schema()
-          AND table_name = 'UserTestAssignment'
-          AND column_name = 'inviteToken'
-      ) AS "exists"
-    `).then((rows) => rows[0]?.exists === true);
-
-    return this.assignmentInviteTokenSupportPromise;
-  }
-
-  private supportsAssignmentInvitedAt() {
-    this.assignmentInvitedAtSupportPromise ??= this.prisma.$queryRaw<Array<{ exists: boolean }>>(Prisma.sql`
-      SELECT EXISTS (
-        SELECT 1
-        FROM information_schema.columns
-        WHERE table_schema = current_schema()
-          AND table_name = 'UserTestAssignment'
-          AND column_name = 'invitedAt'
-      ) AS "exists"
-    `).then((rows) => rows[0]?.exists === true);
-
-    return this.assignmentInvitedAtSupportPromise;
-  }
-
-  private supportsUserNameParts() {
-    this.userNamePartsSupportPromise ??= this.prisma.$queryRaw<Array<{ column_name: string }>>(Prisma.sql`
-      SELECT "column_name"
-      FROM information_schema.columns
-      WHERE table_schema = current_schema()
-        AND table_name = 'User'
-        AND column_name IN ('firstName', 'lastName')
-    `).then((rows) => rows.length === 2);
-
-    return this.userNamePartsSupportPromise;
-  }
+  constructor(private readonly prisma: PrismaService, private readonly email: EmailService) {}
 
   async listUsers(role?: UserRoleDto): Promise<UserResponse[]> {
-    const supportsInviteToken = await this.supportsAssignmentInviteToken();
-    const supportsInvitedAt = await this.supportsAssignmentInvitedAt();
-    const users = await this.prisma.$queryRaw<
-      Array<{
-        id: string;
-        name: string;
-        email: string;
-        role: UserRoleDto;
-        status: UserStatusDto[];
-        createdAt: Date;
-        updatedAt: Date;
-      }>
-    >(role
-      ? Prisma.sql`
-        SELECT "id", "name", "email", "role", "status", "createdAt", "updatedAt"
-        FROM "User"
-        WHERE "role" = ${role}::"UserRole"
-        ORDER BY "createdAt" DESC
-      `
-      : Prisma.sql`
-        SELECT "id", "name", "email", "role", "status", "createdAt", "updatedAt"
-        FROM "User"
-        ORDER BY "createdAt" DESC
-      `,
-    ).then((rows) =>
-      rows.map((row) => ({
-        id: row.id,
-        ...splitLegacyName(row.name),
-        email: row.email,
-        role: row.role,
-        status: row.status,
-        createdAt: row.createdAt,
-        updatedAt: row.updatedAt,
-      })),
-    );
-
-    const assignments = supportsInviteToken && supportsInvitedAt
-      ? await this.prisma.$queryRaw<AssignmentRow[]>(Prisma.sql`
-        SELECT
-          "id",
-          "userId",
-          "testId",
-          "status",
-          "inviteToken",
-          "invitedAt",
-          "inviteExpiresAt",
-          "createdAt",
-          "updatedAt"
-        FROM "UserTestAssignment"
-        ORDER BY "createdAt" DESC
-      `)
-      : supportsInviteToken
-        ? await this.prisma.$queryRaw<AssignmentRow[]>(Prisma.sql`
-          SELECT
-            "id",
-            "userId",
-            "testId",
-            "status",
-            "inviteToken",
-            "createdAt",
-            "updatedAt"
-          FROM "UserTestAssignment"
-          ORDER BY "createdAt" DESC
-        `).then((rows) =>
-          rows.map((row) => ({
-            ...row,
-            invitedAt: row.createdAt,
-            inviteExpiresAt: null,
-          })),
-        )
-        : supportsInvitedAt
-          ? await this.prisma.$queryRaw<AssignmentRow[]>(Prisma.sql`
-            SELECT
-              "id",
-              "userId",
-              "testId",
-              "status",
-              "invitedAt",
-              "createdAt",
-              "updatedAt"
-            FROM "UserTestAssignment"
-            ORDER BY "createdAt" DESC
-          `).then((rows) =>
-            rows.map((row) => ({
-              ...row,
-              inviteToken: null,
-              inviteExpiresAt: null,
-            })),
-          )
-          : await this.prisma.$queryRaw<AssignmentRow[]>(Prisma.sql`
-            SELECT
-              "id",
-              "userId",
-              "testId",
-              "status",
-              "createdAt",
-              "updatedAt"
-            FROM "UserTestAssignment"
-            ORDER BY "createdAt" DESC
-          `).then((rows) =>
-            rows.map((row) => ({
-              ...row,
-              inviteToken: null,
-              invitedAt: row.createdAt,
-              inviteExpiresAt: null,
-            })),
-          );
-
-    const assignmentsByUserId = new Map<string, AssignmentRow[]>();
-    for (const assignment of assignments) {
-      const bucket = assignmentsByUserId.get(assignment.userId) ?? [];
-      bucket.push(assignment);
-      assignmentsByUserId.set(assignment.userId, bucket);
-    }
-
-    return users.map((user) => rowToResponse(user, assignmentsByUserId.get(user.id) ?? []));
+    const includeRecruiters = !role || role === UserRoleDto.RECRUITER;
+    const includeCandidates = !role || role === UserRoleDto.CANDIDATE;
+    const [recruiters, candidates] = await Promise.all([
+      includeRecruiters ? this.prisma.user.findMany({ where: { role: UserRole.RECRUITER }, orderBy: { createdAt: "desc" } }) : [],
+      includeCandidates ? this.prisma.candidate.findMany({ include: { interviews: { orderBy: { createdAt: "desc" } } }, orderBy: { createdAt: "desc" } }) : [],
+    ]);
+    return [
+      ...recruiters.map((user) => ({ id: user.id, ...splitName(user.name), email: user.email, role: UserRoleDto.RECRUITER, status: user.status as UserStatusDto[], createdAt: user.createdAt, updatedAt: user.updatedAt, assignments: [] })),
+      ...candidates.map((candidate) => ({ id: candidate.id, ...splitName(candidate.name), email: candidate.email, role: UserRoleDto.CANDIDATE, status: [...new Set(candidate.interviews.map((item) => workflowToLegacy(item.workflowStatus)))], createdAt: candidate.createdAt, updatedAt: candidate.updatedAt, assignments: candidate.interviews.map(assignmentResponse) })),
+    ].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
   }
 
   async generateUsers(dto: GenerateUsersDto): Promise<UserResponse[]> {
-    const normalized = dto.users.map((user) => normalizeSeed(user));
-    this.assertNoDuplicateEmails(normalized.map((user) => user.email));
-
+    const seeds = dto.users.map(normalizeSeed); this.assertUniqueEmails(seeds.map((seed) => seed.email));
     return this.prisma.$transaction(async (tx) => {
       const results: UserResponse[] = [];
-
-      for (const user of normalized) {
-        const inserted = await this.insertUser(tx, user, { conflictMessage: "Email already exists" });
-        results.push(inserted);
+      for (const seed of seeds) {
+        if (seed.role === UserRoleDto.CANDIDATE) {
+          const existing = await tx.candidate.findUnique({ where: { email: seed.email } });
+          if (existing) throw new ConflictException("Email already exists");
+          const candidate = await tx.candidate.create({ data: { name: seed.name, email: seed.email } });
+          results.push({ id: candidate.id, ...splitName(candidate.name), email: candidate.email, role: UserRoleDto.CANDIDATE, status: seed.status.length ? seed.status : [UserStatusDto.NOT_INVITED], createdAt: candidate.createdAt, updatedAt: candidate.updatedAt, assignments: [] });
+        } else {
+          const existing = await tx.user.findUnique({ where: { email: seed.email } });
+          if (existing) throw new ConflictException("Email already exists");
+          const user = await tx.user.create({ data: { name: seed.name, email: seed.email, role: UserRole.RECRUITER, status: seed.status as UserTestStatus[] } });
+          results.push({ id: user.id, ...splitName(user.name), email: user.email, role: UserRoleDto.RECRUITER, status: user.status as UserStatusDto[], createdAt: user.createdAt, updatedAt: user.updatedAt, assignments: [] });
+        }
       }
-
       return results;
     });
   }
 
   async inviteUsers(dto: InviteUsersDto): Promise<UserResponse[]> {
-    const normalized = dto.users.map((user) => normalizeSeed(user));
-    this.assertNoDuplicateEmails(normalized.map((user) => user.email));
-
+    const seeds = dto.users.map(normalizeSeed); this.assertUniqueEmails(seeds.map((seed) => seed.email));
     return this.prisma.$transaction(async (tx) => {
-      const invitedUsers: UserResponse[] = [];
-
-      for (const user of normalized) {
-        const saved = await this.upsertUser(tx, {
-          ...user,
-          status: normalizeStatuses([
-            UserStatusDto.INVITED,
-            ...user.status,
-          ]),
-        });
-
-        const assignments = await this.upsertAssignments(
-          tx,
-          saved.id,
-          user.testIds,
-          user.status,
-        );
-
-        for (const assignment of assignments) {
-          if (!assignment.inviteToken) {
-            continue;
-          }
-
-          await this.email.queueInvitationEmail(tx, {
-            assignmentId: assignment.id,
+      const results: UserResponse[] = [];
+      for (const seed of seeds) {
+        if (seed.role === UserRoleDto.RECRUITER) throw new BadRequestException("Only candidates can be invited to interviews");
+        const candidate = await tx.candidate.upsert({ where: { email: seed.email }, create: { name: seed.name, email: seed.email }, update: { name: seed.name } });
+        const tests = seed.testIds.length ? await tx.test.findMany({ where: { id: { in: seed.testIds } }, select: { id: true, positionId: true } }) : [];
+        if (tests.length !== seed.testIds.length) throw new NotFoundException("One or more tests were not found");
+        if (tests.some((test) => !test.positionId)) throw new BadRequestException("Every invited test must be attached to a position");
+        const assignments: AssignmentRow[] = [];
+        for (const test of tests) {
+          const inviteToken = randomUUID(); const inviteExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+          const interview = await tx.interview.upsert({
+            where: { candidateId_positionId: { candidateId: candidate.id, positionId: test.positionId! } },
+            create: { candidateId: candidate.id, positionId: test.positionId!, testId: test.id, workflowStatus: InterviewWorkflowStatus.INVITED, inviteToken, inviteExpiresAt },
+            update: { testId: test.id, workflowStatus: InterviewWorkflowStatus.INVITED, inviteToken, invitedAt: new Date(), inviteExpiresAt },
           });
+          assignments.push(assignmentResponse(interview));
+          await this.email.queueInvitationEmail(tx, { assignmentId: interview.id });
         }
-
-        invitedUsers.push({
-          ...saved,
-          assignments,
-        });
+        results.push({ id: candidate.id, ...splitName(candidate.name), email: candidate.email, role: UserRoleDto.CANDIDATE, status: assignments.length ? [UserStatusDto.INVITED] : [UserStatusDto.NOT_INVITED], createdAt: candidate.createdAt, updatedAt: candidate.updatedAt, assignments });
       }
-
-      return invitedUsers;
+      return results;
     });
   }
 
   async getUser(userId: string, inviteToken?: string): Promise<UserResponse> {
-    const supportsInviteToken = await this.supportsAssignmentInviteToken();
-    const response = await this.loadUserResponse(userId, supportsInviteToken);
-
-    if (response.user.role === UserRoleDto.CANDIDATE && supportsInviteToken) {
-      const normalizedInviteToken = typeof inviteToken === "string" ? inviteToken.trim() : "";
-      const authorized = normalizedInviteToken.length > 0
-        && response.assignments.some((assignment) =>
-          assignment.inviteToken === normalizedInviteToken
-          && (!assignment.inviteExpiresAt || assignment.inviteExpiresAt.getTime() > Date.now()),
-        );
-
-      if (!authorized) {
-        throw new ForbiddenException("An invite token is required to view this candidate");
-      }
+    const candidate = await this.prisma.candidate.findUnique({ where: { id: userId }, include: { interviews: { orderBy: { createdAt: "desc" } } } });
+    if (candidate) {
+      const token = inviteToken?.trim();
+      if (!token || !candidate.interviews.some((item) => item.inviteToken === token && (!item.inviteExpiresAt || item.inviteExpiresAt.getTime() > Date.now()))) throw new ForbiddenException("An invite token is required to view this candidate");
+      const assignments = candidate.interviews.map(assignmentResponse);
+      return { id: candidate.id, ...splitName(candidate.name), email: candidate.email, role: UserRoleDto.CANDIDATE, status: assignments.map((item) => item.status[0]), createdAt: candidate.createdAt, updatedAt: candidate.updatedAt, assignments };
     }
-
-    return rowToResponse(response.user, response.assignments);
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException("User not found");
+    return { id: user.id, ...splitName(user.name), email: user.email, role: UserRoleDto.RECRUITER, status: user.status as UserStatusDto[], createdAt: user.createdAt, updatedAt: user.updatedAt, assignments: [] };
   }
 
   async updateUserStatus(userId: string, status: UserStatusDto[]): Promise<UserResponse> {
-    const supportsInviteToken = await this.supportsAssignmentInviteToken();
-
-    const [updatedUser] = await this.prisma.$queryRaw<UserRow[]>(Prisma.sql`
-      UPDATE "User"
-      SET "status" = ${enumArraySql(normalizeStatuses(status), "UserTestStatus")},
-          "updatedAt" = NOW()
-      WHERE "id" = ${userId}
-      RETURNING "id", "name", "email", "role", "status", "createdAt", "updatedAt"
-    `);
-
-    if (!updatedUser) {
-      throw new NotFoundException("User not found");
+    const candidate = await this.prisma.candidate.findUnique({ where: { id: userId } });
+    if (candidate) {
+      await this.prisma.interview.updateMany({ where: { candidateId: userId }, data: { workflowStatus: legacyToWorkflow(status), workflowRevision: { increment: 1 } } });
+      const interviews = await this.prisma.interview.findMany({ where: { candidateId: userId }, orderBy: { createdAt: "desc" } });
+      return { id: candidate.id, ...splitName(candidate.name), email: candidate.email, role: UserRoleDto.CANDIDATE, status, createdAt: candidate.createdAt, updatedAt: candidate.updatedAt, assignments: interviews.map(assignmentResponse) };
     }
-
-    const response = await this.loadUserResponse(userId, supportsInviteToken);
-    return rowToResponse(response.user, response.assignments);
+    const existing = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!existing) throw new NotFoundException("User not found");
+    const user = await this.prisma.user.update({ where: { id: userId }, data: { status: status as UserTestStatus[] } });
+    return { id: user.id, ...splitName(user.name), email: user.email, role: UserRoleDto.RECRUITER, status: user.status as UserStatusDto[], createdAt: user.createdAt, updatedAt: user.updatedAt, assignments: [] };
   }
 
   async deleteUser(userId: string): Promise<{ id: string }> {
-    const [deleted] = await this.prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
-      DELETE FROM "User"
-      WHERE "id" = ${userId}
-      RETURNING "id"
-    `);
-
-    if (!deleted) {
-      throw new NotFoundException("User not found");
-    }
-
-    return deleted;
+    const deletedCandidate = await this.prisma.candidate.deleteMany({ where: { id: userId } });
+    if (deletedCandidate.count) return { id: userId };
+    const deletedUser = await this.prisma.user.deleteMany({ where: { id: userId } });
+    if (!deletedUser.count) throw new NotFoundException("User not found");
+    return { id: userId };
   }
 
-  private assertNoDuplicateEmails(emails: string[]) {
-    const uniqueEmails = new Set(emails);
-    if (uniqueEmails.size !== emails.length) {
-      throw new BadRequestException("email values must be unique within the request");
-    }
-  }
-
-  private async insertUser(
-    tx: Prisma.TransactionClient,
-    input: {
-      firstName: string;
-      lastName: string;
-      email: string;
-      role: UserRoleDto;
-      status: UserStatusDto[];
-    },
-    options?: { conflictMessage?: string },
-  ): Promise<UserResponse> {
-    const [record] = await tx.$queryRaw<Array<{
-      id: string;
-      name: string;
-      email: string;
-      role: UserRoleDto;
-      status: UserStatusDto[];
-      createdAt: Date;
-      updatedAt: Date;
-    }>>(Prisma.sql`
-      INSERT INTO "User" ("id", "name", "email", "role", "status", "createdAt", "updatedAt")
-      VALUES (
-        ${randomUUID()},
-        ${combineName(input.firstName, input.lastName)},
-        ${input.email},
-        ${input.role}::"UserRole",
-        ${enumArraySql(input.status, "UserTestStatus")},
-        NOW(),
-        NOW()
-      )
-      ON CONFLICT ("email") DO NOTHING
-      RETURNING "id", "name", "email", "role", "status", "createdAt", "updatedAt"
-    `).then((rows) =>
-      rows.map((row) => ({
-        id: row.id,
-        ...splitLegacyName(row.name),
-        email: row.email,
-        role: row.role,
-        status: row.status,
-        createdAt: row.createdAt,
-        updatedAt: row.updatedAt,
-      })),
-    );
-
-    if (!record) {
-      throw new ConflictException(options?.conflictMessage ?? "Email already exists");
-    }
-
-    return rowToResponse(record);
-  }
-
-  private async loadUserResponse(userId: string, supportsInviteToken: boolean) {
-    const supportsInvitedAt = await this.supportsAssignmentInvitedAt();
-    const [user] = await this.prisma.$queryRaw<Array<{
-      id: string;
-      name: string;
-      email: string;
-      role: UserRoleDto;
-      status: UserStatusDto[];
-      createdAt: Date;
-      updatedAt: Date;
-    }>>(Prisma.sql`
-      SELECT "id", "name", "email", "role", "status", "createdAt", "updatedAt"
-      FROM "User"
-      WHERE "id" = ${userId}
-      LIMIT 1
-    `).then((rows) =>
-      rows.map((row) => ({
-        id: row.id,
-        ...splitLegacyName(row.name),
-        email: row.email,
-        role: row.role,
-        status: row.status,
-        createdAt: row.createdAt,
-        updatedAt: row.updatedAt,
-      })),
-    );
-
-    if (!user) {
-      throw new NotFoundException("User not found");
-    }
-
-    const assignments = supportsInviteToken && supportsInvitedAt
-      ? await this.prisma.$queryRaw<AssignmentRow[]>(Prisma.sql`
-        SELECT
-          "id",
-          "userId",
-          "testId",
-          "status",
-          "inviteToken",
-          "invitedAt",
-          "inviteExpiresAt",
-          "createdAt",
-          "updatedAt"
-        FROM "UserTestAssignment"
-        WHERE "userId" = ${userId}
-        ORDER BY "createdAt" DESC
-      `)
-      : supportsInviteToken
-        ? await this.prisma.$queryRaw<AssignmentRow[]>(Prisma.sql`
-          SELECT
-            "id",
-            "userId",
-            "testId",
-            "status",
-            "inviteToken",
-            "createdAt",
-            "updatedAt"
-          FROM "UserTestAssignment"
-          WHERE "userId" = ${userId}
-          ORDER BY "createdAt" DESC
-        `).then((rows) =>
-          rows.map((row) => ({
-            ...row,
-            invitedAt: row.createdAt,
-            inviteExpiresAt: null,
-          })),
-        )
-        : supportsInvitedAt
-          ? await this.prisma.$queryRaw<AssignmentRow[]>(Prisma.sql`
-            SELECT
-              "id",
-              "userId",
-              "testId",
-              "status",
-              "invitedAt",
-              "createdAt",
-              "updatedAt"
-            FROM "UserTestAssignment"
-            WHERE "userId" = ${userId}
-            ORDER BY "createdAt" DESC
-          `).then((rows) =>
-            rows.map((row) => ({
-              ...row,
-              inviteToken: null,
-              inviteExpiresAt: null,
-            })),
-          )
-          : await this.prisma.$queryRaw<AssignmentRow[]>(Prisma.sql`
-            SELECT
-              "id",
-              "userId",
-              "testId",
-              "status",
-              "createdAt",
-              "updatedAt"
-            FROM "UserTestAssignment"
-            WHERE "userId" = ${userId}
-            ORDER BY "createdAt" DESC
-          `).then((rows) =>
-            rows.map((row) => ({
-              ...row,
-              inviteToken: null,
-              invitedAt: row.createdAt,
-              inviteExpiresAt: null,
-            })),
-          );
-
-    return { user, assignments };
-  }
-
-  private async upsertUser(
-    tx: Prisma.TransactionClient,
-    input: {
-      firstName: string;
-      lastName: string;
-      email: string;
-      role: UserRoleDto;
-      status: UserStatusDto[];
-    },
-  ): Promise<UserResponse> {
-    const [existing] = await tx.$queryRaw<Array<{
-      id: string;
-      name: string;
-      email: string;
-      role: UserRoleDto;
-      status: UserStatusDto[];
-      createdAt: Date;
-      updatedAt: Date;
-    }>>(Prisma.sql`
-      SELECT "id", "name", "email", "role", "status", "createdAt", "updatedAt"
-      FROM "User"
-      WHERE "email" = ${input.email}
-      LIMIT 1
-    `).then((rows) =>
-      rows.map((row) => ({
-        id: row.id,
-        ...splitLegacyName(row.name),
-        email: row.email,
-        role: row.role,
-        status: row.status,
-        createdAt: row.createdAt,
-        updatedAt: row.updatedAt,
-      })),
-    );
-
-    if (!existing) {
-      return this.insertUser(tx, input);
-    }
-
-    const mergedStatus = normalizeStatuses([...(existing.status ?? []), ...input.status]);
-    const [record] = await tx.$queryRaw<Array<{
-      id: string;
-      name: string;
-      email: string;
-      role: UserRoleDto;
-      status: UserStatusDto[];
-      createdAt: Date;
-      updatedAt: Date;
-    }>>(Prisma.sql`
-      UPDATE "User"
-      SET "name" = ${combineName(input.firstName, input.lastName)},
-          "role" = ${input.role}::"UserRole",
-          "status" = ${enumArraySql(mergedStatus, "UserTestStatus")},
-          "updatedAt" = NOW()
-      WHERE "id" = ${existing.id}
-      RETURNING "id", "name", "email", "role", "status", "createdAt", "updatedAt"
-    `).then((rows) =>
-      rows.map((row) => ({
-        id: row.id,
-        ...splitLegacyName(row.name),
-        email: row.email,
-        role: row.role,
-        status: row.status,
-        createdAt: row.createdAt,
-        updatedAt: row.updatedAt,
-      })),
-    );
-
-    if (!record) {
-      throw new NotFoundException("User not found");
-    }
-
-    return rowToResponse(record);
-  }
-
-  private async upsertAssignments(
-    tx: Prisma.TransactionClient,
-    userId: string,
-    testIds: string[],
-    userStatuses: UserStatusDto[],
-  ): Promise<AssignmentRow[]> {
-    const uniqueTestIds = [...new Set(testIds)];
-    if (uniqueTestIds.length === 0) {
-      return [];
-    }
-
-    const existingTests = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`
-      SELECT "id"
-      FROM "Test"
-      WHERE "id" IN (${Prisma.join(uniqueTestIds.map((testId) => Prisma.sql`${testId}`))})
-    `);
-
-    if (existingTests.length !== uniqueTestIds.length) {
-      const existingIds = new Set(existingTests.map((test) => test.id));
-      const missing = uniqueTestIds.filter((testId) => !existingIds.has(testId));
-      throw new NotFoundException(`Test not found: ${missing.join(", ")}`);
-    }
-
-    const assignments: AssignmentRow[] = [];
-    const assignmentStatuses = normalizeStatuses([UserStatusDto.INVITED, ...userStatuses]);
-    const supportsInviteToken = await this.supportsAssignmentInviteToken();
-
-    for (const testId of uniqueTestIds) {
-      const inviteToken = randomUUID();
-      const inviteExpiresAt = new Date(
-       Date.now() + 7 * 24 * 60 * 60 * 1000,
-      );
-      const [existingAssignment] = supportsInviteToken
-        ? await tx.$queryRaw<AssignmentRow[]>(Prisma.sql`
-          SELECT
-            "id",
-            "userId",
-            "testId",
-            "status",
-            "inviteToken",
-            "invitedAt",
-            "inviteExpiresAt",
-            "createdAt",
-            "updatedAt"
-          FROM "UserTestAssignment"
-          WHERE "userId" = ${userId}
-            AND "testId" = ${testId}
-          LIMIT 1
-        `)
-        : await tx.$queryRaw<AssignmentRow[]>(Prisma.sql`
-          SELECT
-            "id",
-            "userId",
-            "testId",
-            "status",
-            "createdAt",
-            "updatedAt"
-          FROM "UserTestAssignment"
-          WHERE "userId" = ${userId}
-            AND "testId" = ${testId}
-          LIMIT 1
-        `).then((rows) =>
-          rows.map((row) => ({
-            ...row,
-            inviteToken: null,
-            invitedAt: row.createdAt,
-            inviteExpiresAt: null,
-          })),
-        );
-
-      if (!existingAssignment) {
-        const [created] = supportsInviteToken
-          ? await tx.$queryRaw<AssignmentRow[]>(Prisma.sql`
-            INSERT INTO "UserTestAssignment" ("id", "userId", "testId", "status", "inviteToken", "invitedAt", "inviteExpiresAt", "createdAt", "updatedAt")
-            VALUES (
-              ${randomUUID()},
-              ${userId},
-              ${testId},
-              ${enumArraySql(assignmentStatuses, "UserTestStatus")},
-              ${inviteToken},
-              NOW(),
-              ${inviteExpiresAt},
-              NOW(),
-              NOW()
-            )
-            RETURNING "id", "userId", "testId", "status", "inviteToken", "invitedAt", "inviteExpiresAt", "createdAt", "updatedAt"
-          `)
-          : await tx.$queryRaw<AssignmentRow[]>(Prisma.sql`
-            INSERT INTO "UserTestAssignment" ("id", "userId", "testId", "status", "createdAt", "updatedAt")
-            VALUES (
-              ${randomUUID()},
-              ${userId},
-              ${testId},
-              ${enumArraySql(assignmentStatuses, "UserTestStatus")},
-              NOW(),
-              NOW()
-            )
-            RETURNING "id", "userId", "testId", "status", "createdAt", "updatedAt"
-          `).then((rows) =>
-            rows.map((row) => ({
-              ...row,
-              inviteToken: null,
-              invitedAt: row.createdAt,
-              inviteExpiresAt: null,
-            })),
-          );
-
-        assignments.push(created);
-        continue;
-      }
-
-      const mergedStatus = normalizeStatuses([...(existingAssignment.status ?? []), ...assignmentStatuses]);
-      const [updated] = supportsInviteToken
-        ? await tx.$queryRaw<AssignmentRow[]>(Prisma.sql`
-          UPDATE "UserTestAssignment"
-          SET "status" = ${enumArraySql(mergedStatus, "UserTestStatus")},
-              "inviteToken" = ${inviteToken},
-              "invitedAt" = NOW(),
-              "inviteExpiresAt" = ${inviteExpiresAt},
-              "updatedAt" = NOW()
-          WHERE "id" = ${existingAssignment.id}
-          RETURNING "id", "userId", "testId", "status", "inviteToken", "invitedAt", "inviteExpiresAt", "createdAt", "updatedAt"
-        `)
-        : await tx.$queryRaw<AssignmentRow[]>(Prisma.sql`
-          UPDATE "UserTestAssignment"
-          SET "status" = ${enumArraySql(mergedStatus, "UserTestStatus")},
-              "updatedAt" = NOW()
-          WHERE "id" = ${existingAssignment.id}
-          RETURNING "id", "userId", "testId", "status", "createdAt", "updatedAt"
-        `).then((rows) =>
-          rows.map((row) => ({
-            ...row,
-            inviteToken: null,
-            invitedAt: row.createdAt,
-            inviteExpiresAt: null,
-          })),
-        );
-
-      if (!updated) {
-        throw new NotFoundException("User test assignment not found");
-      }
-
-      assignments.push(updated);
-    }
-
-    return assignments;
-  }
+  private assertUniqueEmails(emails: string[]) { if (new Set(emails).size !== emails.length) throw new BadRequestException("email values must be unique within the request"); }
 }

@@ -7,7 +7,7 @@ import { ResponsesService } from "./responses.service";
 
 function createHarness() {
   const prisma = {
-    userTestAssignment: { findUnique: jest.fn() },
+    interview: { findFirst: jest.fn() },
     question: { findUnique: jest.fn() },
     response: { findUnique: jest.fn(), create: jest.fn() },
     responseAsset: { create: jest.fn(), delete: jest.fn() },
@@ -41,7 +41,7 @@ const baseDto = {
 describe("ResponsesService", () => {
   it("rejects a candidate who is not assigned to the test", async () => {
     const { prisma, service } = createHarness();
-    prisma.userTestAssignment.findUnique.mockResolvedValue(null);
+    prisma.interview.findFirst.mockResolvedValue(null);
 
     await expect(service.createResponse(baseDto, "token-1"))
       .rejects.toBeInstanceOf(ForbiddenException);
@@ -49,7 +49,7 @@ describe("ResponsesService", () => {
 
   it("rejects a response type that does not match the question", async () => {
     const { prisma, service } = createHarness();
-    prisma.userTestAssignment.findUnique.mockResolvedValue({ inviteToken: "token-1" });
+    prisma.interview.findFirst.mockResolvedValue({ inviteToken: "token-1" });
     prisma.question.findUnique.mockResolvedValue({
       id: "question-1",
       testId: "test-1",
@@ -64,7 +64,7 @@ describe("ResponsesService", () => {
 
   it("returns an explicit conflict for a duplicate candidate response", async () => {
     const { prisma, service } = createHarness();
-    prisma.userTestAssignment.findUnique.mockResolvedValue({ inviteToken: "token-1" });
+    prisma.interview.findFirst.mockResolvedValue({ inviteToken: "token-1" });
     prisma.question.findUnique.mockResolvedValue({
       id: "question-1",
       testId: "test-1",
@@ -80,7 +80,7 @@ describe("ResponsesService", () => {
 
   it("rejects a selected option from another question", async () => {
     const { prisma, service } = createHarness();
-    prisma.userTestAssignment.findUnique.mockResolvedValue({ inviteToken: "token-1" });
+    prisma.interview.findFirst.mockResolvedValue({ inviteToken: "token-1" });
     prisma.question.findUnique.mockResolvedValue({
       id: "question-1",
       testId: "test-1",
@@ -106,7 +106,7 @@ describe("ResponsesService", () => {
       id: "response-1",
       type: ResponseType.VIDEO,
       questionId: "question-1",
-      userId: "candidate-1",
+      candidateId: "candidate-1",
       testId: "test-1",
       attemptId: null,
       score: null,
@@ -118,7 +118,7 @@ describe("ResponsesService", () => {
       multipleChoiceItem: null,
       shortAnswerItem: null,
     });
-    prisma.userTestAssignment.findUnique.mockResolvedValue({ inviteToken: "token-1" });
+    prisma.interview.findFirst.mockResolvedValue({ inviteToken: "token-1" });
     transcoder.transcodeUpload.mockResolvedValue({
       preparedBuffer: Buffer.from("prepared-video"),
       preparedMimeType: "video/webm",

@@ -37,8 +37,8 @@ export function DashboardHome() {
 
   useEffect(() => {
     let cancelled = false;
-    listPositions()
-      .then((result) => { if (!cancelled) setPositions(result); })
+    Promise.all(["OPEN", "DRAFT", "CLOSED"].map((status) => listPositions({ status: status as "OPEN" | "DRAFT" | "CLOSED", pageSize: 100 })))
+      .then((result) => { if (!cancelled) setPositions(result.flatMap((page) => page.items)); })
       .catch((caught: unknown) => { if (!cancelled) setError(caught instanceof Error ? caught.message : "Dashboard data could not be loaded"); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
@@ -61,14 +61,14 @@ export function DashboardHome() {
   const attentionItems = useMemo(() => [
     { label: "Open positions without a published test", count: positions.filter((position) => position.status === "OPEN" && position.testState !== "PUBLISHED").length, href: "/positions" },
     { label: "Draft positions", count: positions.filter((position) => position.status === "DRAFT").length, href: "/positions" },
-    { label: "Positions currently on hold", count: positions.filter((position) => position.status === "ON_HOLD").length, href: "/positions" },
+    { label: "Candidates to evaluate", count: positions.reduce((total, position) => total + position.workflowCounts.TO_EVALUATE, 0), href: "/positions" },
   ], [positions]);
 
   return (
     <>
       <section className="dashboardHeading">
         <div><span className="dashboardKicker">Hiring overview</span><h1>Dashboard</h1><p>See the current recruitment workload and continue where attention is needed.</p></div>
-        <ActionLink href="/positions/create">Create position</ActionLink>
+        <ActionLink href="/positions/new/edit">Create position</ActionLink>
       </section>
       {loading && <div className="dashboardNotice">Loading hiring overview…</div>}
       {error && <div className="dashboardNotice dashboardNoticeError">Unable to load dashboard: {error}</div>}
@@ -92,7 +92,7 @@ export function DashboardHome() {
                 <div className="dashboardPositionList">
                   {recentPositions.map((position) => (
                     <Link href={`/positions/${encodeURIComponent(position.id)}`} key={position.id}>
-                      <div className="dashboardPositionIdentity"><strong>{position.title}</strong><span>{position.department} · {position.location}</span></div>
+                      <div className="dashboardPositionIdentity"><strong>{position.title}</strong><span>{position.departments.map((department) => department.name).join(" · ") || "No department"}</span></div>
                       <div className="dashboardPositionNumbers"><span><strong>{position.candidateCount}</strong> candidates</span><span><strong>{position.submittedCount}</strong> submitted</span></div>
                       <span className={`dashboardStatus dashboardStatus-${position.status.toLowerCase()}`}>{statusLabel(position.status)}</span>
                       <span className="dashboardUpdated">{formatDate(position.updatedAt)}</span>

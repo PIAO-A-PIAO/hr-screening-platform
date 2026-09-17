@@ -1,20 +1,58 @@
+import { Type } from "class-transformer";
 import {
   ArrayMinSize,
+  ArrayUnique,
   IsArray,
   IsEnum,
   IsInt,
   IsOptional,
   IsString,
+  Max,
   Min,
   ValidateNested,
 } from "class-validator";
-import { Type } from "class-transformer";
 
 export enum PositionStatusDto {
   DRAFT = "DRAFT",
   OPEN = "OPEN",
-  ON_HOLD = "ON_HOLD",
   CLOSED = "CLOSED",
+}
+
+export enum PositionSortDto {
+  CREATED_DESC = "CREATED_DESC",
+  CREATED_ASC = "CREATED_ASC",
+  TITLE_ASC = "TITLE_ASC",
+}
+
+export class ListPositionsQueryDto {
+  @IsOptional()
+  @IsEnum(PositionStatusDto)
+  status?: PositionStatusDto;
+
+  @IsOptional()
+  @IsString()
+  search?: string;
+
+  @IsOptional()
+  @IsString()
+  tags?: string;
+
+  @IsOptional()
+  @IsEnum(PositionSortDto)
+  sort?: PositionSortDto;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  pageSize?: number;
 }
 
 export class CreatePositionDto {
@@ -25,18 +63,26 @@ export class CreatePositionDto {
   @IsString()
   description?: string;
 
-  @IsString()
-  department!: string;
+  @IsOptional()
+  @IsArray()
+  @ArrayUnique()
+  @IsString({ each: true })
+  tags?: string[];
 
-  @IsString()
-  location!: string;
+  @IsOptional()
+  @IsArray()
+  @ArrayUnique()
+  @IsString({ each: true })
+  departmentIds?: string[];
 
   @IsOptional()
   @IsEnum(PositionStatusDto)
   status?: PositionStatusDto;
+}
 
-  @IsString()
-  owner!: string;
+export class UpdatePositionStatusDto {
+  @IsEnum(PositionStatusDto)
+  status!: PositionStatusDto;
 }
 
 export enum EmailDelayUnitDto {

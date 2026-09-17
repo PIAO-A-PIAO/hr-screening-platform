@@ -1,5 +1,5 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
-import { Prisma, PositionStatus, UserTestStatus } from "@prisma/client";
+import { AttemptStatus, InterviewWorkflowStatus, Prisma, PositionStatus } from "@prisma/client";
 import { Client, type Notification } from "pg";
 import { PrismaService } from "../prisma/prisma.service";
 import { getEnvironment } from "../config/environment";
@@ -28,21 +28,6 @@ type ClaimedEmailTask = {
   createdAt: Date;
   updatedAt: Date;
 };
-
-const SUBMITTED_STATUSES = new Set<UserTestStatus>([
-  UserTestStatus.TO_BE_EVALUATED,
-  UserTestStatus.STAGE_1,
-  UserTestStatus.STAGE_2,
-  UserTestStatus.STAGE_3,
-  UserTestStatus.SHORTLISTED,
-  UserTestStatus.DISCARDED,
-  UserTestStatus.HIRED,
-  UserTestStatus.ON_HOLD,
-]);
-
-function isSubmitted(status: UserTestStatus[]) {
-  return status.some((entry) => SUBMITTED_STATUSES.has(entry));
-}
 
 function isValidEmail(email: string) {
   const trimmed = email.trim();
@@ -379,10 +364,10 @@ export class EmailWorkerService implements OnModuleInit, OnModuleDestroy {
       task.assignmentId,
     );
 
-    const currentApplication = await this.prisma.userTestAssignment.findUnique({
-      where: { id: task.assignmentId }, select: { candidateStage: true },
+    const currentApplication = await this.prisma.interview.findUnique({
+      where: { id: task.assignmentId }, select: { workflowStatus: true },
     });
-    if (!currentApplication || ['DISCARDED', 'HIRED', 'WITHDRAWN'].includes(currentApplication.candidateStage ?? '')) {
+    if (!currentApplication || currentApplication.workflowStatus === InterviewWorkflowStatus.DISCARDED) {
       await this.markTask(task.id, {
         status: "CANCELLED", processedAt: new Date(),
         lastError: "Application ended or was removed",
@@ -414,7 +399,7 @@ export class EmailWorkerService implements OnModuleInit, OnModuleDestroy {
       return;
     }
 
-    if (context.assignment.status.includes(UserTestStatus.DISCARDED)) {
+    if (context.assignment.workflowStatus === InterviewWorkflowStatus.DISCARDED) {
       this.logger.warn(`Cancelling task ${task.id}: candidate discarded`);
       await this.markTask(task.id, {
         status: "CANCELLED",
@@ -424,7 +409,7 @@ export class EmailWorkerService implements OnModuleInit, OnModuleDestroy {
       return;
     }
 
-    if (isSubmitted(context.assignment.status)) {
+    if (context.assignment.attempt?.status === AttemptStatus.SUBMITTED) {
       this.logger.warn(`Cancelling task ${task.id}: candidate already submitted`);
       await this.markTask(task.id, {
         status: "CANCELLED",

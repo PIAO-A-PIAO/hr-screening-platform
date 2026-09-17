@@ -95,9 +95,8 @@ export function PositionDetailRoute({ positionId }: PositionDetailRouteProps) {
       {error && <div className="stateCard errorState">Error: {error}</div>}
 
       <div className="pillRow">
-        <span className="pill">{position.department}</span>
-        <span className="pill">{position.location}</span>
-        <span className="pill">{position.owner}</span>
+        {position.departments.map((department) => <span className="pill" key={department.id}>{department.name}</span>)}
+        {position.tags.map((tag) => <span className="pill" key={tag}>{tag}</span>)}
         <span className="pill">{position.candidateCount} candidates</span>
         <span className="pill">{position.submittedCount} submitted</span>
         <span className="pill">{position.test ? position.test.status : "No test"}</span>
@@ -111,18 +110,9 @@ export function PositionDetailRoute({ positionId }: PositionDetailRouteProps) {
               <dt>Title</dt>
               <dd>{position.title}</dd>
             </div>
-            <div>
-              <dt>Department</dt>
-              <dd>{position.department}</dd>
-            </div>
-            <div>
-              <dt>Location</dt>
-              <dd>{position.location}</dd>
-            </div>
-            <div>
-              <dt>Owner</dt>
-              <dd>{position.owner}</dd>
-            </div>
+            <div><dt>Departments</dt><dd>{position.departments.map((department) => department.name).join(", ") || "None"}</dd></div>
+            <div><dt>Tags</dt><dd>{position.tags.join(", ") || "None"}</dd></div>
+            <div><dt>Status</dt><dd>{position.status}</dd></div>
           </dl>
         </div>
 

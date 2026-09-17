@@ -1,6 +1,6 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from "@nestjs/common";
 import { ApiBody, ApiOperation, ApiParam, ApiTags } from "@nestjs/swagger";
-import { CreatePositionDto, UpdatePositionEmailSequenceDto } from "./positions.dto";
+import { CreatePositionDto, ListPositionsQueryDto, UpdatePositionEmailSequenceDto, UpdatePositionStatusDto } from "./positions.dto";
 import { PositionsService } from "./positions.service";
 
 @ApiTags("positions")
@@ -10,8 +10,8 @@ export class PositionsController {
 
   @Get()
   @ApiOperation({ summary: "List all positions" })
-  getPositions() {
-    return this.positions.listPositions();
+  getPositions(@Query() query: ListPositionsQueryDto) {
+    return this.positions.listPositions(query);
   }
 
   @Post()
@@ -22,12 +22,11 @@ export class PositionsController {
       properties: {
         title: { type: "string" },
         description: { type: "string" },
-        department: { type: "string" },
-        location: { type: "string" },
-        status: { type: "string", enum: ["DRAFT", "OPEN", "ON_HOLD", "CLOSED"] },
-        owner: { type: "string" },
+        tags: { type: "array", items: { type: "string" } },
+        departmentIds: { type: "array", items: { type: "string" } },
+        status: { type: "string", enum: ["DRAFT", "OPEN", "CLOSED"] },
       },
-      required: ["title", "department", "location", "owner"],
+      required: ["title"],
     },
   })
   createPosition(@Body() dto: CreatePositionDto) {
@@ -41,15 +40,21 @@ export class PositionsController {
     return this.positions.getPosition(positionId);
   }
 
-  @Delete(":positionId/assignments/:assignmentId")
-  @ApiOperation({ summary: "Delete a candidate assignment from a position" })
+  @Patch(":positionId/status")
+  @ApiOperation({ summary: "Update a position status" })
+  updateStatus(@Param("positionId") positionId: string, @Body() dto: UpdatePositionStatusDto) {
+    return this.positions.updateStatus(positionId, dto.status);
+  }
+
+  @Delete(":positionId/interviews/:interviewId")
+  @ApiOperation({ summary: "Delete a candidate interview from a position" })
   @ApiParam({ name: "positionId" })
-  @ApiParam({ name: "assignmentId" })
-  deleteAssignment(
+  @ApiParam({ name: "interviewId" })
+  deleteInterview(
     @Param("positionId") positionId: string,
-    @Param("assignmentId") assignmentId: string,
+    @Param("interviewId") interviewId: string,
   ) {
-    return this.positions.deleteAssignment(positionId, assignmentId);
+    return this.positions.deleteInterview(positionId, interviewId);
   }
 
   @Patch(":positionId/email-sequence")
