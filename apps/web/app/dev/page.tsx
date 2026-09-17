@@ -71,6 +71,11 @@ export default async function Home() {
       </section>
 
       <section className="routeGrid" aria-label="Question routes">
+        <Link className="routeCard" href="/dev/ui">
+          <span className="sectionLabel">P2-M03</span>
+          <h2>UI foundations</h2>
+          <p>Review shared buttons, cards, badges, tags, forms, tabs, feedback states, dialogs, and pagination.</p>
+        </Link>
         <Link className="routeCard" href="/questions/create">
           <span className="sectionLabel">Create</span>
           <h2>Create a screening question</h2>

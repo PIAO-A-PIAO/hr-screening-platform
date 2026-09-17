@@ -22,6 +22,7 @@ function isCandidateRoute(pathname: string) {
 function getPageContext(pathname: string): PageContext {
   if (pathname === "/") return { title: "Dashboard" };
   if (pathname === "/dev") return { title: "Development", eyebrow: "Internal tools" };
+  if (pathname === "/dev/ui") return { title: "UI foundations", eyebrow: "Development" };
   if (pathname === "/positions/create") return { title: "Create position" };
   if (/^\/positions\/[^/]+\/test$/.test(pathname)) return { title: "Interview test" };
   if (/^\/positions\/[^/]+$/.test(pathname)) return { title: "Position details" };
