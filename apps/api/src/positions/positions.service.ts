@@ -149,7 +149,9 @@ function workflowCounts(interviews: Array<{ workflowStatus: InterviewWorkflowSta
   const counts: WorkflowCounts = {
     INVITED: 0,
     TO_EVALUATE: 0,
-    SHORTLISTED: 0,
+    PHASE_1: 0,
+    PHASE_2: 0,
+    PHASE_3: 0,
     DISCARDED: 0,
   };
   for (const interview of interviews) counts[interview.workflowStatus] += 1;
@@ -167,7 +169,7 @@ function toSummary(position: PositionWithSummary): PositionSummaryResponse {
     createdAt: position.createdAt,
     updatedAt: position.updatedAt,
     candidateCount: position.interviews.length,
-    submittedCount: counts.TO_EVALUATE + counts.SHORTLISTED + counts.DISCARDED,
+    submittedCount: counts.TO_EVALUATE + counts.PHASE_1 + counts.PHASE_2 + counts.PHASE_3 + counts.DISCARDED,
     workflowCounts: counts,
     testState: position.test?.status ?? "NO_TEST",
     test: position.test

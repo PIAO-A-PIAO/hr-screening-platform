@@ -7,9 +7,11 @@ import { allowedTransitions } from "./stage-policy";
 describe("candidate workflow policy", () => {
   it("uses the four Stage 2 statuses", () => {
     expect(allowedTransitions("INVITED")).toEqual(["DISCARDED"]);
-    expect(allowedTransitions("TO_EVALUATE")).toEqual(["SHORTLISTED", "DISCARDED"]);
-    expect(allowedTransitions("SHORTLISTED")).toEqual(["TO_EVALUATE", "DISCARDED"]);
-    expect(allowedTransitions("DISCARDED")).toEqual([]);
+    expect(allowedTransitions("TO_EVALUATE")).toEqual(["PHASE_1", "PHASE_2", "PHASE_3", "DISCARDED"]);
+    expect(allowedTransitions("PHASE_1")).toEqual(["TO_EVALUATE", "PHASE_2", "PHASE_3", "DISCARDED"]);
+    expect(allowedTransitions("PHASE_2")).toEqual(["TO_EVALUATE", "PHASE_1", "PHASE_3", "DISCARDED"]);
+    expect(allowedTransitions("PHASE_3")).toEqual(["TO_EVALUATE", "PHASE_1", "PHASE_2", "DISCARDED"]);
+    expect(allowedTransitions("DISCARDED")).toEqual(["TO_EVALUATE", "PHASE_1", "PHASE_2", "PHASE_3"]);
   });
 });
 
@@ -51,7 +53,7 @@ describe("candidate workflow service", () => {
   it("counts interviews by the four workflow statuses", async () => {
     const { service } = setup();
     const result = await service.list("p1", { status: "TO_EVALUATE" }, reviewer);
-    expect(result.counts).toEqual({ INVITED: 0, TO_EVALUATE: 1, SHORTLISTED: 0, DISCARDED: 0 });
+    expect(result.counts).toEqual({ INVITED: 0, TO_EVALUATE: 1, PHASE_1: 0, PHASE_2: 0, PHASE_3: 0, DISCARDED: 0 });
     expect(result.interviews[0].emailHistory[0]).toMatchObject({
       type: "completion", templateName: "Completion email", subject: "Interview complete",
     });
@@ -69,12 +71,12 @@ describe("candidate workflow service", () => {
   it("filters by candidate name and supports alphabetical sorting", async () => {
     const { service, tx } = setup();
     await service.list("p1", {
-      status: "SHORTLISTED", search: "  cand  ", sort: CandidatePipelineSort.NAME_ASC,
+      status: "PHASE_2", search: "  cand  ", sort: CandidatePipelineSort.NAME_ASC,
     }, reviewer);
     expect(tx.interview.findMany).toHaveBeenCalledWith(expect.objectContaining({
       where: {
         positionId: "p1",
-        workflowStatus: "SHORTLISTED",
+        workflowStatus: "PHASE_2",
         candidate: { name: { contains: "cand", mode: "insensitive" } },
       },
       orderBy: [{ candidate: { name: "asc" } }, { invitedAt: "desc" }],
@@ -121,19 +123,27 @@ describe("candidate workflow service", () => {
   it("rejects an interview from another position", async () => {
     const { service, tx } = setup();
     tx.interview.findFirst.mockResolvedValue(null);
-    await expect(service.change("other", "i1", { stage: "SHORTLISTED", expectedStage: "TO_EVALUATE", expectedRevision: 0 }, reviewer)).rejects.toThrow(NotFoundException);
+    await expect(service.change("other", "i1", { stage: "PHASE_1", expectedStage: "TO_EVALUATE", expectedRevision: 0 }, reviewer)).rejects.toThrow(NotFoundException);
   });
 
   it("writes the workflow change and audit together", async () => {
     const { service, tx } = setup();
-    const result = await service.change("p1", "i1", { stage: "SHORTLISTED", expectedStage: "TO_EVALUATE", expectedRevision: 0 }, reviewer);
-    expect(tx.interview.update).toHaveBeenCalledWith({ where: { id: "i1" }, data: { workflowStatus: "SHORTLISTED", workflowRevision: { increment: 1 } } });
-    expect(result).toMatchObject({ assignmentId: "i1", fromStage: "TO_EVALUATE", toStage: "SHORTLISTED" });
+    const result = await service.change("p1", "i1", { stage: "PHASE_1", expectedStage: "TO_EVALUATE", expectedRevision: 0 }, reviewer);
+    expect(tx.interview.update).toHaveBeenCalledWith({ where: { id: "i1" }, data: { workflowStatus: "PHASE_1", workflowRevision: { increment: 1 } } });
+    expect(result).toMatchObject({ assignmentId: "i1", fromStage: "TO_EVALUATE", toStage: "PHASE_1" });
+  });
+
+  it.each(["TO_EVALUATE", "PHASE_1", "PHASE_2", "PHASE_3"] as const)("restores a discarded candidate to %s", async (stage) => {
+    const { service, tx } = setup();
+    tx.interview.findFirst.mockResolvedValue({ ...row, workflowStatus: "DISCARDED", workflowRevision: 2 });
+    const result = await service.change("p1", "i1", { stage, expectedStage: "DISCARDED", expectedRevision: 2 }, reviewer);
+    expect(tx.interview.update).toHaveBeenCalledWith({ where: { id: "i1" }, data: { workflowStatus: stage, workflowRevision: { increment: 1 } } });
+    expect(result).toMatchObject({ fromStage: "DISCARDED", toStage: stage });
   });
 
   it("rejects stale and invalid transitions", async () => {
     const { service } = setup();
-    await expect(service.change("p1", "i1", { stage: "SHORTLISTED", expectedStage: "TO_EVALUATE", expectedRevision: 1 }, reviewer)).rejects.toThrow(ConflictException);
+    await expect(service.change("p1", "i1", { stage: "PHASE_1", expectedStage: "TO_EVALUATE", expectedRevision: 1 }, reviewer)).rejects.toThrow(ConflictException);
     await expect(service.change("p1", "i1", { stage: "INVITED", expectedStage: "TO_EVALUATE", expectedRevision: 0 }, reviewer)).rejects.toThrow(BadRequestException);
   });
 

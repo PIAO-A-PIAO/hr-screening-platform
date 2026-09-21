@@ -50,7 +50,9 @@ enum PositionStatus {
 enum InterviewWorkflowStatus {
   INVITED
   TO_EVALUATE
-  SHORTLISTED
+  PHASE_1
+  PHASE_2
+  PHASE_3
   DISCARDED
 }
 
