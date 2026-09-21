@@ -125,7 +125,7 @@ export function CreateTestPanel({ position, className, onSaved }: CreateTestPane
   const [attachedLoading, setAttachedLoading] = useState(false);
   const [attachedError, setAttachedError] = useState<string | null>(null);
   const [testName, setTestName] = useState(position.test?.name ?? position.title);
-  const [testDescription, setTestDescription] = useState(position.test?.description ?? position.description ?? "");
+  const [testDescription, setTestDescription] = useState(position.test?.description ?? "");
   const [tags, setTags] = useState("");
   const [status, setStatus] = useState<TestStatus>(position.test?.status ?? "DRAFT");
   const [draftQuestions, setDraftQuestions] = useState<DraftQuestionEntry[]>([]);
@@ -139,14 +139,14 @@ export function CreateTestPanel({ position, className, onSaved }: CreateTestPane
     setAttachedTest(null);
     setAttachedError(null);
     setTestName(position.test?.name ?? position.title);
-    setTestDescription(position.test?.description ?? position.description ?? "");
+    setTestDescription(position.test?.description ?? "");
     setTags("");
     setStatus(position.test?.status ?? "DRAFT");
     setDraftQuestions([]);
     setSelectedDraftId(null);
     setSuccess(null);
     setError(null);
-  }, [position.id, position.title, position.description, position.test?.id, position.test?.name, position.test?.description, position.test?.status, position.test?.questionCount]);
+  }, [position.id, position.title, position.test?.id, position.test?.name, position.test?.description, position.test?.status, position.test?.questionCount]);
 
   useEffect(() => {
     const testId = attachedTestId ?? "";

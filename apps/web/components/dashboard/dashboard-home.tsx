@@ -37,7 +37,7 @@ export function DashboardHome() {
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all(["OPEN", "DRAFT", "CLOSED"].map((status) => listPositions({ status: status as "OPEN" | "DRAFT" | "CLOSED", pageSize: 100 })))
+    Promise.all(["OPEN", "CLOSED"].map((status) => listPositions({ status: status as "OPEN" | "CLOSED", pageSize: 100 })))
       .then((result) => { if (!cancelled) setPositions(result.flatMap((page) => page.items)); })
       .catch((caught: unknown) => { if (!cancelled) setError(caught instanceof Error ? caught.message : "Dashboard data could not be loaded"); })
       .finally(() => { if (!cancelled) setLoading(false); });
@@ -60,7 +60,6 @@ export function DashboardHome() {
 
   const attentionItems = useMemo(() => [
     { label: "Open positions without a published test", count: positions.filter((position) => position.status === "OPEN" && position.testState !== "PUBLISHED").length, href: "/positions" },
-    { label: "Draft positions", count: positions.filter((position) => position.status === "DRAFT").length, href: "/positions" },
     { label: "Candidates to evaluate", count: positions.reduce((total, position) => total + position.workflowCounts.TO_EVALUATE, 0), href: "/positions" },
   ], [positions]);
 
