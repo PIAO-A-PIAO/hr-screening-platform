@@ -17,7 +17,7 @@ export default function PositionsPage() {
         title="Positions"
         description="Manage open roles, monitor candidate activity, and keep every interview process moving."
         actions={
-          <ButtonLink href="/positions/create" leadingIcon={<AppIcon name="plus" size={18} />}>
+          <ButtonLink href="/positions/new/edit" leadingIcon={<AppIcon name="plus" size={18} />}>
             Create position
           </ButtonLink>
         }

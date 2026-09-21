@@ -1,27 +1,15 @@
 import type { Metadata } from "next";
 import { PositionDetailRoute } from "../../../components/position-detail-route";
 
-export const metadata: Metadata = {
-  title: "Position Detail | DS-HR",
-  description: "View a position and its attached test",
-};
+export const metadata: Metadata = { title: "Candidate Pipeline | DS-HR", description: "Manage candidates for a position" };
+const STATUS_BY_SLUG = { invited: "INVITED", "to-evaluate": "TO_EVALUATE", shortlisted: "SHORTLISTED", discarded: "DISCARDED" } as const;
 
-type PositionPageProps = {
+export default async function PositionDetailPage({ params, searchParams }: {
   params: Promise<{ positionId: string }>;
-};
-
-export default async function PositionDetailPage({ params }: PositionPageProps) {
-  const resolvedParams = await params;
-
-  return (
-    <main className="pageShell">
-      <section className="hero compactHero">
-        <div className="eyebrow">DS-HR - Position detail</div>
-        <h1>Position workflow</h1>
-        <p>Review the role record, attached test state, candidate submissions, and pending invites in one place.</p>
-      </section>
-
-      <PositionDetailRoute positionId={resolvedParams.positionId} />
-    </main>
-  );
+  searchParams?: Promise<{ status?: string }>;
+}) {
+  const { positionId } = await params;
+  const resolvedSearch = await searchParams;
+  const initialStatus = STATUS_BY_SLUG[resolvedSearch?.status as keyof typeof STATUS_BY_SLUG] ?? "INVITED";
+  return <main className="pageShell"><PositionDetailRoute positionId={positionId} initialStatus={initialStatus} /></main>;
 }

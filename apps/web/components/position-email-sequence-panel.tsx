@@ -6,6 +6,7 @@ import {
   updatePositionEmailSequence,
   type EmailDelayUnit,
   type EmailSequenceStopCondition,
+  type EmailSequenceTrigger,
   type EmailTemplateSummary,
   type PositionResponse,
 } from "../lib/position-api";
@@ -15,6 +16,7 @@ type SequenceDraftStep = {
   templateId: string;
   delayValue: number;
   delayUnit: EmailDelayUnit;
+  trigger: EmailSequenceTrigger;
   stopCondition: EmailSequenceStopCondition | "";
 };
 
@@ -34,6 +36,7 @@ function createBlankStep(templates: EmailTemplateSummary[], index: number): Sequ
     templateId: templates[index]?.id ?? templates[0]?.id ?? "",
     delayValue: index === 0 ? 1 : 3,
     delayUnit: index === 0 ? "HOURS" : "DAYS",
+    trigger: index === 0 ? "INVITATION" : "NO_RESPONSE",
     stopCondition: "",
   };
 }
@@ -48,6 +51,7 @@ function fromSequence(position: PositionResponse, templates: EmailTemplateSummar
     templateId: step.templateId,
     delayValue: step.delayValue,
     delayUnit: step.delayUnit,
+    trigger: step.trigger,
     stopCondition: step.stopCondition ?? "",
   })) as SequenceDraftStep[];
 }
@@ -64,7 +68,8 @@ function describeStep(step: SequenceDraftStep, index: number, templates: EmailTe
           ? "Stop when candidate is discarded"
           : "Stop when position closes";
 
-  return `${index + 1}. ${label} after ${step.delayValue} ${step.delayUnit.toLowerCase()} ${stopLabel}`;
+  const triggerLabel = step.trigger === "INVITATION" ? "On invitation" : step.trigger === "INTERVIEW_COMPLETED" ? "On completion" : "No response";
+  return `${index + 1}. ${triggerLabel}: ${label} after ${step.delayValue} ${step.delayUnit.toLowerCase()} ${stopLabel}`;
 }
 
 export function PositionEmailSequencePanel({
@@ -182,6 +187,7 @@ export function PositionEmailSequencePanel({
           delayValue: step.delayValue,
           delayUnit: step.delayUnit,
           order: index + 1,
+          trigger: step.trigger,
           stopCondition: step.stopCondition === "" ? undefined : step.stopCondition,
         })),
       };
@@ -256,6 +262,14 @@ export function PositionEmailSequencePanel({
 
                   <div className="formGrid sequenceStepGrid">
                     <label className="field">
+                      <span>Trigger</span>
+                      <select value={step.trigger} onChange={(event) => updateStep(index, { trigger: event.target.value as EmailSequenceTrigger })}>
+                        <option value="INVITATION">On invitation</option>
+                        <option value="NO_RESPONSE">No response after delay</option>
+                        <option value="INTERVIEW_COMPLETED">On interview completion</option>
+                      </select>
+                    </label>
+                    <label className="field">
                       <span>Global template</span>
                       <select value={step.templateId} onChange={(event) => updateStep(index, { templateId: event.target.value })} required>
                         <option value="" disabled>
@@ -276,7 +290,7 @@ export function PositionEmailSequencePanel({
                       <span>Wait</span>
                       <input
                         type="number"
-                        min={1}
+                        min={0}
                         value={step.delayValue}
                         onChange={(event) => updateStep(index, { delayValue: Number(event.target.value) })}
                         required
@@ -339,7 +353,7 @@ export function PositionEmailSequencePanel({
           )}
           {!error && !success && !loadingTemplates && (
             <div className="stateCard emptyStateInline">
-              Invitation, reminders, and stop rules are stored as ordered database records, not a freeform JSON blob.
+              Invitation, no-response, and completion triggers are stored as ordered database records.
             </div>
           )}
         </div>
@@ -357,7 +371,7 @@ export function PositionEmailSequencePanel({
             {saving ? "Saving..." : "Save email sequence"}
           </button>
           <span className="helperText">
-            Configure at least an invitation and one reminder. Delays are relative to the prior step.
+            Configure exactly one invitation trigger and no more than one completion trigger.
           </span>
         </div>
       </div>

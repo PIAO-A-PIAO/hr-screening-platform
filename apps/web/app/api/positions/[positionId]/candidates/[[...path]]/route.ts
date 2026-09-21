@@ -9,5 +9,6 @@ async function handle(request: NextRequest,
   return proxyRequest(request, `/positions/${encodeURIComponent(positionId)}/candidates${suffix}`);
 }
 export const GET = handle;
+export const POST = handle;
 export const PATCH = handle;
 export const DELETE = handle;
