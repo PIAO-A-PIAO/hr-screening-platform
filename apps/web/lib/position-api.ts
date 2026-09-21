@@ -1,7 +1,7 @@
 import { ApiError, type TestStatus } from "./question-api";
 
-export type PositionStatus = "DRAFT" | "OPEN" | "CLOSED";
-export type WorkflowStatus = "INVITED" | "TO_EVALUATE" | "SHORTLISTED" | "DISCARDED";
+export type PositionStatus = "OPEN" | "CLOSED";
+export type WorkflowStatus = "INVITED" | "TO_EVALUATE" | "PHASE_1" | "PHASE_2" | "PHASE_3" | "DISCARDED";
 export type PositionSort = "CREATED_DESC" | "CREATED_ASC" | "TITLE_ASC";
 export type EmailDelayUnit = "MINUTES" | "HOURS" | "DAYS";
 export type EmailSequenceTrigger = "INVITATION" | "NO_RESPONSE" | "INTERVIEW_COMPLETED";
@@ -27,7 +27,6 @@ export type PositionTestSummary = {
 export type PositionSummaryResponse = {
   id: string;
   title: string;
-  description: string | null;
   tags: string[];
   departments: Array<{ id: string; name: string }>;
   status: PositionStatus;
@@ -44,7 +43,13 @@ export type PositionsPageResponse = {
   items: PositionSummaryResponse[]; page: number; pageSize: number; total: number; totalPages: number; availableTags: string[];
 };
 export type CreatePositionInput = {
-  title: string; description?: string; tags?: string[]; departmentIds?: string[]; status?: PositionStatus;
+  title: string; tags?: string[]; departmentIds?: string[]; status?: PositionStatus;
+};
+export type UpdatePositionInput = {
+  title?: string; tags?: string[]; departmentIds?: string[];
+};
+export type PositionOptionsResponse = {
+  tags: string[]; departments: Array<{ id: string; name: string }>;
 };
 export type ListPositionsInput = {
   status: PositionStatus; search?: string; tags?: string[]; sort?: PositionSort; page?: number; pageSize?: number;
@@ -75,6 +80,13 @@ export function createPosition(input: CreatePositionInput) {
   return requestJson<PositionResponse>("/positions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input) });
 }
 export function getPosition(positionId: string) { return requestJson<PositionResponse>(`/positions/${encodeURIComponent(positionId)}`); }
+export function getPositionOptions() { return requestJson<PositionOptionsResponse>("/positions/options"); }
+export function deletePositionTag(tag: string) {
+  return requestJson<PositionOptionsResponse>(`/positions/tags/${encodeURIComponent(tag)}`, { method: "DELETE" });
+}
+export function updatePosition(positionId: string, input: UpdatePositionInput) {
+  return requestJson<PositionResponse>(`/positions/${encodeURIComponent(positionId)}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input) });
+}
 export function updatePositionStatus(positionId: string, status: PositionStatus) {
   return requestJson<PositionResponse>(`/positions/${encodeURIComponent(positionId)}/status`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) });
 }

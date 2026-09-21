@@ -14,6 +14,7 @@ import {
   ListPositionsQueryDto,
   PositionSortDto,
   PositionStatusDto,
+  UpdatePositionDto,
   UpdatePositionEmailSequenceDto,
   UpdatePositionEmailSequenceStepDto,
 } from "./positions.dto";
@@ -33,7 +34,6 @@ export type PositionTestSummary = {
 export type PositionSummaryResponse = {
   id: string;
   title: string;
-  description: string | null;
   tags: string[];
   departments: Array<{ id: string; name: string }>;
   status: PositionStatus;
@@ -149,7 +149,9 @@ function workflowCounts(interviews: Array<{ workflowStatus: InterviewWorkflowSta
   const counts: WorkflowCounts = {
     INVITED: 0,
     TO_EVALUATE: 0,
-    SHORTLISTED: 0,
+    PHASE_1: 0,
+    PHASE_2: 0,
+    PHASE_3: 0,
     DISCARDED: 0,
   };
   for (const interview of interviews) counts[interview.workflowStatus] += 1;
@@ -161,14 +163,13 @@ function toSummary(position: PositionWithSummary): PositionSummaryResponse {
   return {
     id: position.id,
     title: position.title,
-    description: position.description,
     tags: position.tags,
     departments: position.departments,
     status: position.status,
     createdAt: position.createdAt,
     updatedAt: position.updatedAt,
     candidateCount: position.interviews.length,
-    submittedCount: counts.TO_EVALUATE + counts.SHORTLISTED + counts.DISCARDED,
+    submittedCount: counts.TO_EVALUATE + counts.PHASE_1 + counts.PHASE_2 + counts.PHASE_3 + counts.DISCARDED,
     workflowCounts: counts,
     testState: position.test?.status ?? "NO_TEST",
     test: position.test
@@ -242,14 +243,44 @@ export class PositionsService {
     const created = await this.prisma.position.create({
       data: {
         title,
-        description: dto.description?.trim() || null,
         tags: normalizeTags(dto.tags),
-        status: (dto.status ?? PositionStatusDto.DRAFT) as PositionStatus,
+        status: (dto.status ?? PositionStatusDto.OPEN) as PositionStatus,
         departments: { connect: departmentIds.map((id) => ({ id })) },
       },
       select: { id: true },
     });
     return this.getPosition(created.id);
+  }
+
+  async getOptions() {
+    const [positions, departments] = await Promise.all([
+      this.prisma.position.findMany({ select: { tags: true } }),
+      this.prisma.department.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } }),
+    ]);
+    return {
+      tags: normalizeTags(positions.flatMap((position) => position.tags)).sort((left, right) => left.localeCompare(right)),
+      departments,
+    };
+  }
+
+  async deleteTag(value: string) {
+    const tag = value.trim().replace(/\s+/g, " ");
+    if (!tag) throw new BadRequestException("Tag is required");
+    const key = tag.toLocaleLowerCase();
+    const positions = await this.prisma.position.findMany({ select: { id: true, tags: true } });
+    const affected = positions
+      .map((position) => ({
+        id: position.id,
+        tags: position.tags.filter((current) => current.trim().replace(/\s+/g, " ").toLocaleLowerCase() !== key),
+      }))
+      .filter((position, index) => position.tags.length !== positions[index].tags.length);
+    if (affected.length > 0) {
+      await this.prisma.$transaction(affected.map((position) => this.prisma.position.update({
+        where: { id: position.id },
+        data: { tags: position.tags },
+      })));
+    }
+    return this.getOptions();
   }
 
   async getPosition(positionId: string): Promise<PositionResponse> {
@@ -268,6 +299,34 @@ export class PositionsService {
       data: { status: status as PositionStatus },
     });
     if (result.count !== 1) throw new NotFoundException("Position not found");
+    return this.getPosition(positionId);
+  }
+
+  async updatePosition(positionId: string, dto: UpdatePositionDto): Promise<PositionResponse> {
+    const title = dto.title === undefined ? undefined : dto.title.trim().replace(/\s+/g, " ");
+    if (title !== undefined && !title) throw new BadRequestException("Position title is required");
+    const departmentIds = dto.departmentIds === undefined ? undefined : [...new Set(dto.departmentIds)];
+    if (departmentIds) {
+      const count = await this.prisma.department.count({ where: { id: { in: departmentIds } } });
+      if (count !== departmentIds.length) throw new BadRequestException("One or more departments do not exist");
+    }
+    try {
+      await this.prisma.position.update({
+        where: { id: positionId },
+        data: {
+          ...(title !== undefined ? { title } : {}),
+          ...(dto.tags !== undefined ? { tags: normalizeTags(dto.tags) } : {}),
+          ...(departmentIds !== undefined
+            ? { departments: { set: departmentIds.map((id) => ({ id })) } }
+            : {}),
+        },
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
+        throw new NotFoundException("Position not found");
+      }
+      throw error;
+    }
     return this.getPosition(positionId);
   }
 
@@ -313,7 +372,6 @@ export class PositionsService {
   }
 
   private assertValidEmailSequencePayload(steps: UpdatePositionEmailSequenceStepDto[]) {
-    if (steps.length < 2) throw new BadRequestException("At least two email steps are required");
     const orders = steps.map((step) => step.order);
     if (new Set(orders).size !== orders.length) throw new BadRequestException("Email step order values must be unique");
     const normalized = [...orders].sort((left, right) => left - right);
@@ -321,11 +379,8 @@ export class PositionsService {
       throw new BadRequestException("Email step order values must start at 1 and be consecutive");
     }
     if (steps.some((step) => step.delayValue < 0)) throw new BadRequestException("Email delays cannot be negative");
-    if (steps.filter((step) => step.trigger === "INVITATION").length !== 1) {
-      throw new BadRequestException("Email sequence must contain exactly one invitation trigger");
-    }
-    if (steps.filter((step) => step.trigger === "INTERVIEW_COMPLETED").length > 1) {
-      throw new BadRequestException("Email sequence can contain at most one completion trigger");
+    if (steps.some((step) => step.trigger === "NO_RESPONSE" && step.delayValue <= 0)) {
+      throw new BadRequestException("No-response rules require a positive delay");
     }
   }
 }

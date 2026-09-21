@@ -1,380 +1,103 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import {
-  listEmailTemplates,
-  updatePositionEmailSequence,
-  type EmailDelayUnit,
-  type EmailSequenceStopCondition,
-  type EmailSequenceTrigger,
-  type EmailTemplateSummary,
-  type PositionResponse,
-} from "../lib/position-api";
+import { useEffect, useMemo, useState } from "react";
+import { listEmailTemplates, updatePositionEmailSequence, type EmailSequenceTrigger, type EmailTemplateSummary, type PositionResponse } from "../lib/position-api";
+import { AppIcon } from "./ui/app-icon";
+import { Modal } from "./ui/modal";
 
-type SequenceDraftStep = {
-  clientId: string;
-  templateId: string;
-  delayValue: number;
-  delayUnit: EmailDelayUnit;
-  trigger: EmailSequenceTrigger;
-  stopCondition: EmailSequenceStopCondition | "";
-};
-
-type PositionEmailSequencePanelProps = {
-  position: PositionResponse;
-  className?: string;
-  onSaved?: () => void;
-};
-
-function makeClientId() {
-  return globalThis.crypto?.randomUUID?.() ?? `step_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+type Rule = { clientId: string; templateId: string; condition: EmailSequenceTrigger; hours: number };
+type Props = { position: PositionResponse; className?: string; onSaved?: (position: PositionResponse) => void };
+const placeholderPattern = /(\{[a-zA-Z0-9_]+\})/g;
+function id() { return globalThis.crypto?.randomUUID?.() ?? `rule_${Date.now()}_${Math.random()}`; }
+function blankRule(): Rule { return { clientId: id(), templateId: "", condition: "INVITATION", hours: 1 }; }
+function label(condition: EmailSequenceTrigger) { return condition === "INVITATION" ? "On invitation" : condition === "INTERVIEW_COMPLETED" ? "On completion" : "No response in X hours"; }
+function highlightText(value: string) {
+  return value.split(placeholderPattern).map((part, index) => /^\{[a-zA-Z0-9_]+\}$/.test(part) ? <mark key={`${part}-${index}`}>{part}</mark> : part);
 }
-
-function createBlankStep(templates: EmailTemplateSummary[], index: number): SequenceDraftStep {
-  return {
-    clientId: makeClientId(),
-    templateId: templates[index]?.id ?? templates[0]?.id ?? "",
-    delayValue: index === 0 ? 1 : 3,
-    delayUnit: index === 0 ? "HOURS" : "DAYS",
-    trigger: index === 0 ? "INVITATION" : "NO_RESPONSE",
-    stopCondition: "",
-  };
-}
-
-function fromSequence(position: PositionResponse, templates: EmailTemplateSummary[]): SequenceDraftStep[] {
-  if (!position.emails) {
-    return [createBlankStep(templates, 0), createBlankStep(templates, 1)];
+function sanitizeAndHighlight(html: string) {
+  if (typeof window === "undefined") return "";
+  const documentNode = new DOMParser().parseFromString(html, "text/html");
+  documentNode.querySelectorAll("script,style,iframe,object,embed,form,input,button,img,meta,link,base").forEach((node) => node.remove());
+  documentNode.querySelectorAll("*").forEach((element) => {
+    for (const attribute of [...element.attributes]) {
+      if (attribute.name.startsWith("on") || attribute.name === "style" || ((attribute.name === "href" || attribute.name === "src") && /^\s*(javascript|data):/i.test(attribute.value))) element.removeAttribute(attribute.name);
+    }
+  });
+  const walker = documentNode.createTreeWalker(documentNode.body, NodeFilter.SHOW_TEXT);
+  const textNodes: Text[] = [];
+  while (walker.nextNode()) textNodes.push(walker.currentNode as Text);
+  for (const node of textNodes) {
+    const parts = node.data.split(placeholderPattern);
+    if (parts.length === 1) continue;
+    const fragment = documentNode.createDocumentFragment();
+    for (const part of parts) {
+      if (/^\{[a-zA-Z0-9_]+\}$/.test(part)) { const mark = documentNode.createElement("mark"); mark.textContent = part; fragment.append(mark); }
+      else fragment.append(documentNode.createTextNode(part));
+    }
+    node.replaceWith(fragment);
   }
-
-  return position.emails.steps.map((step) => ({
-    clientId: step.id,
-    templateId: step.templateId,
-    delayValue: step.delayValue,
-    delayUnit: step.delayUnit,
-    trigger: step.trigger,
-    stopCondition: step.stopCondition ?? "",
-  })) as SequenceDraftStep[];
+  return documentNode.body.innerHTML;
 }
 
-function describeStep(step: SequenceDraftStep, index: number, templates: EmailTemplateSummary[]) {
-  const template = templates.find((entry) => entry.id === step.templateId);
-  const label = template ? `${template.name} (${template.subject})` : "Missing template";
-  const stopLabel =
-    step.stopCondition === ""
-      ? "No stop rule"
-      : step.stopCondition === "CANDIDATE_SUBMITTED"
-        ? "Stop when candidate submits"
-        : step.stopCondition === "CANDIDATE_DISCARDED"
-          ? "Stop when candidate is discarded"
-          : "Stop when position closes";
-
-  const triggerLabel = step.trigger === "INVITATION" ? "On invitation" : step.trigger === "INTERVIEW_COMPLETED" ? "On completion" : "No response";
-  return `${index + 1}. ${triggerLabel}: ${label} after ${step.delayValue} ${step.delayUnit.toLowerCase()} ${stopLabel}`;
-}
-
-export function PositionEmailSequencePanel({
-  position,
-  className,
-  onSaved,
-}: PositionEmailSequencePanelProps) {
+export function PositionEmailSequencePanel({ position, className, onSaved }: Props) {
   const [templates, setTemplates] = useState<EmailTemplateSummary[]>([]);
-  const [steps, setSteps] = useState<SequenceDraftStep[]>([]);
-  const [loadingTemplates, setLoadingTemplates] = useState(true);
+  const [rules, setRules] = useState<Rule[]>([]);
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+  const [previewId, setPreviewId] = useState<string | null>(null);
 
   useEffect(() => {
-    let cancelled = false;
+    let cancelled = false; setLoading(true); setError(null);
+    void listEmailTemplates().then((items) => {
+      if (cancelled) return;
+      setTemplates(items);
+      setRules((position.emails?.steps ?? []).map((step) => ({
+        clientId: step.id, templateId: step.templateId, condition: step.trigger,
+        hours: step.trigger === "NO_RESPONSE" ? (step.delayUnit === "HOURS" ? step.delayValue : step.delayUnit === "DAYS" ? step.delayValue * 24 : Math.max(1, Math.ceil(step.delayValue / 60))) : 1,
+      })));
+    }).catch((caught) => !cancelled && setError(caught instanceof Error ? caught.message : "Failed to load email templates"))
+      .finally(() => !cancelled && setLoading(false));
+    return () => { cancelled = true; };
+  }, [position.id, position.emails?.updatedAt]);
 
-    async function loadTemplates() {
-      setLoadingTemplates(true);
-      setError(null);
-
-      try {
-        const loaded = await listEmailTemplates();
-        if (cancelled) {
-          return;
-        }
-
-        setTemplates(loaded);
-        setSteps(fromSequence(position, loaded));
-      } catch (caught) {
-        if (!cancelled) {
-          setError(caught instanceof Error ? caught.message : "Failed to load email templates");
-          setTemplates([]);
-        }
-      } finally {
-        if (!cancelled) {
-          setLoadingTemplates(false);
-        }
-      }
-    }
-
-    void loadTemplates();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [position.id, position.emails, position.emails?.id, position.emails?.updatedAt]);
-
-  useEffect(() => {
-    if (templates.length === 0 || steps.length > 0) {
-      return;
-    }
-
-    setSteps(fromSequence(position, templates));
-  }, [position, templates, steps.length]);
-
-  function updateStep(index: number, next: Partial<SequenceDraftStep>) {
-    setSteps((current) =>
-      current.map((step, currentIndex) =>
-        currentIndex === index
-          ? {
-              ...step,
-              ...next,
-            }
-          : step,
-      ),
-    );
-    setSuccess(null);
-  }
-
-  function addStep() {
-    setSteps((current) => [...current, createBlankStep(templates, current.length)]);
-    setSuccess(null);
-  }
-
-  function removeStep(index: number) {
-    setSteps((current) => {
-      if (current.length <= 2) {
-        return current;
-      }
-
-      return current.filter((_, currentIndex) => currentIndex !== index);
-    });
-    setSuccess(null);
-  }
-
-  function moveStep(index: number, direction: -1 | 1) {
-    setSteps((current) => {
-      const targetIndex = index + direction;
-      if (targetIndex < 0 || targetIndex >= current.length) {
-        return current;
-      }
-
-      const reordered = [...current];
-      [reordered[index], reordered[targetIndex]] = [reordered[targetIndex], reordered[index]];
-      return reordered;
-    });
-    setSuccess(null);
-  }
-
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  const previewRule = rules.find((rule) => rule.clientId === previewId);
+  const previewTemplate = templates.find((template) => template.id === previewRule?.templateId);
+  const safeBody = useMemo(() => previewTemplate ? sanitizeAndHighlight(previewTemplate.html) : "", [previewTemplate]);
+  function change(index: number, patch: Partial<Rule>) { setRules((items) => items.map((item, itemIndex) => itemIndex === index ? { ...item, ...patch } : item)); setSaved(false); }
+  async function save() {
+    setError(null); setSaved(false);
+    if (rules.some((rule) => !rule.templateId)) { setError("Choose an email template for every rule."); return; }
+    if (rules.some((rule) => rule.condition === "NO_RESPONSE" && (!Number.isInteger(rule.hours) || rule.hours <= 0))) { setError("No-response hours must be a positive whole number."); return; }
     setSaving(true);
-    setError(null);
-    setSuccess(null);
-
     try {
-      if (steps.length < 2) {
-        throw new Error("Add at least two steps before saving.");
-      }
-
-      const payload = {
-        steps: steps.map((step, index) => ({
-          templateId: step.templateId,
-          delayValue: step.delayValue,
-          delayUnit: step.delayUnit,
-          order: index + 1,
-          trigger: step.trigger,
-          stopCondition: step.stopCondition === "" ? undefined : step.stopCondition,
-        })),
-      };
-
-      const saved = await updatePositionEmailSequence(position.id, payload);
-      setSuccess(`Saved ${saved.emails?.steps.length ?? 0} email steps.`);
-      setSteps(fromSequence(saved, templates));
-      onSaved?.();
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Failed to save email sequence");
-    } finally {
-      setSaving(false);
-    }
+      const result = await updatePositionEmailSequence(position.id, { steps: rules.map((rule, index) => ({ templateId: rule.templateId, trigger: rule.condition, delayValue: rule.condition === "NO_RESPONSE" ? rule.hours : 0, delayUnit: "HOURS", order: index + 1 })) });
+      setRules((result.emails?.steps ?? []).map((step) => ({ clientId: step.id, templateId: step.templateId, condition: step.trigger, hours: step.delayValue || 1 })));
+      setSaved(true); onSaved?.(result);
+    } catch (caught) { setError(caught instanceof Error ? caught.message : "Failed to save email rules"); }
+    finally { setSaving(false); }
   }
 
-  const canEdit = templates.length > 0 && !loadingTemplates;
-
-  return (
-    <details className={`detailCard emailSequenceAccordion ${className ?? ""}`} open>
-      <summary className="attachedTestSummary">
-        <div>
-          <span className="sectionLabel">Email sequence</span>
-          <h3>{position.emails ? "Configured sequence" : "No sequence yet"}</h3>
-          <small>{position.emails?.id ?? "Configure invitation and reminder emails"}</small>
-        </div>
-        <div className="attachedTestSummaryMeta">
-          <span className="pill">{position.emails?.steps.length ?? 0} steps</span>
-          <span className="pill">HTML templates</span>
-        </div>
-      </summary>
-
-      <div className="attachedTestBody">
-        {loadingTemplates && <div className="stateCard">Loading email templates...</div>}
-        {error && <div className="stateCard errorState">Error: {error}</div>}
-
-        {!loadingTemplates && templates.length === 0 && !error && (
-          <div className="stateCard emptyStateInline">
-            No email templates are available yet.
-          </div>
-        )}
-
-        <form id={`email-sequence-form-${position.id}`} className="formGrid" onSubmit={handleSubmit}>
-          <div className="field fieldWide">
-            <span>Steps</span>
-            <div className="sequenceEditor">
-              {steps.map((step, index) => (
-                <div key={step.clientId} className="sequenceStepCard">
-                  <div className="sequenceStepHeader">
-                    <strong>Step {index + 1}</strong>
-                    <div className="draftActions">
-                      <button type="button" className="ghostButton compactButton" onClick={() => moveStep(index, -1)} disabled={index === 0}>
-                        Up
-                      </button>
-                      <button
-                        type="button"
-                        className="ghostButton compactButton"
-                        onClick={() => moveStep(index, 1)}
-                        disabled={index === steps.length - 1}
-                      >
-                        Down
-                      </button>
-                      <button
-                        type="button"
-                        className="ghostButton compactButton"
-                        onClick={() => removeStep(index)}
-                        disabled={steps.length <= 2}
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="formGrid sequenceStepGrid">
-                    <label className="field">
-                      <span>Trigger</span>
-                      <select value={step.trigger} onChange={(event) => updateStep(index, { trigger: event.target.value as EmailSequenceTrigger })}>
-                        <option value="INVITATION">On invitation</option>
-                        <option value="NO_RESPONSE">No response after delay</option>
-                        <option value="INTERVIEW_COMPLETED">On interview completion</option>
-                      </select>
-                    </label>
-                    <label className="field">
-                      <span>Global template</span>
-                      <select value={step.templateId} onChange={(event) => updateStep(index, { templateId: event.target.value })} required>
-                        <option value="" disabled>
-                          Select a global template
-                        </option>
-                        {templates.map((template) => (
-                          <option key={template.id} value={template.id}>
-                            {template.name} - {template.subject}
-                          </option>
-                        ))}
-                      </select>
-                      <small className="helperText">
-                        Templates can be reused by multiple positions. This sequence stores only the template reference.
-                      </small>
-                    </label>
-
-                    <label className="field">
-                      <span>Wait</span>
-                      <input
-                        type="number"
-                        min={0}
-                        value={step.delayValue}
-                        onChange={(event) => updateStep(index, { delayValue: Number(event.target.value) })}
-                        required
-                      />
-                    </label>
-
-                    <label className="field">
-                      <span>Unit</span>
-                      <select value={step.delayUnit} onChange={(event) => updateStep(index, { delayUnit: event.target.value as EmailDelayUnit })}>
-                        <option value="MINUTES">Minutes</option>
-                        <option value="HOURS">Hours</option>
-                        <option value="DAYS">Days</option>
-                      </select>
-                    </label>
-
-                    <label className="field">
-                      <span>Stop rule</span>
-                      <select
-                        value={step.stopCondition}
-                        onChange={(event) =>
-                          updateStep(index, {
-                            stopCondition: event.target.value as EmailSequenceStopCondition | "",
-                          })
-                        }
-                      >
-                        <option value="">None</option>
-                        <option value="CANDIDATE_SUBMITTED">Stop when candidate submits</option>
-                        <option value="CANDIDATE_DISCARDED">Stop when candidate is discarded</option>
-                        <option value="POSITION_CLOSED">Stop when position closes</option>
-                      </select>
-                    </label>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </form>
-
-        <div className="detailCard sequencePreviewCard">
-          <strong>Sequence preview</strong>
-          {steps.length === 0 ? (
-            <div className="stateCard emptyStateInline">Add two or more steps to create a sequence.</div>
-          ) : (
-            <ul className="dataList">
-              {steps.map((step, index) => (
-                <li key={step.clientId}>
-                  <strong>{describeStep(step, index, templates)}</strong>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-
-        <div className="feedbackArea">
-          {success && (
-            <div className="stateCard successState">
-              <strong>Sequence saved.</strong>
-              <span>{success}</span>
-            </div>
-          )}
-          {!error && !success && !loadingTemplates && (
-            <div className="stateCard emptyStateInline">
-              Invitation, no-response, and completion triggers are stored as ordered database records.
-            </div>
-          )}
-        </div>
-
-        <div className="actionsRow">
-          <button type="button" className="ghostButton" onClick={addStep} disabled={!canEdit}>
-            Add step
-          </button>
-          <button
-            className="primaryButton"
-            type="submit"
-            form={`email-sequence-form-${position.id}`}
-            disabled={saving || !canEdit || steps.length < 2 || steps.some((step) => !step.templateId)}
-          >
-            {saving ? "Saving..." : "Save email sequence"}
-          </button>
-          <span className="helperText">
-            Configure exactly one invitation trigger and no more than one completion trigger.
-          </span>
-        </div>
+  return <section className={`positionSettingsCard positionEmailCard ${className ?? ""}`}>
+    <div className="positionCardHeader positionEmailHeader"><div className="positionCardCopy"><h2>Candidate notifications</h2><p>Automatically notify candidates based on their progress.</p></div><span className="positionCountBadge">{rules.length} {rules.length === 1 ? "rule" : "rules"}</span></div>
+    {loading && <div className="stateCard">Loading email templates...</div>}
+    {!loading && templates.length === 0 && <div className="stateCard emptyStateInline">Create an email template before adding a rule.</div>}
+    {!loading && templates.length > 0 && rules.length === 0 && <div className="positionEmailEmpty"><div className="positionCardIcon muted"><AppIcon name="email" size={22} /></div><strong>No email rules yet</strong><span>Add a rule to automate candidate communication.</span></div>}
+    <div className="positionRuleList">{rules.map((rule, index) => <div className="positionRuleRow" key={rule.clientId}>
+      <div className="positionRuleNumber">{index + 1}</div>
+      <div className="positionRuleFields">
+        <label><span>Template</span><select value={rule.templateId} onChange={(event) => change(index, { templateId: event.target.value })} required><option value="">Choose a template...</option>{templates.map((template) => <option value={template.id} key={template.id}>{template.name}</option>)}</select></label>
+        <label><span>Send when</span><select value={rule.condition} onChange={(event) => change(index, { condition: event.target.value as EmailSequenceTrigger })}><option value="INVITATION">On invitation</option><option value="INTERVIEW_COMPLETED">On completion</option><option value="NO_RESPONSE">No response in X hours</option></select></label>
+        {rule.condition === "NO_RESPONSE" && <label className="positionHoursField"><span>After</span><div><input aria-label="Hours without response" type="number" min="1" step="1" value={rule.hours} onChange={(event) => change(index, { hours: Number(event.target.value) })} required /><span>hours</span></div></label>}
       </div>
-    </details>
-  );
+      <div className="positionRuleActions"><button type="button" disabled={!rule.templateId} onClick={() => setPreviewId(rule.clientId)}>Preview</button><button className="danger" type="button" aria-label={`Delete rule ${index + 1}`} onClick={() => setRules((items) => items.filter((_, itemIndex) => itemIndex !== index))}>Delete</button></div>
+      <small className="positionRuleSummary">{label(rule.condition)}</small>
+    </div>)}</div>
+    {error && <div className="stateCard errorState">Error: {error}</div>}{saved && <div className="stateCard successState">Email rules saved.</div>}
+    <div className="positionEmailFooter"><button type="button" className="positionAddRule" disabled={loading || templates.length === 0} onClick={() => setRules((items) => [...items, blankRule()])}><AppIcon name="plus" size={17} /> Add email rule</button><button type="button" className="primaryButton" disabled={loading || saving} onClick={save}>{saving ? "Saving..." : "Save sequence"}</button></div>
+    <Modal open={Boolean(previewRule)} title="Email preview" description="Placeholder values remain unchanged in the stored template." onClose={() => setPreviewId(null)} size="large">
+      {previewTemplate ? <div className="emailPreview"><dl><dt>From</dt><dd>recruiting@digitalshovel.com</dd><dt>To</dt><dd>candidate@example.com</dd><dt>Subject</dt><dd>{highlightText(previewTemplate.subject)}</dd></dl><div className="emailPreviewBody" dangerouslySetInnerHTML={{ __html: safeBody }} /></div> : <div className="stateCard emptyStateInline">Select a template to preview it.</div>}
+    </Modal>
+  </section>;
 }
