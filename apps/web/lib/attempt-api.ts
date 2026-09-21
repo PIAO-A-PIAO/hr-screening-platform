@@ -48,7 +48,9 @@ export type AttemptDetailResponse =
         | string;
       questionId: string;
       questionTitle: string;
+      questionDescription: string | null;
       score: number | null;
+      evaluatorComment: string | null;
       createdAt: string;
       updatedAt: string;
       item: Record<string, unknown>;

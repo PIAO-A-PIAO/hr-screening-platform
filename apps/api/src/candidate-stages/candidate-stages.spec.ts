@@ -42,6 +42,19 @@ describe("candidate workflow service", () => {
         findMany: jest.fn().mockResolvedValue([]),
       },
       emailTask: { updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
+      response: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: "response-1", type: "SHORT_ANSWER", attemptId: "a1",
+          attempt: { interviewId: "i1", interview: { positionId: "p1" } },
+        }),
+        update: jest.fn().mockResolvedValue({
+          id: "response-1", score: 8, evaluatorComment: "Clear answer", evaluatedAt: new Date(),
+        }),
+        findMany: jest.fn().mockResolvedValue([
+          { type: "SHORT_ANSWER", score: 8 }, { type: "VIDEO", score: null },
+        ]),
+      },
+      attempt: { update: jest.fn().mockResolvedValue({}) },
       position: { findUnique: jest.fn().mockResolvedValue({ id: "p1", status: "OPEN", test: { id: "t1" } }) },
       candidate: { upsert: jest.fn().mockResolvedValue({ id: "c1", name: "Candidate", email: "candidate@example.com" }) },
     };
@@ -151,5 +164,27 @@ describe("candidate workflow service", () => {
     const { service, tx } = setup();
     await service.change("p1", "i1", { stage: "DISCARDED", expectedStage: "TO_EVALUATE", expectedRevision: 0 }, reviewer);
     expect(tx.emailTask.updateMany.mock.calls[0][0].where).toEqual({ interviewId: "i1", status: "PENDING" });
+  });
+
+  it("persists response feedback and recalculates the attempt score", async () => {
+    const { service, tx } = setup();
+    const result = await service.saveFeedback("p1", "i1", "response-1", { score: 8, comment: " Clear answer " });
+    expect(tx.response.update).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: "response-1" },
+      data: expect.objectContaining({ score: 8, evaluatorComment: "Clear answer" }),
+    }));
+    expect(tx.attempt.update).toHaveBeenCalledWith({
+      where: { id: "a1" }, data: { scoreSum: 8, scoreState: "PARTIAL" },
+    });
+    expect(result).toMatchObject({ score: 8, evaluatorComment: "Clear answer", scoreSum: 8, scoreState: "PARTIAL" });
+  });
+
+  it("rejects evaluator feedback for multiple-choice responses", async () => {
+    const { service, tx } = setup();
+    tx.response.findUnique.mockResolvedValue({
+      id: "response-1", type: "MULTIPLE_CHOICE", attemptId: "a1",
+      attempt: { interviewId: "i1", interview: { positionId: "p1" } },
+    });
+    await expect(service.saveFeedback("p1", "i1", "response-1", { score: 8 })).rejects.toThrow(BadRequestException);
   });
 });

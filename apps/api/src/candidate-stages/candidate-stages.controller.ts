@@ -3,7 +3,7 @@ import { IsIn, IsInt, Min } from 'class-validator';
 import { CandidateStagesService } from './candidate-stages.service';
 import { ReviewerAuth } from './reviewer-auth';
 import { WorkflowStatus, WORKFLOW_STATUSES } from './stage-policy';
-import { ImportPositionCandidatesDto, InvitePositionCandidateDto, ListCandidatePipelineDto } from './candidate-stages.dto';
+import { ImportPositionCandidatesDto, InvitePositionCandidateDto, ListCandidatePipelineDto, SaveResponseFeedbackDto } from './candidate-stages.dto';
 
 export class ChangeStageDto {
   @IsIn(WORKFLOW_STATUSES)
@@ -60,5 +60,15 @@ export class CandidateStagesController {
   changeStatus(@Param('positionId') positionId: string, @Param('assignmentId') assignmentId: string,
     @Body() body: ChangeStageDto) {
     return this.stages.change(positionId, assignmentId, body, this.auth.current());
+  }
+
+  @Patch(':interviewId/responses/:responseId/feedback')
+  saveFeedback(
+    @Param('positionId') positionId: string,
+    @Param('interviewId') interviewId: string,
+    @Param('responseId') responseId: string,
+    @Body() body: SaveResponseFeedbackDto,
+  ) {
+    return this.stages.saveFeedback(positionId, interviewId, responseId, body);
   }
 }
