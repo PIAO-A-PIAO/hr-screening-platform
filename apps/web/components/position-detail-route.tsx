@@ -39,7 +39,6 @@ export function PositionDetailRoute({ positionId, initialStatus }: { positionId:
         <ButtonLink href="/positions" variant="ghost" size="small" leadingIcon={<AppIcon name="arrow" size={16} />}>Back to positions</ButtonLink>
         <span className="sectionLabel">Position pipeline</span>
         <h1>{position.title}</h1>
-        <p>{position.description ?? "No position description has been added."}</p>
       </div>
       <div className="positionPipelineHeaderActions"><Button onClick={() => setInviteOpen(true)}>Invite new candidate</Button><ButtonLink href={`/positions/${encodeURIComponent(position.id)}/edit`} variant="secondary">Configure position</ButtonLink></div>
     </header>

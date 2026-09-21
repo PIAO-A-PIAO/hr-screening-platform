@@ -1,6 +1,5 @@
 import { Type } from "class-transformer";
 import {
-  ArrayMinSize,
   ArrayUnique,
   IsArray,
   IsEnum,
@@ -13,7 +12,6 @@ import {
 } from "class-validator";
 
 export enum PositionStatusDto {
-  DRAFT = "DRAFT",
   OPEN = "OPEN",
   CLOSED = "CLOSED",
 }
@@ -60,10 +58,6 @@ export class CreatePositionDto {
   title!: string;
 
   @IsOptional()
-  @IsString()
-  description?: string;
-
-  @IsOptional()
   @IsArray()
   @ArrayUnique()
   @IsString({ each: true })
@@ -78,6 +72,24 @@ export class CreatePositionDto {
   @IsOptional()
   @IsEnum(PositionStatusDto)
   status?: PositionStatusDto;
+}
+
+export class UpdatePositionDto {
+  @IsOptional()
+  @IsString()
+  title?: string;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayUnique()
+  @IsString({ each: true })
+  tags?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @ArrayUnique()
+  @IsString({ each: true })
+  departmentIds?: string[];
 }
 
 export class UpdatePositionStatusDto {
@@ -128,7 +140,6 @@ export class UpdatePositionEmailSequenceStepDto {
 
 export class UpdatePositionEmailSequenceDto {
   @IsArray()
-  @ArrayMinSize(2)
   @ValidateNested({ each: true })
   @Type(() => UpdatePositionEmailSequenceStepDto)
   steps!: UpdatePositionEmailSequenceStepDto[];

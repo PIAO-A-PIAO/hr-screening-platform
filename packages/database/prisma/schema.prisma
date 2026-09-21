@@ -43,7 +43,6 @@ enum AttemptScoreState {
 }
 
 enum PositionStatus {
-  DRAFT
   OPEN
   CLOSED
 }
@@ -167,9 +166,8 @@ model Test {
 model Position {
   id          String         @id @default(cuid())
   title       String
-  description String?
   tags        String[]       @default([])
-  status      PositionStatus @default(DRAFT)
+  status      PositionStatus @default(OPEN)
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
 
