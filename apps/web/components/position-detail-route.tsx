@@ -1,139 +1,60 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { getPosition, type PositionResponse } from "../lib/position-api";
 import { CandidateStagesPanel } from "./candidate-stages-panel";
-import { CreateTestPanel } from "./create-test-panel";
-import { InviteCandidatePanel } from "./invite-candidate-panel";
-import {
-  getPosition,
-  type PositionResponse,
-} from "../lib/position-api";
-import { PositionEmailSequencePanel } from "./position-email-sequence-panel";
+import { InviteCandidateModal } from "./invite-candidate-modal";
+import { AppIcon } from "./ui/app-icon";
+import { Button, ButtonLink } from "./ui/button";
+import { FeedbackState } from "./ui/feedback-state";
 
-type PositionDetailRouteProps = {
-  positionId: string;
-};
+type WorkflowStatus = "INVITED" | "TO_EVALUATE" | "SHORTLISTED" | "DISCARDED";
 
-export function PositionDetailRoute({ positionId }: PositionDetailRouteProps) {
+export function PositionDetailRoute({ positionId, initialStatus }: { positionId: string; initialStatus: WorkflowStatus }) {
   const [position, setPosition] = useState<PositionResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  useEffect(() => {
-    let cancelled = false;
-
-    async function load() {
-      setLoading(true);
-      setError(null);
-
-      try {
-        const loaded = await getPosition(positionId);
-        if (!cancelled) {
-          setPosition(loaded);
-        }
-      } catch (caught) {
-        if (!cancelled) {
-          setError(caught instanceof Error ? caught.message : "Failed to load position");
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      }
-    }
-
-    void load();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [positionId]);
+  const [inviteOpen, setInviteOpen] = useState(false);
 
   async function refreshPosition() {
     setError(null);
-    try {
-      const loaded = await getPosition(positionId);
-      setPosition(loaded);
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Failed to refresh position");
-    }
+    try { setPosition(await getPosition(positionId)); }
+    catch (caught) { setError(caught instanceof Error ? caught.message : "Failed to refresh position"); }
   }
 
-  if (loading) {
-    return (
-      <section className="panel">
-        <div className="stateCard">Loading position...</div>
-      </section>
-    );
-  }
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true); setError(null);
+    void getPosition(positionId).then((loaded) => { if (!cancelled) setPosition(loaded); }).catch((caught: unknown) => { if (!cancelled) setError(caught instanceof Error ? caught.message : "Failed to load position"); }).finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [positionId]);
 
-  if (error && !position) {
-    return (
-      <section className="panel">
-        <div className="stateCard errorState">Error: {error}</div>
-      </section>
-    );
-  }
+  if (loading) return <FeedbackState kind="loading" title="Loading position" description="Preparing the candidate pipeline." />;
+  if (error && !position) return <FeedbackState kind="error" title="Position could not be loaded" description={error} />;
+  if (!position) return <FeedbackState kind="empty" title="Position not found" description="Return to the position directory and select another position." />;
 
-  if (!position) {
-    return (
-      <section className="panel">
-        <div className="stateCard">Position not found.</div>
-      </section>
-    );
-  }
-
-  return (
-    <section className="panel positionDetailShell">
-      <div className="panelHeader">
-        <div>
-          <span className="sectionLabel">Position detail</span>
-          <h2>{position.title}</h2>
-        </div>
-        <p>{position.description ?? "No description"}</p>
+  return <div className="positionPipelinePage">
+    <header className="positionPipelineHero">
+      <div>
+        <ButtonLink href="/positions" variant="ghost" size="small" leadingIcon={<AppIcon name="arrow" size={16} />}>Back to positions</ButtonLink>
+        <span className="sectionLabel">Position pipeline</span>
+        <h1>{position.title}</h1>
+        <p>{position.description ?? "No position description has been added."}</p>
       </div>
+      <div className="positionPipelineHeaderActions"><Button onClick={() => setInviteOpen(true)}>Invite new candidate</Button><ButtonLink href={`/positions/${encodeURIComponent(position.id)}/edit`} variant="secondary">Configure position</ButtonLink></div>
+    </header>
 
-      {error && <div className="stateCard errorState">Error: {error}</div>}
+    {error && <FeedbackState kind="error" title="Position could not be refreshed" description={error} />}
+    <div className="pillRow positionPipelineMeta">
+      {position.departments.map((department) => <span className="pill" key={department.id}>{department.name}</span>)}
+      {position.tags.map((tag) => <span className="pill" key={tag}>{tag}</span>)}
+      <span className="pill">{position.candidateCount} candidates</span>
+      <span className="pill">{position.status}</span>
+    </div>
 
-      <div className="pillRow">
-        <span className="pill">{position.department}</span>
-        <span className="pill">{position.location}</span>
-        <span className="pill">{position.owner}</span>
-        <span className="pill">{position.candidateCount} candidates</span>
-        <span className="pill">{position.submittedCount} submitted</span>
-        <span className="pill">{position.test ? position.test.status : "No test"}</span>
-      </div>
+    <CandidateStagesPanel positionId={position.id} initialStatus={initialStatus} updatedAt={position.updatedAt} candidateCount={position.candidateCount} onChanged={() => void refreshPosition()} />
 
-      <div className="positionDetailStack">
-        <div className="detailCard">
-          <strong>Position data</strong>
-          <dl className="positionDataGrid">
-            <div>
-              <dt>Title</dt>
-              <dd>{position.title}</dd>
-            </div>
-            <div>
-              <dt>Department</dt>
-              <dd>{position.department}</dd>
-            </div>
-            <div>
-              <dt>Location</dt>
-              <dd>{position.location}</dd>
-            </div>
-            <div>
-              <dt>Owner</dt>
-              <dd>{position.owner}</dd>
-            </div>
-          </dl>
-        </div>
+    <InviteCandidateModal open={inviteOpen} positionId={position.id} hasTest={Boolean(position.test)} onClose={() => setInviteOpen(false)} onCompleted={() => void refreshPosition()} />
 
-        <CreateTestPanel position={position} className="positionAccordionCard" onSaved={() => void refreshPosition()} />
-
-        <InviteCandidatePanel position={position} className="positionAccordionCard" onInvited={() => void refreshPosition()} />
-
-        <PositionEmailSequencePanel position={position} className="positionAccordionCard" onSaved={() => void refreshPosition()} />
-      </div>
-
-      <CandidateStagesPanel key={position.id} positionId={position.id} updatedAt={position.updatedAt} candidateCount={position.candidateCount} onChanged={() => void refreshPosition()} />
-    </section>
-  );
+  </div>;
 }
