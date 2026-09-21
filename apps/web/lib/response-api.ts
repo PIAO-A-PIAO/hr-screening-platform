@@ -19,6 +19,7 @@ export type ResponseRecord = {
   testId: string;
   attemptId: string | null;
   score: number | null;
+  evaluatorComment: string | null;
   evaluatorUserId: string | null;
   evaluatedAt: string | null;
   createdAt: string;

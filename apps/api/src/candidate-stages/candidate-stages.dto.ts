@@ -1,5 +1,5 @@
 import { Type } from "class-transformer";
-import { ArrayMaxSize, ArrayMinSize, IsArray, IsEmail, IsEnum, IsIn, IsOptional, IsString, ValidateNested } from "class-validator";
+import { ArrayMaxSize, ArrayMinSize, IsArray, IsEmail, IsEnum, IsIn, IsInt, IsOptional, IsString, Max, MaxLength, Min, ValidateNested } from "class-validator";
 import { WorkflowStatus, WORKFLOW_STATUSES } from "./stage-policy";
 
 export enum CandidatePipelineSort {
@@ -31,6 +31,18 @@ export class InvitePositionCandidateDto {
 
   @IsEmail()
   email!: string;
+}
+
+export class SaveResponseFeedbackDto {
+  @IsInt()
+  @Min(1)
+  @Max(10)
+  score!: number;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(5000)
+  comment?: string;
 }
 
 export class ImportPositionCandidateRowDto {

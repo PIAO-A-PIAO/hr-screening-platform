@@ -403,6 +403,7 @@ model Response {
   testId          String
   attemptId       String?
   score           Float?
+  evaluatorComment String?
   evaluatorUserId String?
   evaluatedAt     DateTime?
   createdAt       DateTime     @default(now())
