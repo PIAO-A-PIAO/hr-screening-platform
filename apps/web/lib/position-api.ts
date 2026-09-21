@@ -1,7 +1,7 @@
 import { ApiError, type TestStatus } from "./question-api";
 
 export type PositionStatus = "OPEN" | "CLOSED";
-export type WorkflowStatus = "INVITED" | "TO_EVALUATE" | "SHORTLISTED" | "DISCARDED";
+export type WorkflowStatus = "INVITED" | "TO_EVALUATE" | "PHASE_1" | "PHASE_2" | "PHASE_3" | "DISCARDED";
 export type PositionSort = "CREATED_DESC" | "CREATED_ASC" | "TITLE_ASC";
 export type EmailDelayUnit = "MINUTES" | "HOURS" | "DAYS";
 export type EmailSequenceTrigger = "INVITATION" | "NO_RESPONSE" | "INTERVIEW_COMPLETED";
