@@ -34,8 +34,14 @@
 .applicationCardStatus { display:grid; justify-items:start; gap:6px; padding:var(--ds-space-4); }
 .applicationCardStatus small { color:var(--ds-text-subtle); font-size:11px; }
 .workflowPill { display:inline-flex; padding:5px 9px; border-radius:999px; color:var(--ds-blue-700); background:var(--ds-blue-50); font-size:var(--ds-font-size-xs); font-weight:var(--ds-weight-bold); white-space:nowrap; }
+.workflowStatusSelect { width:auto; max-width:170px; border:0; padding:5px 28px 5px 9px; outline:0; cursor:pointer; }
+.workflowStatusSelect:hover { box-shadow:inset 0 0 0 1px currentColor; }
+.workflowStatusSelect:focus-visible { outline:3px solid var(--ds-focus-ring); outline-offset:2px; }
+.workflowStatusSelect:disabled { cursor:wait; opacity:.65; }
 .workflowPill-to-evaluate { color:var(--ds-warning-700); background:var(--ds-warning-50); }
-.workflowPill-shortlisted { color:var(--ds-success-700); background:var(--ds-success-50); }
+.workflowPill-phase-1 { color:var(--ds-blue-700); background:var(--ds-blue-50); }
+.workflowPill-phase-2 { color:#6f42c1; background:#f3edff; }
+.workflowPill-phase-3 { color:var(--ds-success-700); background:var(--ds-success-50); }
 .workflowPill-discarded { color:var(--ds-danger-700); background:var(--ds-danger-50); }
 .applicationCardActions { display:flex; flex-wrap:wrap; align-items:end; justify-content:flex-end; gap:var(--ds-space-2); padding:var(--ds-space-4) var(--ds-space-5); }
 .applicationCardActions label { min-width:145px; }

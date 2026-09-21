@@ -1,6 +1,6 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from "@nestjs/common";
 import { ApiBody, ApiOperation, ApiParam, ApiTags } from "@nestjs/swagger";
-import { CreatePositionDto, ListPositionsQueryDto, UpdatePositionEmailSequenceDto, UpdatePositionStatusDto } from "./positions.dto";
+import { CreatePositionDto, ListPositionsQueryDto, UpdatePositionDto, UpdatePositionEmailSequenceDto, UpdatePositionStatusDto } from "./positions.dto";
 import { PositionsService } from "./positions.service";
 
 @ApiTags("positions")
@@ -21,10 +21,9 @@ export class PositionsController {
       type: "object",
       properties: {
         title: { type: "string" },
-        description: { type: "string" },
         tags: { type: "array", items: { type: "string" } },
         departmentIds: { type: "array", items: { type: "string" } },
-        status: { type: "string", enum: ["DRAFT", "OPEN", "CLOSED"] },
+        status: { type: "string", enum: ["OPEN", "CLOSED"] },
       },
       required: ["title"],
     },
@@ -33,11 +32,29 @@ export class PositionsController {
     return this.positions.createPosition(dto);
   }
 
+  @Get("options")
+  @ApiOperation({ summary: "List position tag and department options" })
+  getOptions() {
+    return this.positions.getOptions();
+  }
+
+  @Delete("tags/:tag")
+  @ApiOperation({ summary: "Remove a tag from every position" })
+  deleteTag(@Param("tag") tag: string) {
+    return this.positions.deleteTag(tag);
+  }
+
   @Get(":positionId")
   @ApiOperation({ summary: "Retrieve a position" })
   @ApiParam({ name: "positionId" })
   getPosition(@Param("positionId") positionId: string) {
     return this.positions.getPosition(positionId);
+  }
+
+  @Patch(":positionId")
+  @ApiOperation({ summary: "Update editable position fields" })
+  updatePosition(@Param("positionId") positionId: string, @Body() dto: UpdatePositionDto) {
+    return this.positions.updatePosition(positionId, dto);
   }
 
   @Patch(":positionId/status")
@@ -66,7 +83,7 @@ export class PositionsController {
       properties: {
         steps: {
           type: "array",
-          minItems: 2,
+          minItems: 0,
           items: {
             type: "object",
             properties: {

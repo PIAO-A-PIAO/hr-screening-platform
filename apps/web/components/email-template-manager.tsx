@@ -11,6 +11,14 @@ import {
 } from "../lib/position-api";
 
 const emptyDraft: Required<EmailTemplateInput> = { key: "", name: "", subject: "", html: "", text: "" };
+const placeholderPattern = /(\{[a-zA-Z0-9_]+\})/g;
+
+function PlaceholderPreview({ value }: { value: string }) {
+  if (!value) return <span className="helperText">No placeholders in this field.</span>;
+  return <code className="placeholderPreview">{value.split(placeholderPattern).map((part, index) =>
+    /^\{[a-zA-Z0-9_]+\}$/.test(part) ? <mark key={`${part}-${index}`}>{part}</mark> : part,
+  )}</code>;
+}
 
 export function EmailTemplateManager() {
   const [templates, setTemplates] = useState<EmailTemplateSummary[]>([]);
@@ -153,14 +161,17 @@ export function EmailTemplateManager() {
           <label className="field fieldWide">
             <span>Subject</span>
             <input value={draft.subject} onChange={(event) => updateDraft("subject", event.target.value)} required />
+            <PlaceholderPreview value={draft.subject} />
           </label>
           <label className="field fieldWide">
             <span>HTML</span>
             <textarea rows={12} value={draft.html} onChange={(event) => updateDraft("html", event.target.value)} required />
+            <PlaceholderPreview value={draft.html} />
           </label>
           <label className="field fieldWide">
             <span>Plain text (optional)</span>
             <textarea rows={6} value={draft.text} onChange={(event) => updateDraft("text", event.target.value)} />
+            <PlaceholderPreview value={draft.text} />
           </label>
         </div>
         {error && <div className="stateCard errorState">Error: {error}</div>}

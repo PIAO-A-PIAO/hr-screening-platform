@@ -9,11 +9,11 @@ import { Pagination } from "./ui/pagination";
 import { Tabs } from "./ui/tabs";
 
 const EMPTY_PAGE: PositionsPageResponse = { items: [], page: 1, pageSize: 10, total: 0, totalPages: 1, availableTags: [] };
-const STATUSES: PositionStatus[] = ["OPEN", "DRAFT", "CLOSED"];
+const STATUSES: PositionStatus[] = ["OPEN", "CLOSED"];
 
 export function PositionsIndexRoute() {
   const [data, setData] = useState(EMPTY_PAGE);
-  const [counts, setCounts] = useState<Record<PositionStatus, number>>({ OPEN: 0, DRAFT: 0, CLOSED: 0 });
+  const [counts, setCounts] = useState<Record<PositionStatus, number>>({ OPEN: 0, CLOSED: 0 });
   const [status, setStatus] = useState<PositionStatus>("OPEN");
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
@@ -40,7 +40,7 @@ export function PositionsIndexRoute() {
         ]);
         if (cancelled) return;
         setData(current);
-        setCounts({ OPEN: statusPages[0].total, DRAFT: statusPages[1].total, CLOSED: statusPages[2].total });
+        setCounts({ OPEN: statusPages[0].total, CLOSED: statusPages[1].total });
       } catch (caught) {
         if (!cancelled) setError(caught instanceof Error ? caught.message : "Failed to load positions");
       } finally { if (!cancelled) setLoading(false); }
@@ -75,7 +75,7 @@ export function PositionsIndexRoute() {
       </div>
 
       <div className="positionsStatusFilters">
-        <Tabs label="Filter positions by status" items={STATUSES.map((entry) => ({ id: entry, label: entry === "OPEN" ? "Open" : entry === "DRAFT" ? "Draft" : "Closed", count: counts[entry] }))} activeId={status} onChange={(id) => selectStatus(id as PositionStatus)} />
+        <Tabs label="Filter positions by status" items={STATUSES.map((entry) => ({ id: entry, label: entry === "OPEN" ? "Open" : "Closed", count: counts[entry] }))} activeId={status} onChange={(id) => selectStatus(id as PositionStatus)} />
       </div>
 
       {data.availableTags.length > 0 && (

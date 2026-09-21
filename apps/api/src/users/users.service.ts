@@ -22,12 +22,17 @@ function normalizeSeed(input: UserSeedDto & { testIds?: string[] }) {
 }
 function workflowToLegacy(status: InterviewWorkflowStatus): UserStatusDto {
   if (status === "TO_EVALUATE") return UserStatusDto.TO_BE_EVALUATED;
+  if (status === "PHASE_1") return UserStatusDto.STAGE_1;
+  if (status === "PHASE_2") return UserStatusDto.STAGE_2;
+  if (status === "PHASE_3") return UserStatusDto.STAGE_3;
   return status as UserStatusDto;
 }
 function legacyToWorkflow(statuses: UserStatusDto[]): InterviewWorkflowStatus {
   if (statuses.includes(UserStatusDto.DISCARDED)) return InterviewWorkflowStatus.DISCARDED;
-  if (statuses.includes(UserStatusDto.SHORTLISTED) || statuses.includes(UserStatusDto.HIRED)) return InterviewWorkflowStatus.SHORTLISTED;
-  if (statuses.some((status) => [UserStatusDto.TO_BE_EVALUATED, UserStatusDto.STAGE_1, UserStatusDto.STAGE_2, UserStatusDto.STAGE_3].includes(status))) return InterviewWorkflowStatus.TO_EVALUATE;
+  if (statuses.some((status) => [UserStatusDto.SHORTLISTED, UserStatusDto.HIRED, UserStatusDto.STAGE_3].includes(status))) return InterviewWorkflowStatus.PHASE_3;
+  if (statuses.includes(UserStatusDto.STAGE_2)) return InterviewWorkflowStatus.PHASE_2;
+  if (statuses.includes(UserStatusDto.STAGE_1)) return InterviewWorkflowStatus.PHASE_1;
+  if (statuses.includes(UserStatusDto.TO_BE_EVALUATED)) return InterviewWorkflowStatus.TO_EVALUATE;
   return InterviewWorkflowStatus.INVITED;
 }
 function assignmentResponse(interview: { id: string; candidateId: string; testId: string; workflowStatus: InterviewWorkflowStatus; inviteToken: string | null; invitedAt: Date; inviteExpiresAt: Date | null; createdAt: Date; updatedAt: Date }): AssignmentRow {

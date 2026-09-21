@@ -388,7 +388,7 @@ export class EmailWorkerService implements OnModuleInit, OnModuleDestroy {
       return;
     }
 
-    const positionStatus = context.assignment.test.position?.status ?? PositionStatus.DRAFT;
+    const positionStatus = context.assignment.test.position?.status ?? PositionStatus.OPEN;
     if (positionStatus === PositionStatus.CLOSED) {
       this.logger.warn(`Cancelling task ${task.id}: position is closed`);
       await this.markTask(task.id, {

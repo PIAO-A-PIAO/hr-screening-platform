@@ -7,7 +7,7 @@ import { Button } from "./ui/button";
 import { FeedbackState } from "./ui/feedback-state";
 import { Tabs } from "./ui/tabs";
 
-const STATUSES = ["INVITED", "TO_EVALUATE", "SHORTLISTED", "DISCARDED"] as const;
+const STATUSES = ["INVITED", "TO_EVALUATE", "PHASE_1", "PHASE_2", "PHASE_3", "DISCARDED"] as const;
 type WorkflowStatus = typeof STATUSES[number];
 type PipelineSort = "INVITED_DESC" | "INVITED_ASC" | "NAME_ASC";
 type EmailHistoryItem = { id: string; type: string; templateName: string; subject: string; sentAt: string; sequenceStepOrder: number };
@@ -132,9 +132,11 @@ export function CandidateStagesPanel({ positionId, initialStatus, updatedAt, can
           const reviewHref = `/positions/${encodeURIComponent(positionId)}/interview/${encodeURIComponent(interview.id)}?status=${slug(active)}`;
           return <article className="applicationCard" key={interview.id}>
             {active === "INVITED" ? <div className="applicationCardBody applicationCardBodyStatic"><ApplicationIdentity interview={interview} /></div> : <Link className="applicationCardBody" href={reviewHref}><ApplicationIdentity interview={interview} /></Link>}
-            <div className="applicationCardStatus"><span className={`workflowPill workflowPill-${slug(interview.workflowStatus)}`}>{label(interview.workflowStatus)}</span>{interview.attempt && <small>{label(interview.attempt.status)}</small>}</div>
+            <div className="applicationCardStatus">
+              <select className={`workflowPill workflowStatusSelect workflowPill-${slug(interview.workflowStatus)}`} aria-label={`Change status for ${interview.candidate.name}`} value={interview.workflowStatus} disabled={busyId === interview.id} onChange={(event) => void change(interview, event.target.value as WorkflowStatus)}><option value={interview.workflowStatus}>{label(interview.workflowStatus)}</option>{interview.allowedTransitions.map((status) => <option key={status} value={status}>{label(status)}</option>)}</select>
+              {interview.attempt && <small>{label(interview.attempt.status)}</small>}
+            </div>
             <div className="applicationCardActions">
-              {interview.allowedTransitions.length > 0 && <label><span>Move to</span><select value="" disabled={busyId === interview.id} onChange={(event) => void change(interview, event.target.value as WorkflowStatus)}><option value="">Choose status</option>{interview.allowedTransitions.map((status) => <option key={status} value={status}>{label(status)}</option>)}</select></label>}
               <Button variant="ghost" size="small" disabled={busyId === interview.id} onClick={() => { setEmailOpen(emailOpen === interview.id ? null : interview.id); setHistoryOpen(null); }}>Email history ({interview.emailHistory.length})</Button>
               <Button variant="ghost" size="small" disabled={busyId === interview.id} onClick={() => void showHistory(interview.id)}>Status history</Button>
               <Button variant="danger" size="small" loading={busyId === interview.id} onClick={() => void remove(interview)}>Remove</Button>
