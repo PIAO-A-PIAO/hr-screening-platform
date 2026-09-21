@@ -5,6 +5,7 @@ import { Reviewer } from "./reviewer-auth";
 import { allowedTransitions, WorkflowStatus, WORKFLOW_STATUSES } from "./stage-policy";
 import { CandidatePipelineSort, ListCandidatePipelineDto } from "./candidate-stages.dto";
 import { ImportPositionCandidatesDto, InvitePositionCandidateDto } from "./candidate-stages.dto";
+import { SaveResponseFeedbackDto } from "./candidate-stages.dto";
 import { EmailService } from "../email/email.service";
 import { randomUUID } from "node:crypto";
 
@@ -231,6 +232,54 @@ export class CandidateStagesService {
         });
       }
       return { ...change, assignmentId: interviewId, fromStage: change.fromStatus, toStage: change.toStatus };
+    });
+  }
+
+  async saveFeedback(
+    positionId: string,
+    interviewId: string,
+    responseId: string,
+    input: SaveResponseFeedbackDto,
+  ) {
+    const response = await this.prisma.response.findUnique({
+      where: { id: responseId },
+      select: {
+        id: true,
+        type: true,
+        attemptId: true,
+        attempt: { select: { interviewId: true, interview: { select: { positionId: true } } } },
+      },
+    });
+    if (!response || response.attempt?.interviewId !== interviewId || response.attempt.interview.positionId !== positionId) {
+      throw new NotFoundException("Candidate response not found in this interview");
+    }
+    if (response.type !== "SHORT_ANSWER" && response.type !== "VIDEO") {
+      throw new BadRequestException("Evaluator feedback is only available for short-answer and video responses");
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const updated = await tx.response.update({
+        where: { id: responseId },
+        data: {
+          score: input.score,
+          evaluatorComment: input.comment?.trim() || null,
+          evaluatedAt: new Date(),
+        },
+        select: { id: true, score: true, evaluatorComment: true, evaluatedAt: true },
+      });
+      const responses = await tx.response.findMany({
+        where: { attemptId: response.attemptId! },
+        select: { type: true, score: true },
+      });
+      const gradable = responses.filter((item) => item.type === "SHORT_ANSWER" || item.type === "VIDEO");
+      const scoredCount = gradable.filter((item) => item.score !== null).length;
+      const scoreState = scoredCount === 0 ? "PENDING" : scoredCount === gradable.length ? "FINAL" : "PARTIAL";
+      const scoreSum = responses.reduce((sum, item) => sum + (item.score ?? 0), 0);
+      await tx.attempt.update({
+        where: { id: response.attemptId! },
+        data: { scoreSum, scoreState },
+      });
+      return { ...updated, scoreSum, scoreState };
     });
   }
 }
