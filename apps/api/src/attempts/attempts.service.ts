@@ -59,7 +59,9 @@ type AttemptDetailResponse = AttemptResponseRow & {
     type: string;
     questionId: string;
     questionTitle: string;
+    questionDescription: string | null;
     score: number | null;
+    evaluatorComment: string | null;
     createdAt: Date;
     updatedAt: Date;
     item: Record<string, unknown>;
@@ -87,7 +89,13 @@ type AttemptAuthorizationFields = {
 };
 
 const attemptResponseInclude = {
-  question: true,
+  question: {
+    include: {
+      multipleChoiceItem: {
+        include: { options: { orderBy: { order: "asc" as const } } },
+      },
+    },
+  },
   videoItem: { include: { asset: true } },
   multipleChoiceItem: {
     include: {
@@ -363,7 +371,7 @@ export class AttemptsService {
 
     const responses = await this.prisma.response.findMany({
       where: { attemptId },
-      orderBy: { createdAt: "asc" },
+      orderBy: [{ question: { order: "asc" } }, { createdAt: "asc" }],
       include: attemptResponseInclude,
     });
 
@@ -388,7 +396,9 @@ export class AttemptsService {
         type: response.type,
         questionId: response.questionId,
         questionTitle: response.question.title,
+        questionDescription: response.question.description,
         score: response.score,
+        evaluatorComment: response.evaluatorComment,
         createdAt: response.createdAt,
         updatedAt: response.updatedAt,
 
@@ -418,6 +428,16 @@ export class AttemptsService {
                         label: option.label,
                         value: option.value,
                         order: option.order,
+                      }),
+                    ) ?? [],
+                  options:
+                    response.question.multipleChoiceItem?.options.map(
+                      (option) => ({
+                        id: option.id,
+                        label: option.label,
+                        value: option.value,
+                        order: option.order,
+                        isCorrect: option.isCorrect,
                       }),
                     ) ?? [],
                 }

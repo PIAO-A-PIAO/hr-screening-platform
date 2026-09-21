@@ -65,6 +65,7 @@ export function PositionEditRoute({ initialPositionId }: Props) {
     };
   }, [departmentOpen, tagOpen]);
 
+  const currentQuestion = test?.questions[questionIndex];
   const selectedTags = position?.tags ?? [];
   const selectedDepartmentIds = position?.departments.map((department) => department.id) ?? [];
   const filteredTags = useMemo(() => options.tags.filter((tag) => tag.toLocaleLowerCase().includes(normalize(tagSearch).toLocaleLowerCase())), [options.tags, tagSearch]);
@@ -112,7 +113,6 @@ export function PositionEditRoute({ initialPositionId }: Props) {
   }
 
   if (loading) return <main className="pageShell positionEditPage"><div className="positionEditSkeleton"><div /><div /><div /></div></main>;
-  const currentQuestion = test?.questions[questionIndex];
   return <main className="pageShell positionEditPage">
     <div className="positionEditTopbar"><Link className="positionBackLink" href={positionId ? `/positions/${encodeURIComponent(positionId)}` : "/positions"}><span aria-hidden="true">←</span> Back to positions</Link>{position && <span className="positionSaveState"><span className="positionSaveDot" /> Changes save to this position</span>}</div>
     <header className="positionEditHeader"><div><span className="sectionLabel">Position settings</span><h1>{persistedTitle || "Create a position"}</h1><p>Manage the role details, screening test, and candidate communication.</p></div>{position && <span className="positionStatusBadge">{position.status.toLowerCase()}</span>}</header>
@@ -141,7 +141,7 @@ export function PositionEditRoute({ initialPositionId }: Props) {
       <PositionEmailSequencePanel position={position} onSaved={setPosition} />
     </>}
 
-    <Modal open={previewOpen} title="Test preview" description="Questions only" onClose={() => setPreviewOpen(false)} size="large">
+    <Modal open={previewOpen} title="Test preview" description="Question information only" onClose={() => setPreviewOpen(false)} size="large">
       {testLoading && <div className="stateCard">Loading questions...</div>}{testError && <div className="stateCard errorState">Error: {testError}</div>}{!testLoading && !testError && !currentQuestion && <div className="stateCard emptyStateInline">This test has no questions.</div>}
       {currentQuestion && <div className="questionOnlyPreview"><span className="sectionLabel">Question {questionIndex + 1} of {test?.questions.length}</span><h3>{currentQuestion.title}</h3>{currentQuestion.description && <p>{currentQuestion.description}</p>}<span className="pill">{currentQuestion.type.replaceAll("_", " ")}</span></div>}
       {test && test.questions.length > 0 && <div className="stepperActions"><button className="ghostButton" type="button" disabled={questionIndex === 0} onClick={() => setQuestionIndex((index) => index - 1)}>Previous</button><button className="primaryButton" type="button" disabled={questionIndex === test.questions.length - 1} onClick={() => setQuestionIndex((index) => index + 1)}>Next</button></div>}

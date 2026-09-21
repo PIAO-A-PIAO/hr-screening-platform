@@ -435,6 +435,7 @@ export class ResponsesService {
       testId: response.testId,
       attemptId: response.attemptId,
       score: response.score,
+      evaluatorComment: response.evaluatorComment,
       evaluatorUserId: response.evaluatorUserId,
       evaluatedAt: response.evaluatedAt,
       createdAt: response.createdAt,
