@@ -491,9 +491,6 @@ export function DeviceCheck({
     return () => {
       stop();
     };
-
-    // Only start automatically when this page mounts.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   /*
