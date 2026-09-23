@@ -26,6 +26,8 @@ export function Modal({ open, title, description, children, footer, size = "medi
   const titleId = useId();
   const descriptionId = useId();
   const modalRef = useRef<HTMLDivElement>(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   useEffect(() => {
     if (!open) return;
@@ -39,7 +41,7 @@ export function Modal({ open, title, description, children, footer, size = "medi
 
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape" && !closeDisabled) {
-        onClose();
+        onCloseRef.current();
         return;
       }
       if (event.key !== "Tab" || !modal) return;
@@ -66,7 +68,7 @@ export function Modal({ open, title, description, children, footer, size = "medi
       document.body.style.overflow = previousOverflow;
       previousActive?.focus();
     };
-  }, [closeDisabled, onClose, open]);
+  }, [closeDisabled, open]);
 
   if (!open) return null;
   const sizeClass = size === "small" ? "dsModal-sm" : size === "large" ? "dsModal-lg" : "";

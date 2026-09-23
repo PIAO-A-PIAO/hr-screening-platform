@@ -8,7 +8,7 @@ export type EmailTemplateResponse = {
   key: string;
   name: string;
   subject: string;
-  html: string;
+  content: string;
   text: string | null;
   tags: string[];
   createdAt: Date;
@@ -41,13 +41,13 @@ export class EmailTemplatesService {
   }
 
   createTemplate(dto: CreateEmailTemplateDto) {
-    validateTemplateTokens(dto.subject, dto.html, dto.text);
+    validateTemplateTokens(dto.subject, dto.content, dto.text);
     return this.prisma.emailTemplate.create({
       data: {
         key: dto.key.trim(),
         name: dto.name.trim(),
         subject: dto.subject.trim(),
-        html: dto.html,
+        content: dto.content,
         text: dto.text?.trim() || null,
         tags: normalizeTags(dto.tags),
       },
@@ -55,7 +55,7 @@ export class EmailTemplatesService {
   }
 
   async updateTemplate(templateId: string, dto: UpdateEmailTemplateDto) {
-    validateTemplateTokens(dto.subject, dto.html, dto.text);
+    validateTemplateTokens(dto.subject, dto.content, dto.text);
     const existing = await this.prisma.emailTemplate.findUnique({ where: { id: templateId } });
     if (!existing) {
       throw new NotFoundException("Email template not found");
@@ -66,7 +66,7 @@ export class EmailTemplatesService {
       data: {
         name: dto.name.trim(),
         subject: dto.subject.trim(),
-        html: dto.html,
+        content: dto.content,
         text: dto.text?.trim() || null,
         ...(dto.tags === undefined ? {} : { tags: normalizeTags(dto.tags) }),
       },

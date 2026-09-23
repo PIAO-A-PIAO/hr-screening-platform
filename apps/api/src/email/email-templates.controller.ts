@@ -31,11 +31,11 @@ export class EmailTemplatesController {
         key: { type: "string" },
         name: { type: "string" },
         subject: { type: "string" },
-        html: { type: "string" },
+        content: { type: "string" },
         text: { type: "string" },
         tags: { type: "array", items: { type: "string" } },
       },
-      required: ["key", "name", "subject", "html"],
+      required: ["key", "name", "subject", "content"],
     },
   })
   createTemplate(@Body() dto: CreateEmailTemplateDto) {
