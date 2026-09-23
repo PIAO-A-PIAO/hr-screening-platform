@@ -455,6 +455,9 @@ export class EmailService {
       return task;
     }
 
+    // A saved sequence without an invitation rule intentionally disables that email.
+    if (context.assignment.test.position?.emails) return null;
+
     const fallbackTemplate = await tx.emailTemplate.findUnique({
       where: { key: "invitation_default" },
     });

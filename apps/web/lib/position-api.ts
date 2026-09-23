@@ -84,6 +84,12 @@ export function getPositionOptions() { return requestJson<PositionOptionsRespons
 export function deletePositionTag(tag: string) {
   return requestJson<PositionOptionsResponse>(`/positions/tags/${encodeURIComponent(tag)}`, { method: "DELETE" });
 }
+export function createPositionDepartment(name: string) {
+  return requestJson<{ id: string; name: string }>("/positions/departments", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) });
+}
+export function deletePositionDepartment(departmentId: string) {
+  return requestJson<PositionOptionsResponse>(`/positions/departments/${encodeURIComponent(departmentId)}`, { method: "DELETE" });
+}
 export function updatePosition(positionId: string, input: UpdatePositionInput) {
   return requestJson<PositionResponse>(`/positions/${encodeURIComponent(positionId)}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input) });
 }
