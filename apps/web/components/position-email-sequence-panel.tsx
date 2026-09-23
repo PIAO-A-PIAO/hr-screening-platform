@@ -77,7 +77,7 @@ export function PositionEmailSequencePanel({ position, className, onSaved }: Pro
     {error && <div className="stateCard errorState">Error: {error}</div>}{saved && <div className="stateCard successState">Email rules saved.</div>}
     <div className="positionEmailFooter"><button type="button" className="positionAddRule" disabled={loading || templates.length === 0} onClick={() => setRules((items) => [...items, blankRule()])}><AppIcon name="plus" size={17} /> Add email rule</button><button type="button" className="primaryButton" disabled={loading || saving} onClick={save}>{saving ? "Saving..." : "Save sequence"}</button></div>
     <Modal open={Boolean(previewRule)} title="Email preview" description="Placeholder values remain unchanged in the stored template." onClose={() => setPreviewId(null)} size="large">
-      {previewTemplate ? <EmailPreview from="Configured sender" subject={previewTemplate.subject} html={previewTemplate.html} /> : <div className="stateCard emptyStateInline">Select a template to preview it.</div>}
+      {previewTemplate ? <EmailPreview from="Configured sender" subject={previewTemplate.subject} html={previewTemplate.content.replace(/\n/g, "<br>")} /> : <div className="stateCard emptyStateInline">Select a template to preview it.</div>}
     </Modal>
   </section>;
 }

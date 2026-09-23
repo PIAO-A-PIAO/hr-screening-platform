@@ -539,6 +539,10 @@ textarea:focus {
 .tagFilterOptions { position: absolute; z-index: 5; top: calc(100% + 6px); width: 100%; max-height: 240px; overflow: auto; padding: 8px; border: 1px solid #d5deea; border-radius: 6px; background: #fff; box-shadow: 0 12px 24px rgba(23,43,77,.14); }
 .tagFilterOptions label { display: flex; gap: 8px; align-items: center; padding: 7px; font-size: 14px; cursor: pointer; }
 .tagFilterOptions input[type="checkbox"] { width: 16px; height: 16px; min-height: 0; margin: 0; flex: 0 0 16px; accent-color: #1769d1; }
+.variableField { position: relative; }
+.variableMenu { position: absolute; z-index: 6; left: 50%; top: 50%; display: grid; min-width: 250px; padding: 6px; border: 1px solid #cfd9e6; border-radius: 6px; background: #fff; box-shadow: 0 10px 24px rgba(23,43,77,.14); transform: translate(-50%, -50%); }
+.variableMenu button { border: 0; background: transparent; padding: 8px 10px; color: #1e4f8e; font-family: ui-monospace, monospace; text-align: left; cursor: pointer; }
+.variableMenu button:hover { background: #edf4ff; }
 .emailTagList { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .emailTagAddButton { display: inline-grid; order: 10; width: 24px; height: 24px; place-items: center; border: 1px dashed #9eb9df; border-radius: 50%; background: #fff; color: #1769d1; font-size: 17px; line-height: 1; cursor: pointer; }
 .emailTagList button { position: relative; border: 1px solid #d5deea; border-radius: 999px; padding: 3px 9px; background: #f6f8fb; color: #41556e; font-size: 12px; font-weight: 650; cursor: pointer; }

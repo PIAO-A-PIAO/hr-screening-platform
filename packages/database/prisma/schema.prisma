@@ -191,7 +191,7 @@ model EmailTemplate {
   key       String   @unique
   name      String
   subject   String
-  html      String
+  content   String
   text      String?
   tags      String[] @default([])
   createdAt DateTime @default(now())

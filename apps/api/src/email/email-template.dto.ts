@@ -11,7 +11,7 @@ export class CreateEmailTemplateDto {
   subject!: string;
 
   @IsString()
-  html!: string;
+  content!: string;
 
   @IsOptional()
   @IsString()
@@ -31,7 +31,7 @@ export class UpdateEmailTemplateDto {
   subject!: string;
 
   @IsString()
-  html!: string;
+  content!: string;
 
   @IsOptional()
   @IsString()

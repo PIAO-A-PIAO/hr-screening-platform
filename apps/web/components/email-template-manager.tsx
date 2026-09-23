@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
   createEmailTemplate,
@@ -20,10 +20,11 @@ const blank: Required<EmailTemplateInput> = {
   key: "",
   name: "",
   subject: "",
-  html: "",
+  content: "",
   text: "",
   tags: [],
 };
+const templateVariables = ["candidate.name", "candidate.email", "candidate.firstName", "candidate.lastName", "position.title", "test.name", "inviteUrl"];
 
 export function EmailTemplateManager() {
   const [items, setItems] = useState<EmailTemplateSummary[]>([]);
@@ -49,6 +50,19 @@ export function EmailTemplateManager() {
 
   const [form, setForm] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [tagsInput, setTagsInput] = useState("");
+  const [variableOpen, setVariableOpen] = useState(false);
+  const contentRef = useRef<HTMLTextAreaElement>(null);
+
+  function insertVariable(variable: string) {
+    const input = contentRef.current;
+    const cursor = input?.selectionStart ?? draft.content.length;
+    const before = draft.content.slice(0, cursor).replace(/\{\{$/, "");
+    const next = `${before}{{${variable}}}${draft.content.slice(cursor)}`;
+    setDraft({ ...draft, content: next });
+    setVariableOpen(false);
+    requestAnimationFrame(() => { input?.focus(); input?.setSelectionRange(before.length + variable.length + 4, before.length + variable.length + 4); });
+  }
 
   useEffect(() => {
     void Promise.all([
@@ -103,7 +117,7 @@ export function EmailTemplateManager() {
     if (!window.confirm(`Remove tag "${tag}"?`)) return;
     try {
       const saved = await updateEmailTemplate(template.id, {
-        name: template.name, subject: template.subject, html: template.html,
+        name: template.name, subject: template.subject, content: template.content,
         text: template.text ?? "", tags: template.tags.filter((item) => item !== tag),
       });
       setItems((current) => current.map((item) => item.id === saved.id ? saved : item));
@@ -115,7 +129,7 @@ export function EmailTemplateManager() {
     if (!tag || template.tags.includes(tag)) return;
     try {
       const saved = await updateEmailTemplate(template.id, {
-        name: template.name, subject: template.subject, html: template.html,
+        name: template.name, subject: template.subject, content: template.content,
         text: template.text ?? "", tags: [...template.tags, tag],
       });
       setItems((current) => current.map((item) => item.id === saved.id ? saved : item));
@@ -123,6 +137,7 @@ export function EmailTemplateManager() {
   }
 
   function open(template?: EmailTemplateSummary) {
+    setTagsInput(template?.tags.join(", ") ?? "");
     setEditing(template ?? null);
 
     setDraft(
@@ -131,7 +146,7 @@ export function EmailTemplateManager() {
             key: template.key,
             name: template.name,
             subject: template.subject,
-            html: template.html,
+            content: template.content,
             text: template.text ?? "",
             tags: template.tags,
           }
@@ -148,6 +163,7 @@ export function EmailTemplateManager() {
     try {
       const data: Required<EmailTemplateInput> = {
         ...draft,
+        tags: tagsInput.split(",").map((tag) => tag.trim()).filter(Boolean),
 
         key: editing
           ? editing.key
@@ -291,11 +307,20 @@ export function EmailTemplateManager() {
               <input
                 type="password"
                 value={pass}
-                placeholder="Leave blank to keep"
+                placeholder={settings.passwordConfigured ? "••••••••" : "Enter password"}
                 onChange={(e) =>
                   setPass(e.target.value)
                 }
               />
+            </label>
+
+            <label className="checkRow">
+              <input
+                type="checkbox"
+                checked={settings.smtpSecure}
+                onChange={(e) => setSettings({ ...settings, smtpSecure: e.target.checked })}
+              />
+              Use secure SMTP
             </label>
 
             <label className="field">
@@ -530,23 +555,12 @@ export function EmailTemplateManager() {
           </label>
 
           <label className="field">
-            <span>Tags</span>
+            <span>Tags (Example: invitation, reminder)</span>
 
             <input
-              value={draft.tags.join(", ")}
+              value={tagsInput}
               placeholder="e.g. onboarding, candidate"
-              onChange={(e) =>
-                setDraft({
-                  ...draft,
-
-                  tags: e.target.value
-                    .split(",")
-                    .map((tag) =>
-                      tag.trim()
-                    )
-                    .filter(Boolean),
-                })
-              }
+              onChange={(e) => setTagsInput(e.target.value)}
             />
           </label>
 
@@ -565,19 +579,20 @@ export function EmailTemplateManager() {
             />
           </label>
 
-          <label className="field fieldWide">
-            <span>HTML</span>
+          <label className="field fieldWide variableField">
+            <span>Message</span>
 
             <textarea
+              ref={contentRef}
               required
-              value={draft.html}
-              onChange={(e) =>
-                setDraft({
-                  ...draft,
-                  html: e.target.value,
-                })
-              }
+              value={draft.content}
+              placeholder="Write the email message in plain text…"
+              onChange={(e) => {
+                setDraft({ ...draft, content: e.target.value });
+                setVariableOpen(e.target.value.slice(0, e.target.selectionStart).endsWith("{{"));
+              }}
             />
+            {variableOpen && <div className="variableMenu" role="listbox">{templateVariables.map((variable) => <button type="button" role="option" key={variable} onClick={() => insertVariable(variable)}>{`{{${variable}}}`}</button>)}</div>}
           </label>
 
           <button className="primaryButton">
@@ -604,7 +619,7 @@ export function EmailTemplateManager() {
               settings?.emailFrom ?? ""
             }
             subject={preview.subject}
-            html={preview.html}
+            html={preview.content.replace(/\n/g, "<br>")}
           />
         )}
 

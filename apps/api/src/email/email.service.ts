@@ -13,7 +13,7 @@ type EmailTemplateRecord = {
   key: string;
   name: string;
   subject: string;
-  html: string;
+  content: string;
   text: string | null;
   createdAt: Date;
   updatedAt: Date;
@@ -261,7 +261,7 @@ export class EmailService {
                             key: true,
                             name: true,
                             subject: true,
-                            html: true,
+                            content: true,
                             text: true,
                             createdAt: true,
                             updatedAt: true,
@@ -450,7 +450,7 @@ export class EmailService {
         dueAt: new Date(),
         to: context.assignment.user.email,
         subject: this.renderTemplate(firstStep.template.subject, variables),
-        html: this.renderTemplate(firstStep.template.html, variables),
+        html: this.renderTemplate(firstStep.template.content, variables).replace(/\n/g, "<br>"),
         text: firstStep.template.text ? this.renderTemplate(firstStep.template.text, variables) : null,
         variables,
       });
@@ -478,7 +478,7 @@ export class EmailService {
       dueAt: new Date(),
       to: context.assignment.user.email,
       subject: this.renderTemplate(fallbackTemplate.subject, variables),
-      html: this.renderTemplate(fallbackTemplate.html, variables),
+        html: this.renderTemplate(fallbackTemplate.content, variables).replace(/\n/g, "<br>"),
       text: fallbackTemplate.text ? this.renderTemplate(fallbackTemplate.text, variables) : null,
       variables,
     });
@@ -513,7 +513,7 @@ export class EmailService {
       dueAt: new Date(input.sentAt.getTime() + delayToMilliseconds(nextStep.delayValue, nextStep.delayUnit)),
       to: context.assignment.user.email,
       subject: this.renderTemplate(nextStep.template.subject, variables),
-      html: this.renderTemplate(nextStep.template.html, variables),
+        html: this.renderTemplate(nextStep.template.content, variables).replace(/\n/g, "<br>"),
       text: nextStep.template.text ? this.renderTemplate(nextStep.template.text, variables) : null,
       variables,
     });
@@ -535,7 +535,7 @@ export class EmailService {
       dueAt: new Date(Date.now() + delayToMilliseconds(step.delayValue, step.delayUnit)),
       to: context.assignment.user.email,
       subject: this.renderTemplate(step.template.subject, variables),
-      html: this.renderTemplate(step.template.html, variables),
+        html: this.renderTemplate(step.template.content, variables).replace(/\n/g, "<br>"),
       text: step.template.text ? this.renderTemplate(step.template.text, variables) : null,
       variables,
     });
