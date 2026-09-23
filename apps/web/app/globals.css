@@ -543,6 +543,21 @@ textarea:focus {
 .variableMenu { position: absolute; z-index: 6; left: 50%; top: 50%; display: grid; min-width: 250px; padding: 6px; border: 1px solid #cfd9e6; border-radius: 6px; background: #fff; box-shadow: 0 10px 24px rgba(23,43,77,.14); transform: translate(-50%, -50%); }
 .variableMenu button { border: 0; background: transparent; padding: 8px 10px; color: #1e4f8e; font-family: ui-monospace, monospace; text-align: left; cursor: pointer; }
 .variableMenu button:hover { background: #edf4ff; }
+.deviceCheck { display: grid; grid-template-columns: minmax(320px, 1.2fr) minmax(280px, .8fr); grid-template-areas: "camera controls" "meter controls"; gap: 18px 24px; align-items: center; }
+.deviceCheck { max-width: 1080px; margin: 34px auto; padding: 28px; }
+.deviceCamera { grid-area: camera; min-height: 260px; overflow: hidden; border: 1px solid #d7e0eb; border-radius: 10px; background: #111827; color: #fff; box-shadow: 0 10px 24px rgba(15, 23, 42, .16); }
+.deviceCamera video { display: block; width: 100%; height: 230px; object-fit: cover; }
+.deviceCamera span { display: block; padding: 12px 14px; font-size: 13px; font-weight: 650; background: #172235; }
+.deviceMeter { grid-area: meter; display: grid; gap: 10px; padding: 15px 17px; border: 1px solid #dbe3ed; border-radius: 8px; background: #f8fafc; }
+.deviceMeter > div { height: 10px; overflow: hidden; border-radius: 999px; background: #dce5ef; }
+.deviceMeter i { display: block; height: 100%; border-radius: inherit; background: #1769d1; transition: width 55ms linear; }
+.deviceControls { grid-area: controls; display: grid; gap: 16px; padding: 6px 0 6px 10px; }
+.deviceControls h1 { margin: 0; font-size: 28px; letter-spacing: -.03em; }
+.deviceControls p { margin: -7px 0 5px; color: #66758a; }
+.deviceControls label { display: grid; gap: 7px; color: #334155; font-weight: 700; font-size: 13px; }
+.deviceControls select { min-height: 44px; border-radius: 7px; background: #fff; }
+.deviceControls .primaryButton { margin-top: 6px; width: 100%; }
+@media (max-width: 900px) { .deviceCheck { grid-template-columns: 1fr; grid-template-areas: "camera" "meter" "controls"; } }
 .emailTagList { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .emailTagAddButton { display: inline-grid; order: 10; width: 24px; height: 24px; place-items: center; border: 1px dashed #9eb9df; border-radius: 50%; background: #fff; color: #1769d1; font-size: 17px; line-height: 1; cursor: pointer; }
 .emailTagList button { position: relative; border: 1px solid #d5deea; border-radius: 999px; padding: 3px 9px; background: #f6f8fb; color: #41556e; font-size: 12px; font-weight: 650; cursor: pointer; }
@@ -1876,3 +1891,32 @@ textarea:focus {
 .candidateClosingScreen video { width: min(100%, 600px); max-height: 380px; border-radius: 14px; background: #101820; }
 @media (max-width: 900px) { .testBuilderGrid { grid-template-columns: 1fr; } .testBuilderGrid .draftSidebar { position: static; max-height: none; } }
 @media (max-width: 640px) { .testBuilderHero { align-items: start; flex-direction: column; gap: 12px; } .testBuilderHeroStats { align-items: center; } .testBuilderSettings > summary, .testBuilderSettings > form, .testBuilderGrid > .panel, .testBuilderGrid .draftSidebar, .testBuilderClosingIntro, .testBuilderClosingFields, .testBuilderClosingFooter { padding: 16px; } .testBuilderClosingFields { grid-template-columns: 1fr; } .testBuilderClosingFields > .field:nth-child(2) { grid-column: auto; } .testBuilderClosingFooter { align-items: stretch; flex-direction: column; } .testBuilderClosingFooter .primaryButton { width: 100%; } }
+.candidateWelcomePanel {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 40px;
+}
+
+.candidateWelcomePanel .sectionLabel {
+  margin-bottom: 22px;
+}
+
+.candidateWelcomePanel h1 {
+  margin: 0 0 18px;
+}
+
+.candidateWelcomePanel p {
+  max-width: 650px;
+  margin: 0;
+  line-height: 1.7;
+}
+
+.candidateWelcomePanel .helperText {
+  margin-top: 12px;
+}
+
+.candidateWelcomePanel .primaryButton {
+  display: inline-flex;
+  margin-top: 30px;
+}
