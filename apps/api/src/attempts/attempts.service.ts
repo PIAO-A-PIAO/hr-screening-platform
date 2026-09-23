@@ -364,9 +364,28 @@ export class AttemptsService {
   }
 
   async getAttempt(attemptId: string, inviteToken?: string) {
+    return this.readAttemptDetail(attemptId, inviteToken);
+  }
+
+  async getReviewerAttempt(positionId: string, interviewId: string) {
+    const interview = await this.prisma.interview.findFirst({
+      where: { id: interviewId, positionId },
+      select: { attempt: { select: { id: true } } },
+    });
+    if (!interview) throw new NotFoundException("Candidate interview not found in this position");
+    if (!interview.attempt) throw new NotFoundException("This interview has no attempt to review");
+    return this.readAttemptDetail(interview.attempt.id, undefined, { positionId, interviewId });
+  }
+
+  private async readAttemptDetail(
+    attemptId: string,
+    inviteToken?: string,
+    reviewerScope?: { positionId: string; interviewId: string },
+  ) {
     const attempt = await this.loadAttemptWithAssignment(
       attemptId,
       inviteToken,
+      reviewerScope,
     );
 
     const responses = await this.prisma.response.findMany({
@@ -617,8 +636,9 @@ export class AttemptsService {
   private async loadAttemptWithAssignment(
     attemptId: string,
     inviteToken?: string,
+    reviewerScope?: { positionId: string; interviewId: string },
   ) {
-    const normalizedToken = this.requireInviteToken(inviteToken);
+    const normalizedToken = reviewerScope ? null : this.requireInviteToken(inviteToken);
 
     const [attempt] =
       await this.prisma.$queryRaw<
@@ -666,6 +686,7 @@ export class AttemptsService {
           ON r."attemptId" = a."id"
 
         WHERE a."id" = ${attemptId}
+          ${reviewerScope ? Prisma.sql`AND ua."id" = ${reviewerScope.interviewId} AND ua."positionId" = ${reviewerScope.positionId}` : Prisma.empty}
 
         GROUP BY
           a."id",
@@ -699,21 +720,13 @@ export class AttemptsService {
       throw new NotFoundException("Attempt not found");
     }
 
-    const authorization =
-      attempt as unknown as AttemptAuthorizationFields;
-
-    if (
-      authorization.assignmentInviteToken !==
-      normalizedToken
-    ) {
-      throw new ForbiddenException(
-        "A valid invite token is required",
-      );
+    if (!reviewerScope) {
+      const authorization = attempt as unknown as AttemptAuthorizationFields;
+      if (authorization.assignmentInviteToken !== normalizedToken) {
+        throw new ForbiddenException("A valid invite token is required");
+      }
+      this.assertInvitationNotExpired(authorization.assignmentInviteExpiresAt ?? null);
     }
-
-    this.assertInvitationNotExpired(
-      authorization.assignmentInviteExpiresAt ?? null,
-    );
 
     return {
       id: attempt.id,
