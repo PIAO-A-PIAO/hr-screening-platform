@@ -20,7 +20,7 @@ export function PositionTestEditorRoute({ positionId, testId }: { positionId: st
       .finally(() => !cancelled && setLoading(false));
     return () => { cancelled = true; };
   }, [positionId, testId]);
-  return <main className="pageShell"><Link className="ghostButton inlineButton" href={`/positions/${encodeURIComponent(positionId)}/edit`}>Back to position settings</Link>
+  return <main className="pageShell testBuilderShell"><Link className="testBuilderBack" href={`/positions/${encodeURIComponent(positionId)}/edit`}>← Back to position settings</Link>
     {loading && <div className="stateCard">Loading test editor...</div>}{error && <div className="stateCard errorState">Error: {error}</div>}{position && <CreateTestPanel position={position} />}
   </main>;
 }

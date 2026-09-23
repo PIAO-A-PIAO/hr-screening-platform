@@ -1761,3 +1761,78 @@ textarea:focus {
 .testBuilderGrid .optionList { border: 0; padding: 0; margin: 0; }
 .testBuilderGrid .optionList legend { font-weight: 700; margin-bottom: 10px; }
 @media (max-width: 760px) { .testBuilderGrid { grid-template-columns: 1fr; } }
+
+/* Test authoring: compact settings, focused editor, and ordered outline. */
+.testBuilderShell { width: min(100% - 32px, 1320px); }
+.testBuilderBack { display: inline-flex; align-items: center; gap: 7px; margin-top: 8px; color: #40566d; font-size: 13px; font-weight: 800; text-decoration: none; }
+.testBuilderBack:hover { color: var(--brand); }
+.testBuilderPage { display: grid; gap: 18px; padding: 18px 0 50px; }
+.testBuilderHero { display: flex; align-items: end; justify-content: space-between; gap: 24px; padding: 8px 2px 2px; }
+.testBuilderHero h1 { margin: 8px 0 6px; font-family: var(--ds-font-display); font-size: clamp(30px, 3vw, 42px); line-height: 1.1; }
+.testBuilderHero p { margin: 0; color: var(--muted); }
+.testBuilderHeroStats { display: flex; align-items: baseline; gap: 6px; white-space: nowrap; }
+.testBuilderHeroStats strong { font-size: 26px; }
+.testBuilderHeroStats > span:nth-child(2) { color: var(--muted); font-size: 13px; }
+.testBuilderStatus { margin-left: 10px; border-radius: 100px; padding: 6px 10px; background: var(--brand-soft); color: var(--brand); font-size: 12px; font-weight: 800; text-transform: capitalize; }
+.testBuilderSettings { overflow: hidden; border: 1px solid #dce4ef; border-radius: 16px; background: #fff; box-shadow: 0 8px 28px rgba(14,30,51,.04); }
+.testBuilderSettings > summary { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 16px 20px; cursor: pointer; list-style: none; }
+.testBuilderSettings > summary::-webkit-details-marker { display: none; }
+.testBuilderSettings > summary > span:first-child { display: grid; gap: 3px; min-width: 0; }
+.testBuilderSettings > summary strong { font-size: 15px; }
+.testBuilderSettings > summary small { overflow: hidden; color: var(--muted); text-overflow: ellipsis; white-space: nowrap; }
+.testBuilderSettingsAction { flex: 0 0 auto; color: var(--brand); font-size: 13px; font-weight: 800; }
+.testBuilderSettings[open] .testBuilderSettingsAction { display: none; }
+.testBuilderSettings > form { border-top: 1px solid #e8edf4; padding: 20px; }
+.testBuilderSettings .actionsRow { justify-content: flex-end; }
+.testBuilderSettings .actionsRow .primaryButton { width: auto; min-width: 170px; }
+.testBuilderGrid { grid-template-columns: minmax(0, 1fr) minmax(288px, 340px); gap: 18px; margin-top: 0; align-items: start; }
+.testBuilderGrid > .panel, .testBuilderGrid > .draftSidebar { border: 1px solid #dce4ef; border-radius: 16px; box-shadow: 0 12px 32px rgba(14,30,51,.05); }
+.testBuilderGrid > .panel { padding: 26px; }
+.testBuilderGrid .panelHeader { padding-bottom: 18px; border-bottom: 1px solid #ebeff5; }
+.testBuilderGrid .panelHeader h2 { margin-top: 7px; font-size: 26px; }
+.testBuilderGrid .panel .formGrid > .field:first-child { grid-column: 1 / -1; }
+.testBuilderGrid .actionsRow { justify-content: flex-end; }
+.testBuilderGrid .actionsRow .primaryButton { width: auto; min-width: 190px; }
+.testBuilderGrid .draftSidebar { position: sticky; top: 86px; min-height: 0; max-height: calc(100vh - 108px); overflow-y: auto; padding: 20px; }
+.testBuilderOutlineHeader { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-bottom: 14px; border-bottom: 1px solid #edf0f5; }
+.testBuilderOutlineHeader h2 { margin: 4px 0 0; font-size: 18px; }
+.testBuilderOutlineHeader > span { border-radius: 100px; padding: 5px 9px; background: var(--brand-soft); color: var(--brand); font-size: 12px; font-weight: 800; }
+.testBuilderGrid .draftOrderList { gap: 7px; margin: 12px 0; }
+.testBuilderGrid .draftOrderList li { display: grid; gap: 3px; padding: 8px; border-radius: 11px; background: #fff; }
+.testBuilderGrid .draftOrderList li.selected { border-color: #8bb8f3; background: #f2f8ff; }
+.draftSelect { display: flex; align-items: flex-start; gap: 10px; width: 100%; border: 0; padding: 3px; background: transparent; color: var(--ink); text-align: left; cursor: pointer; }
+.draftNumber { display: grid; place-items: center; flex: 0 0 auto; width: 25px; height: 25px; border-radius: 8px; background: #e8eef6; color: #254765; font-size: 12px; font-weight: 800; }
+.selected .draftNumber { background: var(--brand); color: #fff; }
+.draftIdentity { display: grid; gap: 3px; min-width: 0; }
+.draftIdentity strong { overflow: hidden; font-size: 13px; line-height: 1.3; text-overflow: ellipsis; }
+.draftIdentity small { color: var(--muted); font-size: 11px; text-transform: capitalize; }
+.testBuilderGrid .draftActions { margin: 1px 0 0 35px; }
+.draftActions button { border: 0; border-radius: 7px; padding: 4px 7px; background: transparent; color: #52657b; font-size: 12px; font-weight: 700; cursor: pointer; }
+.draftActions button:hover:not(:disabled) { background: #e8eef6; }
+.draftActions .draftRemove { margin-left: auto; color: var(--danger); }
+.draftActions button:disabled { opacity: .35; }
+.testBuilderAdd { width: 100%; border: 1px dashed #99b7da; border-radius: 11px; padding: 13px; background: #f6faff; color: var(--brand); font-weight: 800; cursor: pointer; }
+.testBuilderAdd:hover { background: #eaf4ff; }
+.testBuilderOutlineEnd { display: flex; align-items: center; gap: 10px; margin-top: 14px; border-top: 1px solid #edf0f5; padding: 16px 2px 0; }
+.testBuilderOutlineEnd > span:first-child { display: grid; place-items: center; width: 25px; height: 25px; border-radius: 50%; background: #e1f5e9; color: #147d49; }
+.testBuilderOutlineEnd > span:last-child { display: grid; gap: 2px; }
+.testBuilderOutlineEnd strong { font-size: 13px; }
+.testBuilderOutlineEnd small { color: var(--muted); font-size: 11px; }
+.testBuilderClosing { overflow: hidden; border: 1px solid #dce4ef; border-radius: 16px; background: #fff; box-shadow: 0 12px 32px rgba(14,30,51,.05); }
+.testBuilderClosingIntro { display: flex; align-items: center; gap: 15px; border-bottom: 1px solid #edf0f5; padding: 20px 24px; }
+.testBuilderClosingIcon, .candidateClosingCheck { display: grid; place-items: center; flex: 0 0 auto; width: 42px; height: 42px; border-radius: 13px; background: #e1f5e9; color: #147d49; font-size: 22px; font-weight: 900; }
+.testBuilderClosingIntro h2 { margin: 4px 0; font-size: 20px; }
+.testBuilderClosingIntro p { margin: 0; color: var(--muted); font-size: 13px; }
+.testBuilderClosingFields { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; padding: 20px 24px; }
+.testBuilderClosingFields > .field:nth-child(2) { grid-column: 1 / -1; }
+.testBuilderClosingFields .field small { color: var(--muted); }
+.testBuilderClosingVideo { display: grid; justify-items: start; gap: 8px; }
+.testBuilderClosingVideo video { width: min(100%, 320px); max-height: 190px; border-radius: 10px; background: #101820; }
+.testBuilderClosingFooter { display: flex; align-items: center; justify-content: space-between; gap: 16px; border-top: 1px solid #edf0f5; padding: 15px 24px; }
+.testBuilderClosingFooter span { color: var(--muted); font-size: 12px; }
+.candidateClosingScreen { display: grid; justify-items: center; gap: 16px; width: min(100%, 760px); margin: 5vh auto; border: 1px solid #dce4ef; border-radius: 22px; padding: clamp(24px, 5vw, 56px); background: #fff; text-align: center; box-shadow: 0 16px 40px rgba(14,30,51,.07); }
+.candidateClosingScreen h1 { margin: 0; font-size: clamp(30px, 4vw, 44px); }
+.candidateClosingScreen p { max-width: 54ch; margin: 0; color: var(--muted); line-height: 1.6; white-space: pre-wrap; }
+.candidateClosingScreen video { width: min(100%, 600px); max-height: 380px; border-radius: 14px; background: #101820; }
+@media (max-width: 900px) { .testBuilderGrid { grid-template-columns: 1fr; } .testBuilderGrid .draftSidebar { position: static; max-height: none; } }
+@media (max-width: 640px) { .testBuilderHero { align-items: start; flex-direction: column; gap: 12px; } .testBuilderHeroStats { align-items: center; } .testBuilderSettings > summary, .testBuilderSettings > form, .testBuilderGrid > .panel, .testBuilderGrid .draftSidebar, .testBuilderClosingIntro, .testBuilderClosingFields, .testBuilderClosingFooter { padding: 16px; } .testBuilderClosingFields { grid-template-columns: 1fr; } .testBuilderClosingFields > .field:nth-child(2) { grid-column: auto; } .testBuilderClosingFooter { align-items: stretch; flex-direction: column; } .testBuilderClosingFooter .primaryButton { width: 100%; } }
