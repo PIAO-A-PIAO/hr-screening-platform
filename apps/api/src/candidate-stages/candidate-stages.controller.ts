@@ -1,7 +1,9 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, StreamableFile } from '@nestjs/common';
 import { IsIn, IsInt, Min } from 'class-validator';
 import { CandidateStagesService } from './candidate-stages.service';
 import { ReviewerAuth } from './reviewer-auth';
+import { AttemptsService } from '../attempts/attempts.service';
+import { ResponsesService } from '../responses/responses.service';
 import { WorkflowStatus, WORKFLOW_STATUSES } from './stage-policy';
 import { ImportPositionCandidatesDto, InvitePositionCandidateDto, ListCandidatePipelineDto, SaveResponseFeedbackDto } from './candidate-stages.dto';
 
@@ -18,7 +20,12 @@ export class ChangeStageDto {
 }
 @Controller('positions/:positionId/candidates')
 export class CandidateStagesController {
-  constructor(private readonly stages: CandidateStagesService, private readonly auth: ReviewerAuth) {}
+  constructor(
+    private readonly stages: CandidateStagesService,
+    private readonly auth: ReviewerAuth,
+    private readonly attempts: AttemptsService,
+    private readonly responses: ResponsesService,
+  ) {}
 
   @Get()
   list(@Param('positionId') positionId: string, @Query() query: ListCandidatePipelineDto) {
@@ -33,6 +40,27 @@ export class CandidateStagesController {
   @Get(':interviewId')
   get(@Param('positionId') positionId: string, @Param('interviewId') interviewId: string) {
     return this.stages.get(positionId, interviewId);
+  }
+
+  @Get(':interviewId/review')
+  review(@Param('positionId') positionId: string, @Param('interviewId') interviewId: string) {
+    this.auth.current();
+    return this.attempts.getReviewerAttempt(positionId, interviewId);
+  }
+
+  @Get(':interviewId/responses/:responseId/video')
+  async reviewVideo(
+    @Param('positionId') positionId: string,
+    @Param('interviewId') interviewId: string,
+    @Param('responseId') responseId: string,
+  ) {
+    this.auth.current();
+    const result = await this.responses.openReviewerVideo(positionId, interviewId, responseId);
+    return new StreamableFile(result.file.stream, {
+      type: result.asset.mimeType,
+      disposition: 'inline',
+      length: result.file.contentLength,
+    });
   }
 
   @Post('invite')

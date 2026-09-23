@@ -340,6 +340,27 @@ export class ResponsesService {
     }
   }
 
+  async openReviewerVideo(positionId: string, interviewId: string, responseId: string) {
+    const match = await this.prisma.response.findFirst({
+      where: {
+        id: responseId,
+        attempt: { interviewId, interview: { positionId } },
+      },
+      select: { id: true },
+    });
+    if (!match) throw new NotFoundException("Response video not found in this interview");
+    const response = await this.loadResponse(responseId);
+    const asset = response.videoItem?.asset;
+    if (response.type !== ResponseType.VIDEO || !asset) {
+      throw new NotFoundException("Response video not found");
+    }
+    try {
+      return { asset, file: await this.storage.openObject(asset.storageKey) };
+    } catch {
+      throw new NotFoundException("Response video not found");
+    }
+  }
+
   private async authorizeAssignment(userId: string, testId: string, inviteToken?: string) {
     const assignment = await this.prisma.interview.findFirst({
       where: { candidateId: userId, testId },

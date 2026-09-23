@@ -1,0 +1,61 @@
+.reviewReferencePage { --review-line:#e3e5ea; display:grid; gap:22px; color:#202632; }
+.reviewBreadcrumb { display:flex; flex-wrap:wrap; align-items:center; gap:10px; min-width:0; font-size:20px; }
+.reviewBreadcrumb .dsButton { padding-left:0; }
+.reviewBreadcrumb > span { color:#a4aab5; }
+.reviewBreadcrumb strong { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.reviewReferenceGrid { display:grid; grid-template-columns:minmax(230px, .83fr) minmax(0, 1.5fr) minmax(250px, .9fr); gap:20px; align-items:start; }
+.reviewReferenceSidebar { display:grid; gap:18px; min-width:0; }
+.reviewReferenceCard,.reviewReferenceTranscript,.reviewMediaCard,.reviewQuestionList { min-width:0; border:1px solid var(--review-line); border-radius:12px; background:#fff; box-shadow:0 1px 2px rgba(18,25,40,.03); }
+.reviewReferenceCard { padding:20px; }
+.reviewReferenceCard h2 { margin:0 0 12px; font-size:17px; }
+.reviewCandidateCard h1 { margin:7px 0 14px; font-size:25px; line-height:1.2; overflow-wrap:anywhere; }
+.reviewCandidateEmail { display:block; margin:12px 0 20px; color:#344457; overflow-wrap:anywhere; text-decoration:none; }
+.reviewCandidateEmail:hover { text-decoration:underline; }
+.reviewCandidateCard dl { display:grid; gap:10px; margin:0 0 18px; }
+.reviewCandidateCard dl div { display:flex; justify-content:space-between; gap:12px; font-size:12px; }
+.reviewCandidateCard dt { color:#667085; }
+.reviewCandidateCard dd { margin:0; text-align:right; }
+.reviewCandidateCard .interviewStatusControl { display:block; border:1px solid var(--review-line); border-radius:9px; padding:12px; }
+.reviewCandidateCard .interviewStatusControl select { border:0; padding-left:0; color:#4b55db; }
+.reviewSecondaryText { margin:0 0 16px; color:#7b8493; font-size:13px; line-height:1.5; }
+.reviewStarField { padding:0; margin:0 0 16px; border:0; }
+.reviewStarField legend,.reviewCommentLabel span { display:block; margin-bottom:9px; color:#667085; font-size:12px; font-weight:700; }
+.reviewStarRating { display:flex; gap:5px; }
+.reviewStar { position:relative; display:inline-block; width:29px; height:34px; color:#d5d8dd; font-size:29px; line-height:34px; }
+.reviewStar > span::before { position:absolute; left:0; top:0; width:0; overflow:hidden; content:'★'; color:#f1b93d; }
+.reviewStar[data-fill='half'] > span::before { width:50%; }
+.reviewStar[data-fill='full'] > span::before { width:100%; }
+.reviewStarHalf { position:absolute; top:0; left:0; width:50%; height:100%; padding:0; border:0; background:transparent; cursor:pointer; }
+.reviewStarHalf:last-child { left:50%; }
+.reviewStarHalf:focus-visible { outline:2px solid #4b55db; outline-offset:2px; border-radius:4px; }
+.reviewCommentLabel { display:block; margin-bottom:12px; }
+.reviewCommentLabel textarea { width:100%; resize:vertical; border:1px solid #d6d9e0; border-radius:8px; padding:11px; font:inherit; font-size:13px; }
+.reviewSaveMessage { margin:10px 0 0; color:#4b55db; font-size:12px; }
+.reviewReferenceMain { display:grid; gap:12px; min-width:0; }
+.reviewAnswerTop { display:flex; justify-content:space-between; gap:10px; color:#667085; font-size:12px; }
+.reviewMediaCard { overflow:hidden; }
+.reviewVideoPlayer { display:block; width:100%; aspect-ratio:4 / 3; min-height:290px; max-height:610px; background:#151923; object-fit:contain; }
+.reviewVideoUnavailable,.reviewTextAnswer { display:grid; align-content:center; min-height:290px; padding:28px; background:#f7f8fb; }
+.reviewTextAnswer p { white-space:pre-wrap; line-height:1.6; overflow-wrap:anywhere; }
+.reviewTextAnswer .reviewOptionList { margin-top:14px; }
+.reviewQuestionDetail { display:flex; justify-content:space-between; align-items:start; gap:14px; padding:18px 20px; border-top:1px solid var(--review-line); }
+.reviewQuestionDetail h2 { margin:5px 0 8px; font-size:20px; }
+.reviewQuestionDetail p { margin:0; font-size:14px; line-height:1.55; white-space:pre-wrap; }
+.reviewQuestionDetail > strong { flex-shrink:0; color:#667085; font-size:12px; }
+.reviewAnswerControls { display:flex; justify-content:space-between; gap:10px; padding:12px 20px; border-top:1px solid var(--review-line); }
+.reviewQuestionList { padding:12px 18px; }
+.reviewQuestionList summary { cursor:pointer; font-weight:700; }
+.reviewQuestionList ol { display:grid; gap:6px; padding-left:19px; }
+.reviewQuestionList button { display:flex; justify-content:space-between; gap:10px; width:100%; border:0; border-radius:6px; padding:9px; background:transparent; text-align:left; cursor:pointer; }
+.reviewQuestionList button.active { background:#eef0ff; color:#3e49c8; }
+.reviewQuestionList small { flex-shrink:0; }
+.reviewReferenceTranscript { min-height:620px; }
+.reviewReferenceTranscript h2 { margin:0; border-bottom:1px solid var(--review-line); padding:17px 18px; font-size:17px; }
+.reviewTranscriptPending { padding:24px 18px; color:#667085; line-height:1.5; }
+.reviewTranscriptPending strong { color:#344054; }
+.reviewFloatingNavigation { position:sticky; bottom:12px; z-index:5; display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:12px; width:fit-content; max-width:100%; margin:0 auto; padding:7px 10px; border:1px solid var(--review-line); border-radius:999px; background:#fff; box-shadow:0 8px 24px rgba(18,25,40,.13); }
+.reviewFloatingNavigation > div:last-child { justify-self:end; }
+.reviewFloatingNavigation > span { color:#667085; font-size:12px; white-space:nowrap; }
+@media (max-width:1120px) { .reviewReferenceGrid { grid-template-columns:minmax(220px, .8fr) minmax(0, 1.6fr); } .reviewReferenceTranscript { grid-column:2; min-height:180px; } }
+@media (max-width:760px) { .reviewReferenceGrid { grid-template-columns:1fr; } .reviewReferenceMain { grid-row:1; } .reviewReferenceTranscript { grid-column:auto; min-height:150px; } .reviewBreadcrumb { font-size:15px; } .reviewVideoPlayer { min-height:220px; } .reviewFloatingNavigation { bottom:8px; } .reviewFloatingNavigation .dsButton { padding:8px; font-size:12px; } }
+@media (max-width:420px) { .reviewFloatingNavigation { grid-template-columns:1fr 1fr; } .reviewFloatingNavigation > span { display:none; } .reviewAnswerControls { padding:10px; } .reviewAnswerControls .dsButton { font-size:12px; padding:8px; } }
