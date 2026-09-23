@@ -85,7 +85,10 @@ export class QuestionsController {
     @Param("questionId") questionId: string,
     @UploadedFile(
       new ParseFilePipeBuilder()
-        .addFileTypeValidator({ fileType: mimePattern(QUESTION_VIDEO_MIME_TYPES) })
+        .addFileTypeValidator({
+          fileType: mimePattern(QUESTION_VIDEO_MIME_TYPES),
+          skipMagicNumbersValidation: true,
+        })
         .build({
           errorHttpStatusCode: 400,
           fileIsRequired: true,

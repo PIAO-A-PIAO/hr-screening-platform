@@ -92,12 +92,17 @@ export class QuestionStorageService {
         if (!body.Body) {
           throw new Error("Storage object body missing");
         }
+        const stream = body.Body as Readable;
+        stream.once("end", () => client.destroy());
+        stream.once("close", () => client.destroy());
+        stream.once("error", () => client.destroy());
         return {
-          stream: body.Body as Readable,
+          stream,
           contentLength: response.ContentLength,
         };
-      } finally {
+      } catch (error) {
         client.destroy();
+        throw error;
       }
     }
 

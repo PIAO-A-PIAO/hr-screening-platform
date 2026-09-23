@@ -138,6 +138,7 @@ export class TestsService {
           questions: {
             select: {
               id: true,
+              _count: { select: { responses: true } },
             },
             orderBy: { order: "asc" },
           },
@@ -165,6 +166,10 @@ export class TestsService {
       const existingQuestionIds = new Set(existingTest.questions.map((question) => question.id));
       const incomingQuestionIds = new Set(questionIds);
       const removedQuestions = existingTest.questions.filter((question) => !incomingQuestionIds.has(question.id));
+
+      if (removedQuestions.some((question) => question._count.responses > 0)) {
+        throw new BadRequestException("Questions with candidate responses cannot be removed");
+      }
 
       for (const question of removedQuestions) {
         await tx.question.delete({
