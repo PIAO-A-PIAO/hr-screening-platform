@@ -193,11 +193,23 @@ model EmailTemplate {
   subject   String
   html      String
   text      String?
+  tags      String[] @default([])
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   steps EmailSequenceStep[]
   tasks EmailTask[]
+}
+
+model EmailSettings {
+  id                    Int     @id @default(1)
+  smtpHost              String?
+  smtpPort              Int     @default(587)
+  smtpSecure            Boolean @default(false)
+  smtpUser              String?
+  smtpPasswordEncrypted String?
+  emailFrom             String?
+  updatedAt             DateTime @updatedAt
 }
 
 model EmailTask {

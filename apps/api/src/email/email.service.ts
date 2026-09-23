@@ -3,6 +3,7 @@ import { AttemptStatus, EmailDelayUnit, EmailSequenceStopCondition, EmailSequenc
 import { randomUUID } from "node:crypto";
 import * as nodemailer from "nodemailer";
 import { getEnvironment } from "../config/environment";
+import { EmailSettingsService } from "./email-settings.service";
 
 type TemplateVariables = Record<string, unknown>;
 type EmailTaskStatus = "PENDING" | "PROCESSING" | "SENT" | "FAILED" | "CANCELLED";
@@ -150,22 +151,25 @@ export class EmailService {
   private readonly logger = new Logger(EmailService.name);
   private readonly environment = getEnvironment();
 
-  private createTransporter() {
+  constructor(private readonly emailSettings: EmailSettingsService) {}
+
+  private async createTransporter() {
+    const settings = await this.emailSettings.transportSettings();
     return nodemailer.createTransport({
-      host: this.environment.SMTP_HOST,
-      port: this.environment.SMTP_PORT,
-      secure: this.environment.SMTP_SECURE,
-      auth: this.environment.SMTP_USER && this.environment.SMTP_PASSWORD
+      host: settings.smtpHost,
+      port: settings.smtpPort,
+      secure: settings.smtpSecure,
+      auth: settings.smtpUser && settings.smtpPassword
         ? {
-            user: this.environment.SMTP_USER,
-            pass: this.environment.SMTP_PASSWORD,
+            user: settings.smtpUser,
+            pass: settings.smtpPassword,
           }
         : undefined,
     });
   }
 
   private renderTemplate(template: string, variables: TemplateVariables) {
-    return template.replace(/\{\{\s*([A-Za-z0-9_.-]+)\s*\}\}/g, (_match, key: string) => {
+    return template.replace(/\{\{?\s*([A-Za-z0-9_.-]+)\s*\}?\}/g, (_match, key: string) => {
       return stringifyTemplateValue(resolveTemplateValue(variables, key));
     });
   }
@@ -432,7 +436,7 @@ export class EmailService {
   async queueInvitationEmail(
     tx: Prisma.TransactionClient,
     input: QueueInvitationEmailInput,
-  ): Promise<EmailTaskRecord> {
+  ): Promise<EmailTaskRecord | null> {
     const context = await this.loadAssignmentTemplateContext(tx, input.assignmentId);
     const variables = this.buildTemplateVariables(context);
     const firstStep = this.getStepByTrigger(context, EmailSequenceTrigger.INVITATION);
@@ -546,9 +550,10 @@ export class EmailService {
       return { messageId: null, skipped: true };
     }
 
-    const transporter = this.createTransporter();
+    const settings = await this.emailSettings.transportSettings();
+    const transporter = await this.createTransporter();
     const info = await transporter.sendMail({
-      from: this.environment.EMAIL_FROM,
+      from: settings.emailFrom,
       to: task.to,
       subject: task.subject,
       html: task.html,

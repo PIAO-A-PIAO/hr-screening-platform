@@ -517,6 +517,18 @@ textarea:focus {
   background: rgba(255, 255, 255, 0.68);
 }
 
+/* Email administration deliberately stays utilitarian: no gradients or pill-heavy controls. */
+.emailManager .panel, .emailManager .optionCard, .emailManager .checkRow, .emailManager button { border-radius: 4px; background-image: none; }
+.emailTemplateCard { align-items: center; }
+.emailTemplateActions { display: flex; gap: 8px; align-items: center; white-space: nowrap; }
+.emailTemplateActions .danger { order: 3; }
+.emailManager .primaryButton { background: #1f6feb; color: #fff; }
+.emailManager .primaryButton:hover:not(:disabled) { background: #1858bd; }
+.emailTemplateActions button { border: 1px solid #cbd5e1; background: #f8fafc; color: #1e293b; padding: 8px 12px; cursor: pointer; }
+.emailTemplateActions button:hover { background: #e8eef6; }
+.emailTemplateActions .danger { border-color: #dc2626; background: #dc2626; color: #fff; }
+.emailTemplateActions .danger:hover { background: #b91c1c; }
+
 .optionMeta {
   display: grid;
   gap: 8px;
