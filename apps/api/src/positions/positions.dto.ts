@@ -4,9 +4,11 @@ import {
   IsArray,
   IsEnum,
   IsInt,
+  IsNotEmpty,
   IsOptional,
   IsString,
   Max,
+  MaxLength,
   Min,
   ValidateNested,
 } from "class-validator";
@@ -90,6 +92,13 @@ export class UpdatePositionDto {
   @ArrayUnique()
   @IsString({ each: true })
   departmentIds?: string[];
+}
+
+export class CreateDepartmentDto {
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(80)
+  name!: string;
 }
 
 export class UpdatePositionStatusDto {

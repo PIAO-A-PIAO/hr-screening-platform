@@ -1,6 +1,6 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from "@nestjs/common";
 import { ApiBody, ApiOperation, ApiParam, ApiTags } from "@nestjs/swagger";
-import { CreatePositionDto, ListPositionsQueryDto, UpdatePositionDto, UpdatePositionEmailSequenceDto, UpdatePositionStatusDto } from "./positions.dto";
+import { CreateDepartmentDto, CreatePositionDto, ListPositionsQueryDto, UpdatePositionDto, UpdatePositionEmailSequenceDto, UpdatePositionStatusDto } from "./positions.dto";
 import { PositionsService } from "./positions.service";
 
 @ApiTags("positions")
@@ -36,6 +36,18 @@ export class PositionsController {
   @ApiOperation({ summary: "List position tag and department options" })
   getOptions() {
     return this.positions.getOptions();
+  }
+
+  @Post("departments")
+  @ApiOperation({ summary: "Create a department" })
+  createDepartment(@Body() dto: CreateDepartmentDto) {
+    return this.positions.createDepartment(dto.name);
+  }
+
+  @Delete("departments/:departmentId")
+  @ApiOperation({ summary: "Delete a department and remove its associations" })
+  deleteDepartment(@Param("departmentId") departmentId: string) {
+    return this.positions.deleteDepartment(departmentId);
   }
 
   @Delete("tags/:tag")

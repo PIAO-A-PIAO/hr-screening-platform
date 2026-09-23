@@ -10,6 +10,14 @@ type Props = { position: PositionResponse; className?: string; onSaved?: (positi
 const placeholderPattern = /(\{[a-zA-Z0-9_]+\})/g;
 function id() { return globalThis.crypto?.randomUUID?.() ?? `rule_${Date.now()}_${Math.random()}`; }
 function blankRule(): Rule { return { clientId: id(), templateId: "", condition: "INVITATION", hours: 1 }; }
+function defaultRules(templates: EmailTemplateSummary[]): Rule[] {
+  const byKey = new Map(templates.map((template) => [template.key, template.id]));
+  return [
+    { key: "invitation_default", condition: "INVITATION" as const, hours: 1 },
+    { key: "final_reminder_default", condition: "NO_RESPONSE" as const, hours: 48 },
+    { key: "completion_default", condition: "INTERVIEW_COMPLETED" as const, hours: 1 },
+  ].flatMap(({ key, condition, hours }) => byKey.has(key) ? [{ clientId: id(), templateId: byKey.get(key)!, condition, hours }] : []);
+}
 function label(condition: EmailSequenceTrigger) { return condition === "INVITATION" ? "On invitation" : condition === "INTERVIEW_COMPLETED" ? "On completion" : "No response in X hours"; }
 function highlightText(value: string) {
   return value.split(placeholderPattern).map((part, index) => /^\{[a-zA-Z0-9_]+\}$/.test(part) ? <mark key={`${part}-${index}`}>{part}</mark> : part);
@@ -53,10 +61,10 @@ export function PositionEmailSequencePanel({ position, className, onSaved }: Pro
     void listEmailTemplates().then((items) => {
       if (cancelled) return;
       setTemplates(items);
-      setRules((position.emails?.steps ?? []).map((step) => ({
+      setRules(position.emails ? position.emails.steps.map((step) => ({
         clientId: step.id, templateId: step.templateId, condition: step.trigger,
         hours: step.trigger === "NO_RESPONSE" ? (step.delayUnit === "HOURS" ? step.delayValue : step.delayUnit === "DAYS" ? step.delayValue * 24 : Math.max(1, Math.ceil(step.delayValue / 60))) : 1,
-      })));
+      })) : defaultRules(items));
     }).catch((caught) => !cancelled && setError(caught instanceof Error ? caught.message : "Failed to load email templates"))
       .finally(() => !cancelled && setLoading(false));
     return () => { cancelled = true; };

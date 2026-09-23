@@ -240,12 +240,23 @@ export class PositionsService {
       const count = await this.prisma.department.count({ where: { id: { in: departmentIds } } });
       if (count !== departmentIds.length) throw new BadRequestException("One or more departments do not exist");
     }
+    const defaultTemplates = await this.prisma.emailTemplate.findMany({
+      where: { key: { in: ["invitation_default", "final_reminder_default", "completion_default"] } },
+      select: { id: true, key: true },
+    });
+    const byKey = new Map(defaultTemplates.map((template) => [template.key, template.id]));
+    const defaultSteps = [
+      { key: "invitation_default", trigger: EmailSequenceTrigger.INVITATION, delayValue: 0, order: 1 },
+      { key: "final_reminder_default", trigger: EmailSequenceTrigger.NO_RESPONSE, delayValue: 48, order: 2 },
+      { key: "completion_default", trigger: EmailSequenceTrigger.INTERVIEW_COMPLETED, delayValue: 0, order: 3 },
+    ].flatMap(({ key, ...step }) => byKey.has(key) ? [{ ...step, templateId: byKey.get(key)!, delayUnit: EmailDelayUnit.HOURS }] : []);
     const created = await this.prisma.position.create({
       data: {
         title,
         tags: normalizeTags(dto.tags),
         status: (dto.status ?? PositionStatusDto.OPEN) as PositionStatus,
         departments: { connect: departmentIds.map((id) => ({ id })) },
+        ...(defaultSteps.length ? { emails: { create: { steps: { create: defaultSteps.map((step, index) => ({ ...step, order: index + 1 })) } } } } : {}),
       },
       select: { id: true },
     });
@@ -261,6 +272,30 @@ export class PositionsService {
       tags: normalizeTags(positions.flatMap((position) => position.tags)).sort((left, right) => left.localeCompare(right)),
       departments,
     };
+  }
+
+  async createDepartment(value: string) {
+    const name = value.trim().replace(/\s+/g, " ");
+    if (!name || name.length > 80) throw new BadRequestException("Department name must be 1–80 characters");
+    const existing = await this.prisma.department.findMany({ select: { name: true } });
+    if (existing.some((department) => department.name.toLocaleLowerCase() === name.toLocaleLowerCase())) {
+      throw new BadRequestException("Department already exists");
+    }
+    try {
+      const department = await this.prisma.department.create({ data: { name }, select: { id: true, name: true } });
+      return department;
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+        throw new BadRequestException("Department already exists");
+      }
+      throw error;
+    }
+  }
+
+  async deleteDepartment(departmentId: string) {
+    const result = await this.prisma.department.deleteMany({ where: { id: departmentId } });
+    if (!result.count) throw new NotFoundException("Department not found");
+    return this.getOptions();
   }
 
   async deleteTag(value: string) {
