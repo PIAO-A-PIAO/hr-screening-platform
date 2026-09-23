@@ -1,4 +1,4 @@
-import { IsOptional, IsString } from "class-validator";
+import { IsArray, IsOptional, IsString } from "class-validator";
 
 export class CreateEmailTemplateDto {
   @IsString()
@@ -16,6 +16,11 @@ export class CreateEmailTemplateDto {
   @IsOptional()
   @IsString()
   text?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  tags?: string[];
 }
 
 export class UpdateEmailTemplateDto {
@@ -31,4 +36,9 @@ export class UpdateEmailTemplateDto {
   @IsOptional()
   @IsString()
   text?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  tags?: string[];
 }

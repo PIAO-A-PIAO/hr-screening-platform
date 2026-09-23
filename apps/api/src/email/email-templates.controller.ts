@@ -2,11 +2,19 @@ import { Body, Controller, Delete, Get, Param, Patch, Post } from "@nestjs/commo
 import { ApiBody, ApiOperation, ApiParam, ApiTags } from "@nestjs/swagger";
 import { CreateEmailTemplateDto, UpdateEmailTemplateDto } from "./email-template.dto";
 import { EmailTemplatesService } from "./email-templates.service";
+import { EmailSettingsService } from "./email-settings.service";
+import { UpdateEmailSettingsDto } from "./email-settings.dto";
 
 @ApiTags("email-templates")
 @Controller("email/templates")
 export class EmailTemplatesController {
-  constructor(private readonly emailTemplates: EmailTemplatesService) {}
+  constructor(private readonly emailTemplates: EmailTemplatesService, private readonly emailSettings: EmailSettingsService) {}
+
+  @Get("settings")
+  getSettings() { return this.emailSettings.get(); }
+
+  @Patch("settings")
+  updateSettings(@Body() dto: UpdateEmailSettingsDto) { return this.emailSettings.update(dto); }
 
   @Get()
   @ApiOperation({ summary: "List email templates" })
@@ -25,6 +33,7 @@ export class EmailTemplatesController {
         subject: { type: "string" },
         html: { type: "string" },
         text: { type: "string" },
+        tags: { type: "array", items: { type: "string" } },
       },
       required: ["key", "name", "subject", "html"],
     },
