@@ -1,5 +1,4 @@
 "use client";
-
 import { useEffect, useMemo, useState } from "react";
 
 import {
@@ -98,6 +97,29 @@ export function EmailTemplateManager() {
         ? current.filter((item) => item !== tag)
         : [...current, tag]
     );
+  }
+
+  async function removeTag(template: EmailTemplateSummary, tag: string) {
+    if (!window.confirm(`Remove tag "${tag}"?`)) return;
+    try {
+      const saved = await updateEmailTemplate(template.id, {
+        name: template.name, subject: template.subject, html: template.html,
+        text: template.text ?? "", tags: template.tags.filter((item) => item !== tag),
+      });
+      setItems((current) => current.map((item) => item.id === saved.id ? saved : item));
+    } catch (caught) { setError(caught instanceof Error ? caught.message : "Could not remove tag"); }
+  }
+
+  async function addTag(template: EmailTemplateSummary) {
+    const tag = window.prompt("Add a tag")?.trim();
+    if (!tag || template.tags.includes(tag)) return;
+    try {
+      const saved = await updateEmailTemplate(template.id, {
+        name: template.name, subject: template.subject, html: template.html,
+        text: template.text ?? "", tags: [...template.tags, tag],
+      });
+      setItems((current) => current.map((item) => item.id === saved.id ? saved : item));
+    } catch (caught) { setError(caught instanceof Error ? caught.message : "Could not add tag"); }
   }
 
   function open(template?: EmailTemplateSummary) {
@@ -417,13 +439,13 @@ export function EmailTemplateManager() {
                         ? "emailTagChip active"
                         : "emailTagChip"
                     }
-                    onClick={() =>
-                      toggleTagFilter(tag)
-                    }
+                    onClick={() => removeTag(template, tag)}
                   >
                     {tag}
                   </button>
                 ))}
+
+                <button type="button" className="emailTagAddButton" aria-label={`Add tag to ${template.name}`} onClick={() => addTag(template)}>+</button>
 
               </div>
 
