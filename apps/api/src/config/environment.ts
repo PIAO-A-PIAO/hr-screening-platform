@@ -43,6 +43,7 @@ const environmentSchema = z.object({
   SMTP_USER: z.string().optional(),
 
   SMTP_PASSWORD: z.string().optional(),
+  EMAIL_SETTINGS_ENCRYPTION_KEY: z.string().min(32).optional(),
 
   EMAIL_FROM: z.string().optional(),
   EMAIL_WORKER_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(5000),

@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { listEmailTemplates, updatePositionEmailSequence, type EmailSequenceTrigger, type EmailTemplateSummary, type PositionResponse } from "../lib/position-api";
 import { AppIcon } from "./ui/app-icon";
 import { Modal } from "./ui/modal";
+import { EmailPreview } from "./email-preview";
 
 type Rule = { clientId: string; templateId: string; condition: EmailSequenceTrigger; hours: number };
 type Props = { position: PositionResponse; className?: string; onSaved?: (position: PositionResponse) => void };
-const placeholderPattern = /(\{[a-zA-Z0-9_]+\})/g;
 function id() { return globalThis.crypto?.randomUUID?.() ?? `rule_${Date.now()}_${Math.random()}`; }
 function blankRule(): Rule { return { clientId: id(), templateId: "", condition: "INVITATION", hours: 1 }; }
 function defaultRules(templates: EmailTemplateSummary[]): Rule[] {
@@ -19,33 +19,6 @@ function defaultRules(templates: EmailTemplateSummary[]): Rule[] {
   ].flatMap(({ key, condition, hours }) => byKey.has(key) ? [{ clientId: id(), templateId: byKey.get(key)!, condition, hours }] : []);
 }
 function label(condition: EmailSequenceTrigger) { return condition === "INVITATION" ? "On invitation" : condition === "INTERVIEW_COMPLETED" ? "On completion" : "No response in X hours"; }
-function highlightText(value: string) {
-  return value.split(placeholderPattern).map((part, index) => /^\{[a-zA-Z0-9_]+\}$/.test(part) ? <mark key={`${part}-${index}`}>{part}</mark> : part);
-}
-function sanitizeAndHighlight(html: string) {
-  if (typeof window === "undefined") return "";
-  const documentNode = new DOMParser().parseFromString(html, "text/html");
-  documentNode.querySelectorAll("script,style,iframe,object,embed,form,input,button,img,meta,link,base").forEach((node) => node.remove());
-  documentNode.querySelectorAll("*").forEach((element) => {
-    for (const attribute of [...element.attributes]) {
-      if (attribute.name.startsWith("on") || attribute.name === "style" || ((attribute.name === "href" || attribute.name === "src") && /^\s*(javascript|data):/i.test(attribute.value))) element.removeAttribute(attribute.name);
-    }
-  });
-  const walker = documentNode.createTreeWalker(documentNode.body, NodeFilter.SHOW_TEXT);
-  const textNodes: Text[] = [];
-  while (walker.nextNode()) textNodes.push(walker.currentNode as Text);
-  for (const node of textNodes) {
-    const parts = node.data.split(placeholderPattern);
-    if (parts.length === 1) continue;
-    const fragment = documentNode.createDocumentFragment();
-    for (const part of parts) {
-      if (/^\{[a-zA-Z0-9_]+\}$/.test(part)) { const mark = documentNode.createElement("mark"); mark.textContent = part; fragment.append(mark); }
-      else fragment.append(documentNode.createTextNode(part));
-    }
-    node.replaceWith(fragment);
-  }
-  return documentNode.body.innerHTML;
-}
 
 export function PositionEmailSequencePanel({ position, className, onSaved }: Props) {
   const [templates, setTemplates] = useState<EmailTemplateSummary[]>([]);
@@ -72,7 +45,6 @@ export function PositionEmailSequencePanel({ position, className, onSaved }: Pro
 
   const previewRule = rules.find((rule) => rule.clientId === previewId);
   const previewTemplate = templates.find((template) => template.id === previewRule?.templateId);
-  const safeBody = useMemo(() => previewTemplate ? sanitizeAndHighlight(previewTemplate.html) : "", [previewTemplate]);
   function change(index: number, patch: Partial<Rule>) { setRules((items) => items.map((item, itemIndex) => itemIndex === index ? { ...item, ...patch } : item)); setSaved(false); }
   async function save() {
     setError(null); setSaved(false);
@@ -105,7 +77,7 @@ export function PositionEmailSequencePanel({ position, className, onSaved }: Pro
     {error && <div className="stateCard errorState">Error: {error}</div>}{saved && <div className="stateCard successState">Email rules saved.</div>}
     <div className="positionEmailFooter"><button type="button" className="positionAddRule" disabled={loading || templates.length === 0} onClick={() => setRules((items) => [...items, blankRule()])}><AppIcon name="plus" size={17} /> Add email rule</button><button type="button" className="primaryButton" disabled={loading || saving} onClick={save}>{saving ? "Saving..." : "Save sequence"}</button></div>
     <Modal open={Boolean(previewRule)} title="Email preview" description="Placeholder values remain unchanged in the stored template." onClose={() => setPreviewId(null)} size="large">
-      {previewTemplate ? <div className="emailPreview"><dl><dt>From</dt><dd>recruiting@digitalshovel.com</dd><dt>To</dt><dd>candidate@example.com</dd><dt>Subject</dt><dd>{highlightText(previewTemplate.subject)}</dd></dl><div className="emailPreviewBody" dangerouslySetInnerHTML={{ __html: safeBody }} /></div> : <div className="stateCard emptyStateInline">Select a template to preview it.</div>}
+      {previewTemplate ? <EmailPreview from="Configured sender" subject={previewTemplate.subject} html={previewTemplate.content.replace(/\n/g, "<br>")} /> : <div className="stateCard emptyStateInline">Select a template to preview it.</div>}
     </Modal>
   </section>;
 }

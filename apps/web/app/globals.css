@@ -517,6 +517,46 @@ textarea:focus {
   background: rgba(255, 255, 255, 0.68);
 }
 
+/* Modern, restrained email administration: solid colors and modest radii only. */
+.emailManager { gap: 20px; }
+.emailManager .panel { border: 1px solid #d9e1ec; border-radius: 8px; box-shadow: 0 6px 20px rgba(23, 43, 77, .05); background: #fff; }
+.emailManager .panelHeader { padding-bottom: 14px; border-bottom: 1px solid #e8edf3; }
+.emailManager .panelHeader h2, .emailManager .railHeader h2 { letter-spacing: -.02em; }
+.emailManager input, .emailManager select, .emailManager textarea { border-radius: 6px; border-color: #cdd7e3; background: #fff; }
+.emailManager .primaryButton { border-radius: 6px; background: #1769d1; color: #fff; box-shadow: none; }
+.emailManager .primaryButton:hover:not(:disabled) { background: #1157ae; transform: none; }
+.emailTemplateCard { align-items: center; border-radius: 8px; padding: 16px; background: #fff; box-shadow: none; }
+.emailTemplateCard > div:first-child { min-width: 0; }
+.emailTemplateCard p { margin: 5px 0 10px; color: #64748b; font-size: 14px; }
+.emailManager .railHeader + input { display: inline-block; width: min(58%, 460px); margin: 16px 10px 16px 0; vertical-align: middle; }
+.emailManager .railHeader + input + select { display: inline-block; width: min(38%, 260px); margin: 16px 0; vertical-align: middle; }
+.emailTemplateFilters { display: grid; grid-template-columns: minmax(240px, 1fr) minmax(220px, .7fr); gap: 14px; margin: 16px 0; }
+.emailTemplateFilters label { display: grid; gap: 6px; font-size: 13px; font-weight: 700; }
+.emailTemplateFilters select { min-height: 86px; padding: 6px; }
+.emailTemplateFilters small { color: #64748b; font-size: 12px; font-weight: 400; }
+.tagFilterMenu { position: relative; }
+.tagFilterMenu > button { width: 100%; min-height: 44px; text-align: left; border: 1px solid #cdd7e3; border-radius: 6px; background: #fff; padding: 10px 12px; }
+.tagFilterOptions { position: absolute; z-index: 5; top: calc(100% + 6px); width: 100%; max-height: 240px; overflow: auto; padding: 8px; border: 1px solid #d5deea; border-radius: 6px; background: #fff; box-shadow: 0 12px 24px rgba(23,43,77,.14); }
+.tagFilterOptions label { display: flex; gap: 8px; align-items: center; padding: 7px; font-size: 14px; cursor: pointer; }
+.tagFilterOptions input[type="checkbox"] { width: 16px; height: 16px; min-height: 0; margin: 0; flex: 0 0 16px; accent-color: #1769d1; }
+.variableField { position: relative; }
+.variableMenu { position: absolute; z-index: 6; left: 50%; top: 50%; display: grid; min-width: 250px; padding: 6px; border: 1px solid #cfd9e6; border-radius: 6px; background: #fff; box-shadow: 0 10px 24px rgba(23,43,77,.14); transform: translate(-50%, -50%); }
+.variableMenu button { border: 0; background: transparent; padding: 8px 10px; color: #1e4f8e; font-family: ui-monospace, monospace; text-align: left; cursor: pointer; }
+.variableMenu button:hover { background: #edf4ff; }
+.emailTagList { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.emailTagAddButton { display: inline-grid; order: 10; width: 24px; height: 24px; place-items: center; border: 1px dashed #9eb9df; border-radius: 50%; background: #fff; color: #1769d1; font-size: 17px; line-height: 1; cursor: pointer; }
+.emailTagList button { position: relative; border: 1px solid #d5deea; border-radius: 999px; padding: 3px 9px; background: #f6f8fb; color: #41556e; font-size: 12px; font-weight: 650; cursor: pointer; }
+.emailTagList button:hover { border-color: #9eb9df; background: #edf4ff; color: #1459af; }
+.emailTagList button:not(.emailTagAdd):not(.emailTagAddButton):hover { padding-right: 24px; }
+.emailTagList button:not(.emailTagAdd):not(.emailTagAddButton):hover::after { content: "×"; position: absolute; top: 1px; right: 7px; color: #8b9ab0; font-size: 15px; line-height: 18px; }
+.emailTagList .emailTagAdd { width: 25px; height: 25px; padding: 0; border-style: dashed; border-radius: 50%; color: #1769d1; font-size: 17px; line-height: 1; }
+.emailTemplateActions { display: flex; gap: 7px; align-items: center; white-space: nowrap; }
+.emailTemplateActions button { border: 1px solid #d1dbe7; border-radius: 6px; background: #fff; color: #334155; padding: 8px 11px; font-size: 13px; font-weight: 650; cursor: pointer; }
+.emailTemplateActions button:hover { border-color: #9db8db; background: #f4f8fd; color: #1459af; }
+.emailTemplateActions .danger { border-color: transparent; background: #fff1f2; color: #c21f39; }
+.emailTemplateActions .danger:hover { background: #ffe4e6; border-color: #fecdd3; color: #a6152d; }
+@media (max-width: 640px) { .emailManager .railHeader + input, .emailManager .railHeader + input + select { display: block; width: 100%; margin: 12px 0 0; } }
+
 .optionMeta {
   display: grid;
   gap: 8px;
