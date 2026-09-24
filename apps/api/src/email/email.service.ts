@@ -174,10 +174,8 @@ export class EmailService {
     });
   }
 
-  private buildInvitationUrl(testId: string, inviteToken: string) {
-    const invitationUrl = new URL(`/tests/${encodeURIComponent(testId)}`, this.environment.WEB_ORIGIN);
-    invitationUrl.searchParams.set("inviteToken", inviteToken);
-    return invitationUrl.toString();
+  private buildInvitationUrl(_testId: string, inviteToken: string) {
+    return new URL(`/interview/${encodeURIComponent(inviteToken)}`, this.environment.WEB_ORIGIN).toString();
   }
 
   private buildTemplateVariables(context: AssignmentTemplateContext) {
