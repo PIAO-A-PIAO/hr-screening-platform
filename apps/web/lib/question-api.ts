@@ -43,6 +43,7 @@ export type CreateTestInput = {
   status?: TestStatus;
   positionId?: string;
   questions: QuestionDraftInput[];
+  closing?: { title: string; message: string };
 };
 
 export type TestQuestionResponse = QuestionResponse & {
@@ -60,6 +61,7 @@ export type TestResponse = {
   creatorId: string | null;
   creatorName: string | null;
   configuration: Record<string, unknown> | null;
+  closing?: { title: string; message: string; videoAvailable: boolean };
   createdAt: string;
   updatedAt: string;
   questions: TestQuestionResponse[];
@@ -205,6 +207,18 @@ export function listQuestions() {
 export function getTest(testId: string) {
   return requestJson<TestResponse>(`/tests/${encodeURIComponent(testId)}`);
 }
+
+export async function uploadTestClosingVideo(testId: string, file: File) {
+  const data = new FormData();
+  data.append("file", normalizeVideoFile(file));
+  return requestJson<TestResponse>(`/tests/${encodeURIComponent(testId)}/closing-video`, { method: "POST", body: data });
+}
+
+export function removeTestClosingVideo(testId: string) {
+  return requestJson<TestResponse>(`/tests/${encodeURIComponent(testId)}/closing-video`, { method: "DELETE" });
+}
+
+export function testClosingVideoUrl(testId: string) { return `/api/tests/${encodeURIComponent(testId)}/closing-video`; }
 
 export function listTests() {
   return requestJson<TestSummaryResponse[]>("/tests");

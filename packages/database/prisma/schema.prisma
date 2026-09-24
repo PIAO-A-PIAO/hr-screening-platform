@@ -24,6 +24,13 @@ enum QuestionAssetKind {
   THUMBNAIL
 }
 
+enum VideoProcessingStatus {
+  PENDING
+  PROCESSING
+  DONE
+  FAILED
+}
+
 enum TestStatus {
   DRAFT
   PUBLISHED
@@ -184,13 +191,25 @@ model EmailTemplate {
   key       String   @unique
   name      String
   subject   String
-  html      String
+  content   String
   text      String?
+  tags      String[] @default([])
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   steps EmailSequenceStep[]
   tasks EmailTask[]
+}
+
+model EmailSettings {
+  id                    Int     @id @default(1)
+  smtpHost              String?
+  smtpPort              Int     @default(587)
+  smtpSecure            Boolean @default(false)
+  smtpUser              String?
+  smtpPasswordEncrypted String?
+  emailFrom             String?
+  updatedAt             DateTime @updatedAt
 }
 
 model EmailTask {
@@ -336,6 +355,25 @@ model VideoQuestionItem {
   thumbnailAsset   QuestionAsset? @relation("QuestionThumbnailAsset", fields: [thumbnailAssetId], references: [id], onDelete: SetNull)
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
+  processingJobs VideoProcessingJob[]
+}
+
+model VideoProcessingJob {
+  id String @id @default(cuid())
+  questionId String
+  question VideoQuestionItem @relation(fields: [questionId], references: [questionId], onDelete: Cascade)
+  sourceAssetId String
+  previousAssetId String?
+  status VideoProcessingStatus @default(PENDING)
+  attempts Int @default(0)
+  lastError String?
+  nextAttemptAt DateTime @default(now())
+  processedAssetId String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, nextAttemptAt])
+  @@index([questionId, createdAt])
 }
 
 model MultipleChoiceQuestionItem {

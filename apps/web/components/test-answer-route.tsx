@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { QuestionAnswerer, createEmptyAnswer, type CandidateAnswer } from "./question-answerer";
-import { getTest, type TestResponse } from "../lib/question-api";
+import { ApiError, getTest, testClosingVideoUrl, type TestResponse } from "../lib/question-api";
 import {
   resolveInviteToken,
   saveAttemptResponse,
@@ -120,13 +120,16 @@ export function TestAnswerRoute({ testId, inviteToken }: TestAnswerRouteProps) {
       const loaded = await getTest(resolved.testId);
 
       // 4. Start/resume candidate attempt
-      const started = await startAttempt(
-        {
-          userId: resolved.userId,
-          testId: resolved.testId,
-        },
-        normalizedToken,
-      );
+      let started: AttemptResponse;
+      try {
+        started = await startAttempt({ userId: resolved.userId, testId: resolved.testId }, normalizedToken);
+      } catch (caught) {
+        if (caught instanceof ApiError && caught.status === 409 && caught.message === "Attempt already submitted") {
+          if (!cancelled) { setTest(loaded); setSubmitted(true); }
+          return;
+        }
+        throw caught;
+      }
 
       if (!cancelled) {
         setTest(loaded);
@@ -288,6 +291,8 @@ export function TestAnswerRoute({ testId, inviteToken }: TestAnswerRouteProps) {
   }).length;
 
   const activeAnswer = activeQuestion ? currentAnswerFor(activeQuestion.id) : createEmptyAnswer();
+
+  if (submitted) return <main className="pageShell"><section className="candidateClosingScreen"><div className="candidateClosingCheck" aria-hidden="true">✓</div><span className="sectionLabel">Interview submitted</span><h1>{test.closing?.title || "Thank you!"}</h1><p>{test.closing?.message || "Thank you for completing the interview. We will be in touch soon."}</p>{test.closing?.videoAvailable && <video controls playsInline src={testClosingVideoUrl(test.id)} />}</section></main>;
 
   return (
     <main className="pageShell">
