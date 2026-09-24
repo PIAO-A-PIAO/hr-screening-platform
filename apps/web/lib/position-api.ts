@@ -8,7 +8,7 @@ export type EmailSequenceTrigger = "INVITATION" | "NO_RESPONSE" | "INTERVIEW_COM
 export type EmailSequenceStopCondition = "CANDIDATE_SUBMITTED" | "CANDIDATE_DISCARDED" | "POSITION_CLOSED";
 
 export type EmailTemplateSummary = {
-  id: string; key: string; name: string; subject: string; html: string; text: string | null;
+  id: string; key: string; name: string; subject: string; content: string; text: string | null; tags: string[];
   createdAt: string; updatedAt: string;
 };
 export type EmailSequenceStepSummary = {
@@ -103,7 +103,11 @@ export function deletePositionAssignment(positionId: string, interviewId: string
   return requestJson<{ id: string }>(`/positions/${encodeURIComponent(positionId)}/interviews/${encodeURIComponent(interviewId)}`, { method: "DELETE" });
 }
 export function listEmailTemplates() { return requestJson<EmailTemplateSummary[]>("/email/templates"); }
-export type EmailTemplateInput = { key?: string; name: string; subject: string; html: string; text?: string };
+export type EmailTemplateInput = { key?: string; name: string; subject: string; content: string; text?: string; tags?: string[] };
 export function createEmailTemplate(input: Required<EmailTemplateInput>) { return requestJson<EmailTemplateSummary>("/email/templates", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input) }); }
 export function updateEmailTemplate(templateId: string, input: Omit<EmailTemplateInput, "key">) { return requestJson<EmailTemplateSummary>(`/email/templates/${encodeURIComponent(templateId)}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input) }); }
 export function deleteEmailTemplate(templateId: string) { return requestJson<{ id: string }>(`/email/templates/${encodeURIComponent(templateId)}`, { method: "DELETE" }); }
+export type EmailSettings = { smtpHost: string; smtpPort: number; smtpSecure: boolean; smtpUser: string; emailFrom: string; passwordConfigured: boolean };
+export type UpdateEmailSettings = Omit<EmailSettings, "passwordConfigured"> & { smtpPassword?: string };
+export function getEmailSettings() { return requestJson<EmailSettings>("/email/templates/settings"); }
+export function updateEmailSettings(input: UpdateEmailSettings) { return requestJson<EmailSettings>("/email/templates/settings", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input) }); }

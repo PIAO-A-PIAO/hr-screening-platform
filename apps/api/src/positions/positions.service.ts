@@ -51,7 +51,7 @@ export type EmailTemplateSummary = {
   key: string;
   name: string;
   subject: string;
-  html: string;
+  content: string;
   text: string | null;
   createdAt: Date;
   updatedAt: Date;
@@ -121,7 +121,7 @@ const emailInclude = {
               key: true,
               name: true,
               subject: true,
-              html: true,
+              content: true,
               text: true,
               createdAt: true,
               updatedAt: true,

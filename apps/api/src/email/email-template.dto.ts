@@ -1,4 +1,4 @@
-import { IsOptional, IsString } from "class-validator";
+import { IsArray, IsOptional, IsString } from "class-validator";
 
 export class CreateEmailTemplateDto {
   @IsString()
@@ -11,11 +11,16 @@ export class CreateEmailTemplateDto {
   subject!: string;
 
   @IsString()
-  html!: string;
+  content!: string;
 
   @IsOptional()
   @IsString()
   text?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  tags?: string[];
 }
 
 export class UpdateEmailTemplateDto {
@@ -26,9 +31,14 @@ export class UpdateEmailTemplateDto {
   subject!: string;
 
   @IsString()
-  html!: string;
+  content!: string;
 
   @IsOptional()
   @IsString()
   text?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  tags?: string[];
 }

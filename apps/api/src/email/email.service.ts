@@ -3,6 +3,7 @@ import { AttemptStatus, EmailDelayUnit, EmailSequenceStopCondition, EmailSequenc
 import { randomUUID } from "node:crypto";
 import * as nodemailer from "nodemailer";
 import { getEnvironment } from "../config/environment";
+import { EmailSettingsService } from "./email-settings.service";
 
 type TemplateVariables = Record<string, unknown>;
 type EmailTaskStatus = "PENDING" | "PROCESSING" | "SENT" | "FAILED" | "CANCELLED";
@@ -12,7 +13,7 @@ type EmailTemplateRecord = {
   key: string;
   name: string;
   subject: string;
-  html: string;
+  content: string;
   text: string | null;
   createdAt: Date;
   updatedAt: Date;
@@ -150,22 +151,25 @@ export class EmailService {
   private readonly logger = new Logger(EmailService.name);
   private readonly environment = getEnvironment();
 
-  private createTransporter() {
+  constructor(private readonly emailSettings: EmailSettingsService) {}
+
+  private async createTransporter() {
+    const settings = await this.emailSettings.transportSettings();
     return nodemailer.createTransport({
-      host: this.environment.SMTP_HOST,
-      port: this.environment.SMTP_PORT,
-      secure: this.environment.SMTP_SECURE,
-      auth: this.environment.SMTP_USER && this.environment.SMTP_PASSWORD
+      host: settings.smtpHost,
+      port: settings.smtpPort,
+      secure: settings.smtpSecure,
+      auth: settings.smtpUser && settings.smtpPassword
         ? {
-            user: this.environment.SMTP_USER,
-            pass: this.environment.SMTP_PASSWORD,
+            user: settings.smtpUser,
+            pass: settings.smtpPassword,
           }
         : undefined,
     });
   }
 
   private renderTemplate(template: string, variables: TemplateVariables) {
-    return template.replace(/\{\{\s*([A-Za-z0-9_.-]+)\s*\}\}/g, (_match, key: string) => {
+    return template.replace(/\{\{?\s*([A-Za-z0-9_.-]+)\s*\}?\}/g, (_match, key: string) => {
       return stringifyTemplateValue(resolveTemplateValue(variables, key));
     });
   }
@@ -257,7 +261,7 @@ export class EmailService {
                             key: true,
                             name: true,
                             subject: true,
-                            html: true,
+                            content: true,
                             text: true,
                             createdAt: true,
                             updatedAt: true,
@@ -432,7 +436,7 @@ export class EmailService {
   async queueInvitationEmail(
     tx: Prisma.TransactionClient,
     input: QueueInvitationEmailInput,
-  ): Promise<EmailTaskRecord> {
+  ): Promise<EmailTaskRecord | null> {
     const context = await this.loadAssignmentTemplateContext(tx, input.assignmentId);
     const variables = this.buildTemplateVariables(context);
     const firstStep = this.getStepByTrigger(context, EmailSequenceTrigger.INVITATION);
@@ -446,7 +450,7 @@ export class EmailService {
         dueAt: new Date(),
         to: context.assignment.user.email,
         subject: this.renderTemplate(firstStep.template.subject, variables),
-        html: this.renderTemplate(firstStep.template.html, variables),
+        html: this.renderTemplate(firstStep.template.content, variables).replace(/\n/g, "<br>"),
         text: firstStep.template.text ? this.renderTemplate(firstStep.template.text, variables) : null,
         variables,
       });
@@ -474,7 +478,7 @@ export class EmailService {
       dueAt: new Date(),
       to: context.assignment.user.email,
       subject: this.renderTemplate(fallbackTemplate.subject, variables),
-      html: this.renderTemplate(fallbackTemplate.html, variables),
+        html: this.renderTemplate(fallbackTemplate.content, variables).replace(/\n/g, "<br>"),
       text: fallbackTemplate.text ? this.renderTemplate(fallbackTemplate.text, variables) : null,
       variables,
     });
@@ -509,7 +513,7 @@ export class EmailService {
       dueAt: new Date(input.sentAt.getTime() + delayToMilliseconds(nextStep.delayValue, nextStep.delayUnit)),
       to: context.assignment.user.email,
       subject: this.renderTemplate(nextStep.template.subject, variables),
-      html: this.renderTemplate(nextStep.template.html, variables),
+        html: this.renderTemplate(nextStep.template.content, variables).replace(/\n/g, "<br>"),
       text: nextStep.template.text ? this.renderTemplate(nextStep.template.text, variables) : null,
       variables,
     });
@@ -531,7 +535,7 @@ export class EmailService {
       dueAt: new Date(Date.now() + delayToMilliseconds(step.delayValue, step.delayUnit)),
       to: context.assignment.user.email,
       subject: this.renderTemplate(step.template.subject, variables),
-      html: this.renderTemplate(step.template.html, variables),
+        html: this.renderTemplate(step.template.content, variables).replace(/\n/g, "<br>"),
       text: step.template.text ? this.renderTemplate(step.template.text, variables) : null,
       variables,
     });
@@ -546,9 +550,10 @@ export class EmailService {
       return { messageId: null, skipped: true };
     }
 
-    const transporter = this.createTransporter();
+    const settings = await this.emailSettings.transportSettings();
+    const transporter = await this.createTransporter();
     const info = await transporter.sendMail({
-      from: this.environment.EMAIL_FROM,
+      from: settings.emailFrom,
       to: task.to,
       subject: task.subject,
       html: task.html,
