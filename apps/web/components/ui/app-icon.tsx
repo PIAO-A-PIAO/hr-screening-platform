@@ -1,7 +1,7 @@
 import type { RecruiterNavIcon } from "../../lib/recruiter-navigation";
 
 type AppIconProps = {
-  name: RecruiterNavIcon | "arrow" | "plus" | "briefcase" | "people" | "review" | "published" | "menu" | "close" | "logout";
+  name: RecruiterNavIcon | "arrow" | "plus" | "briefcase" | "people" | "review" | "published" | "menu" | "close" | "logout" | "delete" | "drag" | "moveUp" | "moveDown";
   size?: number;
 };
 
@@ -21,6 +21,10 @@ const paths: Record<AppIconProps["name"], React.ReactNode> = {
   menu: <><path d="M4 7h16M4 12h16M4 17h16" /></>,
   close: <><path d="m6 6 12 12M18 6 6 18" /></>,
   logout: <><path d="M10 17l5-5-5-5M15 12H3M14 4h5a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-5" /></>,
+  delete: <><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v5M14 11v5" /></>,
+  drag: <><circle cx="9" cy="5" r="1" /><circle cx="15" cy="5" r="1" /><circle cx="9" cy="12" r="1" /><circle cx="15" cy="12" r="1" /><circle cx="9" cy="19" r="1" /><circle cx="15" cy="19" r="1" /></>,
+  moveUp: <><path d="m6 14 6-6 6 6" /></>,
+  moveDown: <><path d="m6 10 6 6 6-6" /></>,
 };
 
 export function AppIcon({ name, size = 20 }: AppIconProps) {
