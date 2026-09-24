@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { createPosition, deletePositionTag, getPosition, getPositionOptions, updatePosition, type PositionOptionsResponse, type PositionResponse } from "../lib/position-api";
+import { createPosition, createPositionDepartment, deletePositionDepartment, deletePositionTag, getPosition, getPositionOptions, updatePosition, type PositionOptionsResponse, type PositionResponse } from "../lib/position-api";
 import { getTest, type TestResponse } from "../lib/question-api";
 import { PositionEmailSequencePanel } from "./position-email-sequence-panel";
 import { AppIcon } from "./ui/app-icon";
@@ -24,6 +24,8 @@ export function PositionEditRoute({ initialPositionId }: Props) {
   const [tagOpen, setTagOpen] = useState(false);
   const [tagSearch, setTagSearch] = useState("");
   const [departmentOpen, setDepartmentOpen] = useState(false);
+  const [departmentSearch, setDepartmentSearch] = useState("");
+  const [departmentBusy, setDepartmentBusy] = useState(false);
   const [loading, setLoading] = useState(Boolean(initialPositionId));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -71,6 +73,9 @@ export function PositionEditRoute({ initialPositionId }: Props) {
   const filteredTags = useMemo(() => options.tags.filter((tag) => tag.toLocaleLowerCase().includes(normalize(tagSearch).toLocaleLowerCase())), [options.tags, tagSearch]);
   const normalizedSearch = normalize(tagSearch);
   const canAddTag = normalizedSearch.length > 0 && !options.tags.some((tag) => tag.toLocaleLowerCase() === normalizedSearch.toLocaleLowerCase()) && !selectedTags.some((tag) => tag.toLocaleLowerCase() === normalizedSearch.toLocaleLowerCase());
+  const normalizedDepartment = normalize(departmentSearch);
+  const filteredDepartments = options.departments.filter((department) => department.name.toLocaleLowerCase().includes(normalizedDepartment.toLocaleLowerCase()));
+  const canAddDepartment = normalizedDepartment.length > 0 && !options.departments.some((department) => department.name.toLocaleLowerCase() === normalizedDepartment.toLocaleLowerCase());
 
   async function saveTitle() {
     const normalized = normalize(title);
@@ -94,6 +99,27 @@ export function PositionEditRoute({ initialPositionId }: Props) {
     setError(null);
     try { setPosition(await updatePosition(positionId, { departmentIds })); }
     catch (caught) { setError(caught instanceof Error ? caught.message : "Failed to save departments"); }
+  }
+  async function addDepartment() {
+    if (!positionId || !canAddDepartment || departmentBusy) return;
+    setDepartmentBusy(true); setError(null);
+    try {
+      const department = await createPositionDepartment(normalizedDepartment);
+      setOptions((current) => ({ ...current, departments: [...current.departments, department].sort((left, right) => left.name.localeCompare(right.name)) }));
+      setPosition(await updatePosition(positionId, { departmentIds: [...selectedDepartmentIds, department.id] }));
+      setDepartmentSearch("");
+    } catch (caught) { setError(caught instanceof Error ? caught.message : "Failed to create department"); }
+    finally { setDepartmentBusy(false); }
+  }
+  async function removeDepartmentFromDatabase(department: { id: string; name: string }) {
+    if (!window.confirm(`Delete “${department.name}” from all positions and team members?`)) return;
+    setDepartmentBusy(true); setError(null);
+    try {
+      const nextOptions = await deletePositionDepartment(department.id);
+      setOptions(nextOptions);
+      setPosition((current) => current ? { ...current, departments: current.departments.filter((item) => item.id !== department.id) } : current);
+    } catch (caught) { setError(caught instanceof Error ? caught.message : "Failed to delete department"); }
+    finally { setDepartmentBusy(false); }
   }
   async function removeTagFromDatabase(tag: string) {
     if (!window.confirm(`Delete “${tag}” from every position?`)) return;
@@ -132,9 +158,9 @@ export function PositionEditRoute({ initialPositionId }: Props) {
           {tagOpen && <div className="positionPopover"><label className="positionSearch"><span className="srOnly">Search tags</span><input autoFocus value={tagSearch} placeholder="Search or create a tag..." onChange={(event) => setTagSearch(event.target.value)} /></label>{canAddTag && <button type="button" className="positionCreateOption" onClick={() => { void persistTags([...selectedTags, normalizedSearch]); setTagSearch(""); }}><AppIcon name="plus" size={16} /> Create “{normalizedSearch}”</button>}<div className="positionOptionList">{filteredTags.length ? filteredTags.map((tag) => { const selected = selectedTags.some((item) => item.toLocaleLowerCase() === tag.toLocaleLowerCase()); return <div className="positionTagOption" key={tag}><button type="button" disabled={selected} onClick={() => void persistTags([...selectedTags, tag])}><span>{tag}</span><small>{selected ? "Selected" : "Add"}</small></button><button type="button" className="positionDeleteTag" aria-label={`Delete ${tag} from all positions`} onClick={() => void removeTagFromDatabase(tag)}>Delete</button></div>; }) : !canAddTag && <small>No tags match.</small>}</div></div>}
         </section>
         <section className="positionSettingsCard positionChoiceCard" ref={departmentCardRef}>
-          <div className="positionCardHeader"><div className="positionCardIcon muted"><AppIcon name="people" size={20} /></div><div className="positionCardCopy"><h2>Departments</h2><p>Choose the teams responsible for this role.</p></div><button type="button" className="positionAddButton" aria-expanded={departmentOpen} onClick={() => { setDepartmentOpen((open) => !open); setTagOpen(false); }}>Manage</button></div>
+          <div className="positionCardHeader"><div className="positionCardIcon muted"><AppIcon name="people" size={20} /></div><div className="positionCardCopy"><h2>Departments</h2><p>Choose the teams responsible for this role.</p></div><button type="button" className="positionAddButton" aria-expanded={departmentOpen} onClick={() => { setDepartmentOpen((open) => !open); setTagOpen(false); }}><AppIcon name="plus" size={16} /> Add</button></div>
           <div className={`positionSelectionWell ${position.departments.length ? "" : "empty"}`}>{position.departments.length ? position.departments.map((department) => <TagChip key={department.id} label={department.name} onRemove={() => void persistDepartments(selectedDepartmentIds.filter((id) => id !== department.id))} />) : <span>No departments selected</span>}</div>
-          {departmentOpen && <div className="positionPopover positionDepartmentList">{options.departments.length ? options.departments.map((department) => <label key={department.id}><span>{department.name}</span><input type="checkbox" checked={selectedDepartmentIds.includes(department.id)} onChange={() => void persistDepartments(selectedDepartmentIds.includes(department.id) ? selectedDepartmentIds.filter((id) => id !== department.id) : [...selectedDepartmentIds, department.id])} /></label>) : <small>No departments are available.</small>}</div>}
+          {departmentOpen && <div className="positionPopover"><label className="positionSearch"><span className="srOnly">Search departments</span><input autoFocus value={departmentSearch} placeholder="Search or create a department..." onChange={(event) => setDepartmentSearch(event.target.value)} /></label>{canAddDepartment && <button type="button" className="positionCreateOption" disabled={departmentBusy} onClick={() => void addDepartment()}><AppIcon name="plus" size={16} /> Create “{normalizedDepartment}”</button>}<div className="positionOptionList">{filteredDepartments.length ? filteredDepartments.map((department) => { const selected = selectedDepartmentIds.includes(department.id); return <div className="positionTagOption" key={department.id}><button type="button" disabled={selected || departmentBusy} onClick={() => void persistDepartments([...selectedDepartmentIds, department.id])}><span>{department.name}</span><small>{selected ? "Selected" : "Add"}</small></button><button type="button" className="positionDeleteTag" disabled={departmentBusy} aria-label={`Delete ${department.name} from all positions and team members`} onClick={() => void removeDepartmentFromDatabase(department)}>Delete</button></div>; }) : !canAddDepartment && <small>No departments match.</small>}</div></div>}
         </section>
       </div>
       <section className="positionSettingsCard positionTestCard"><div className="positionCardCopy"><h2>Screening test</h2><p>{position.test ? "Review or update the questions candidates will answer." : "Create a screening test for this position."}</p></div><div className="positionTestMeta"><strong>{position.test?.questionCount ?? 0}</strong><span>questions</span></div><div className="positionInlineActions"><button type="button" className="ghostButton compactButton" disabled={!position.test} onClick={() => void openTestPreview()}>Preview</button><Link className="primaryButton compactButton inlineButton" href={`/positions/${encodeURIComponent(position.id)}/edit/${encodeURIComponent(position.test?.id ?? "new")}`}>{position.test ? "Edit test" : "Create test"}</Link></div></section>

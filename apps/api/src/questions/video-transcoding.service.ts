@@ -70,6 +70,22 @@ export class VideoTranscodingService {
     return this.transcodeBuffer(input);
   }
 
+  async createThumbnail(video: Buffer): Promise<Buffer> {
+    const workDir = await mkdtemp(join(tmpdir(), "ds-hr-thumbnail-"));
+    const inputPath = join(workDir, "video.mp4");
+    const outputPath = join(workDir, "thumbnail.jpg");
+    try {
+      await writeFile(inputPath, video);
+      await this.runCommand(this.resolveBinary("FFMPEG_PATH", "ffmpeg"), [
+        "-hide_banner", "-loglevel", "error", "-y", "-i", inputPath,
+        "-frames:v", "1", "-vf", "scale=480:-2", outputPath,
+      ]);
+      return await readFile(outputPath);
+    } finally {
+      await rm(workDir, { recursive: true, force: true }).catch(() => undefined);
+    }
+  }
+
   async transcodeBuffer(input: {
     buffer: Buffer;
     mimeType: string;
