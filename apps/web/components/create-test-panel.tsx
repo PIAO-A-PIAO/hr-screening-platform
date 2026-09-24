@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { PositionQuestionEditor, type PositionQuestionEditorHandle } from "./position-question-editor";
+import { AppIcon } from "./ui/app-icon";
 import { createTest, getTest, removeTestClosingVideo, testClosingVideoUrl, updateTest, uploadQuestionVideo, uploadTestClosingVideo, type CreateTestInput, type QuestionDraftInput, type TestResponse, type TestStatus } from "../lib/question-api";
 import type { PositionResponse } from "../lib/position-api";
 
@@ -40,6 +41,9 @@ export function CreateTestPanel({ position, className, onSaved }: Props) {
   const [entries, setEntries] = useState<Entry[]>([]);
   const entriesRef = useRef<Entry[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [editingClosing, setEditingClosing] = useState(false);
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const [loading, setLoading] = useState(Boolean(position.test));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -47,10 +51,16 @@ export function CreateTestPanel({ position, className, onSaved }: Props) {
   const editor = useRef<PositionQuestionEditorHandle>(null);
 
   useEffect(() => {
+    if (!notice) return;
+    const timer = setTimeout(() => setNotice(""), 3000);
+    return () => clearTimeout(timer);
+  }, [notice]);
+
+  useEffect(() => {
     const id = position.test?.id;
     setTestId(id ?? null); setName(position.test?.name ?? position.title);
     setDescription(position.test?.description ?? ""); setStatus(position.test?.status ?? "DRAFT");
-    setTest(null); setEntries([]); entriesRef.current = []; setSelectedId(null); setError(null); setNotice(""); setClosingFile(null);
+    setTest(null); setEntries([]); entriesRef.current = []; setSelectedId(null); setEditingClosing(false); setError(null); setNotice(""); setClosingFile(null);
     if (!id) { setLoading(false); return; }
     let active = true;
     setLoading(true);
@@ -119,21 +129,31 @@ export function CreateTestPanel({ position, className, onSaved }: Props) {
 
   async function addNew() {
     if (saving) return;
+    if (editingClosing) { setEditingClosing(false); setSelectedId(null); return; }
     const saved = await editor.current?.saveAndStartNew();
     if (saved) setSelectedId(null);
   }
   async function selectQuestion(id: string) {
-    if (id === selectedId || saving) return;
+    if ((id === selectedId && !editingClosing) || saving) return;
+    if (editingClosing) { setEditingClosing(false); setSelectedId(id); return; }
     const saved = await editor.current?.saveAndStartNew();
     if (saved) setSelectedId(id);
   }
-  async function reorder(index: number, direction: -1 | 1) {
-    const target = index + direction;
-    if (target < 0 || target >= entries.length || saving) return;
+  async function selectClosing() {
+    if (editingClosing || saving) return;
+    const saved = await editor.current?.saveAndStartNew();
+    if (saved === false) return;
+    setSelectedId(null);
+    setEditingClosing(true);
+  }
+  async function moveQuestion(index: number, target: number) {
+    if (target < 0 || target >= entries.length || target === index || saving) return;
     const next = [...entries];
-    [next[index], next[target]] = [next[target], next[index]];
+    const [moved] = next.splice(index, 1);
+    next.splice(target, 0, moved);
     try { await persist(next, selectedId); } catch { /* Error is displayed without changing the order. */ }
   }
+  async function reorder(index: number, direction: -1 | 1) { await moveQuestion(index, index + direction); }
   async function remove(index: number) {
     if (saving) return;
     const next = entries.filter((_, at) => at !== index);
@@ -173,10 +193,10 @@ export function CreateTestPanel({ position, className, onSaved }: Props) {
   }
 
   return <section className={`testBuilderPage ${className ?? ""}`}>
-    <header className="testBuilderHero"><div><span className="sectionLabel">Test builder</span><h1>{position.title}</h1><p>Build the candidate experience, then finish with a closing message.</p></div><div className="testBuilderHeroStats"><strong>{entries.length}</strong><span>{entries.length === 1 ? "question" : "questions"}</span><span className="testBuilderStatus">{status.toLowerCase()}</span></div></header>
+    <header className="testBuilderHero"><div><span className="sectionLabel">Test builder</span><h1>{position.title}</h1><p>Build the candidate experience, then finish with a closing message.</p></div><div className="testBuilderHeroStats"><strong>{entries.length}</strong><span>{entries.length === 1 ? "question" : "questions"}</span><span className="testBuilderStatus">{status.toLowerCase()}</span>{notice && <span className="testBuilderNotice" role="status">{notice}</span>}</div></header>
       {loading ? <div className="stateCard">Loading test...</div> : <>
         {error && <div className="stateCard errorState" role="alert">{error}</div>}
-        <details className="testBuilderSettings"><summary><span><strong>Test settings</strong><small>{name || position.title} · {status.toLowerCase()}{tags.trim() ? ` · ${tags}` : ""}</small></span><span className="testBuilderSettingsAction">Edit details</span></summary><form className="formGrid" onSubmit={(event) => void saveMetadata(event)}>
+        <details className="testBuilderSettings"><summary><span><strong>Test settings</strong><small>{name || position.title} · {status.toLowerCase()}{tags.trim() ? ` · ${tags}` : ""}</small></span><span className="testBuilderDisclosure"><span className="testBuilderExpandLabel">Expand</span><span className="testBuilderCollapseLabel">Collapse</span><span className="testBuilderChevron" aria-hidden="true">⌄</span></span></summary><form className="formGrid" onSubmit={(event) => void saveMetadata(event)}>
           <label className="field"><span>Test title</span><input required value={name} onChange={(event) => setName(event.target.value)} /></label>
           <label className="field fieldWide"><span>Description</span><textarea rows={2} value={description} onChange={(event) => setDescription(event.target.value)} /></label>
           <label className="field"><span>Status</span><select value={status} onChange={(event) => setStatus(event.target.value as TestStatus)}><option value="DRAFT">Draft</option><option value="PUBLISHED">Published</option><option value="ARCHIVED">Archived</option></select></label>
@@ -184,18 +204,34 @@ export function CreateTestPanel({ position, className, onSaved }: Props) {
           <div className="fieldWide actionsRow"><button className="primaryButton" type="submit" disabled={saving}>{saving ? "Saving..." : "Save settings"}</button></div>
         </form></details>
         <div className="testBuilderGrid">
-          <PositionQuestionEditor ref={editor} question={selected?.draft ?? null} order={selected?.draft.order ?? entries.length + 1} saving={saving} onSave={saveQuestion} />
-          <aside className="draftSidebar" aria-label="Question order"><div className="testBuilderOutlineHeader"><div><span className="sectionLabel">Interview flow</span><h2>Questions</h2></div><span>{entries.length}</span></div>
-            <ol className="draftOrderList">{entries.map((entry, index) => <li className={`draftCard ${selectedId === entry.clientId ? "selected" : ""}`} key={entry.clientId}>
-              <button type="button" className="draftSelect" onClick={() => void selectQuestion(entry.clientId)} disabled={saving} aria-current={selectedId === entry.clientId ? "step" : undefined}><span className="draftNumber">{index + 1}</span><span className="draftIdentity"><strong>{entry.draft.title}</strong><small>{entry.draft.type.replaceAll("_", " ").toLowerCase()}{entry.draft.type === "VIDEO" ? ` · ${String((test?.questions.find((question) => question.id === entry.draft.questionId)?.item as { processing?: string } | undefined)?.processing ?? "no video").toLowerCase()}` : ""}</small></span></button>
-              <div className="draftActions"><button type="button" disabled={saving || index === 0} aria-label={`Move ${entry.draft.title} up`} onClick={() => void reorder(index, -1)}>↑</button><button type="button" disabled={saving || index === entries.length - 1} aria-label={`Move ${entry.draft.title} down`} onClick={() => void reorder(index, 1)}>↓</button><button type="button" className="draftRemove" disabled={saving} aria-label={`Remove ${entry.draft.title}`} onClick={() => void remove(index)}>Remove</button></div>
-            </li>)}</ol>
+          {editingClosing ? <section className="panel testBuilderClosingEditor" aria-label="Thank-you screen editor">
+            <div className="panelHeader"><div><span className="sectionLabel">After the final answer</span><h2>Thank-you screen</h2><p>The candidate sees this after submitting. This screen is not scored.</p></div></div>
+            <form onSubmit={(event) => void saveClosing(event)}>
+              <div className="testBuilderClosingFields">
+                <label className="field"><span>Heading</span><input maxLength={120} value={closingTitle} onChange={(event) => setClosingTitle(event.target.value)} /></label>
+                <label className="field"><span>Message</span><textarea rows={3} maxLength={1000} value={closingMessage} onChange={(event) => setClosingMessage(event.target.value)} /></label>
+                <label className="field"><span>Optional thank-you video</span><input type="file" accept="video/mp4,video/webm,video/quicktime,video/x-msvideo" onChange={(event) => setClosingFile(event.target.files?.[0] ?? null)} /><small>MP4, WebM, MOV, or AVI · up to 100 MB</small></label>
+                {test?.closing?.videoAvailable && testId && <div className="testBuilderClosingVideo"><video controls playsInline src={testClosingVideoUrl(testId)} /><button className="ghostButton compactButton" type="button" disabled={closingBusy} onClick={() => void removeClosing()}>Remove video</button></div>}
+              </div>
+              <div className="testBuilderClosingFooter"><span>Final step of the interview</span><button className="primaryButton" type="submit" disabled={saving || closingBusy}>{saving || closingBusy ? "Saving..." : "Save closing screen"}</button></div>
+            </form>
+          </section> : <PositionQuestionEditor ref={editor} question={selected?.draft ?? null} order={selected?.draft.order ?? entries.length + 1} saving={saving} videoAvailable={Boolean((test?.questions.find((question) => question.id === selected?.draft.questionId)?.item as { video?: unknown } | undefined)?.video)} thumbnailAvailable={Boolean((test?.questions.find((question) => question.id === selected?.draft.questionId)?.item as { thumbnail?: unknown } | undefined)?.thumbnail)} onSave={saveQuestion} />}
+          <aside className="draftSidebar" aria-label="Interview flow"><div className="testBuilderOutlineHeader"><div><span className="sectionLabel">Interview flow</span><h2>Questions</h2></div><span>{entries.length}</span></div>
+            <ol className="draftOrderList">{entries.map((entry, index) => {
+              const video = test?.questions.find((question) => question.id === entry.draft.questionId);
+              const videoItem = video?.item as { processing?: string; thumbnail?: { assetId?: string; id?: string } } | undefined;
+              return <li className={`draftCard ${!editingClosing && selectedId === entry.clientId ? "selected" : ""} ${dragOverIndex === index && draggedIndex !== index ? "dragOver" : ""}`} key={entry.clientId} onDragOver={(event) => { if (draggedIndex === null) return; event.preventDefault(); setDragOverIndex(index); }} onDrop={(event) => { event.preventDefault(); if (draggedIndex !== null) void moveQuestion(draggedIndex, index); setDraggedIndex(null); setDragOverIndex(null); }}>
+                <button type="button" className="draftSelect" onClick={() => void selectQuestion(entry.clientId)} disabled={saving} aria-current={!editingClosing && selectedId === entry.clientId ? "step" : undefined}>
+                  <span className="draftNumber">{index + 1}</span>
+                  <span className="draftIdentity"><strong>{entry.draft.title}</strong><small>{entry.draft.type.replaceAll("_", " ").toLowerCase()}{entry.draft.type === "VIDEO" ? ` · ${String(videoItem?.processing ?? "no video").toLowerCase()}` : ""}</small></span>
+                </button>
+                <div className="draftActions"><button type="button" className="draftDrag" draggable={!saving} disabled={saving} aria-label={`Drag ${entry.draft.title} to reorder`} title="Drag to reorder" onDragStart={(event) => { setDraggedIndex(index); event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/plain", String(index)); }} onDragEnd={() => { setDraggedIndex(null); setDragOverIndex(null); }}><AppIcon name="drag" size={17} /></button><span className="draftActionsSpacer" /><button type="button" disabled={saving || index === 0} aria-label={`Move ${entry.draft.title} up`} title="Move up" onClick={() => void reorder(index, -1)}><AppIcon name="moveUp" size={17} /></button><button type="button" disabled={saving || index === entries.length - 1} aria-label={`Move ${entry.draft.title} down`} title="Move down" onClick={() => void reorder(index, 1)}><AppIcon name="moveDown" size={17} /></button><button type="button" className="draftRemove" disabled={saving} aria-label={`Delete ${entry.draft.title}`} title="Delete question" onClick={() => void remove(index)}><AppIcon name="delete" size={17} /></button></div>
+              </li>;
+            })}</ol>
             <button type="button" className="testBuilderAdd" disabled={saving} onClick={() => void addNew()}><span aria-hidden="true">＋</span> Add question</button>
-            <div className="testBuilderOutlineEnd"><span aria-hidden="true">✓</span><span><strong>Closing screen</strong><small>Shown after submission · not a question</small></span></div>
+            <button type="button" className={`testBuilderOutlineEnd ${editingClosing ? "selected" : ""}`} onClick={() => void selectClosing()} disabled={saving} aria-current={editingClosing ? "step" : undefined}><span aria-hidden="true">✓</span><span><strong>Thank-you screen</strong><small>{closingTitle || "Thank you!"} · {test?.closing?.videoAvailable ? "Video added" : "No video"}</small></span><span className="testBuilderOutlineArrow" aria-hidden="true">›</span></button>
           </aside>
         </div>
-        <form className="testBuilderClosing" onSubmit={(event) => void saveClosing(event)}><div className="testBuilderClosingIntro"><div className="testBuilderClosingIcon" aria-hidden="true">✓</div><div><span className="sectionLabel">After the final answer</span><h2>Thank-you screen</h2><p>The candidate sees this only after their answers are submitted. Video is optional.</p></div></div><div className="testBuilderClosingFields"><label className="field"><span>Heading</span><input maxLength={120} value={closingTitle} onChange={(event) => setClosingTitle(event.target.value)} /></label><label className="field"><span>Message</span><textarea rows={3} maxLength={1000} value={closingMessage} onChange={(event) => setClosingMessage(event.target.value)} /></label><label className="field"><span>Optional thank-you video</span><input type="file" accept="video/mp4,video/webm,video/quicktime,video/x-msvideo" onChange={(event) => setClosingFile(event.target.files?.[0] ?? null)} /><small>MP4, WebM, MOV, or AVI · up to 100 MB</small></label>{test?.closing?.videoAvailable && testId && <div className="testBuilderClosingVideo"><video controls playsInline src={testClosingVideoUrl(testId)} /><button className="ghostButton compactButton" type="button" disabled={closingBusy} onClick={() => void removeClosing()}>Remove video</button></div>}</div><div className="testBuilderClosingFooter"><span>Closing screen is separate from the scored questions.</span><button className="primaryButton" type="submit" disabled={saving || closingBusy}>{saving || closingBusy ? "Saving..." : "Save closing screen"}</button></div></form>
-        {notice && <div className="stateCard successState" role="status">{notice}</div>}
       </>}
   </section>;
 }
