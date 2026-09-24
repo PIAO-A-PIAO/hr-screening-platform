@@ -147,6 +147,30 @@ export class AttemptsService {
     };
   }
 
+  async getInvitationWelcome(inviteToken: string) {
+    const token = inviteToken.trim();
+    const interview = await this.prisma.interview.findFirst({
+      where: { inviteToken: token },
+      include: {
+        candidate: { select: { name: true } },
+        test: { include: { position: true, questions: { select: { id: true } } } },
+        attempt: { include: { responses: { select: { questionId: true } } } },
+      },
+    });
+    if (!interview) throw new NotFoundException("This invitation link is invalid.");
+    this.assertInvitationNotExpired(interview.inviteExpiresAt);
+    const submittedQuestionIds = new Set(
+      interview.attempt?.responses.map((response) => response.questionId) ?? [],
+    );
+    return {
+      candidateName: interview.candidate.name,
+      roleName: interview.test.position?.title ?? interview.test.name,
+      testName: interview.test.name,
+      totalQuestions: interview.test.questions.length,
+      submittedQuestions: submittedQuestionIds.size,
+    };
+  }
+
   async startAttempt(dto: StartAttemptDto, inviteToken?: string) {
     const normalizedToken = this.requireInviteToken(inviteToken);
 

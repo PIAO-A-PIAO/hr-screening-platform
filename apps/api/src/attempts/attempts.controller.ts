@@ -33,6 +33,13 @@ export class AttemptsController {
     );
   }
 
+  @Get("invite/:inviteToken/welcome")
+  welcome(
+    @Param("inviteToken") inviteToken: string,
+  ) {
+    return this.attempts.getInvitationWelcome(inviteToken);
+  }
+
   @Post("start")
   @ApiOperation({
     summary:
