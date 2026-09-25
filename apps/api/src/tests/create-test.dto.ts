@@ -7,6 +7,7 @@ import {
   IsObject,
   IsOptional,
   IsString,
+  Max,
   MaxLength,
   Min,
   ValidateNested,
@@ -53,6 +54,12 @@ export class CreateTestDto {
   @IsOptional()
   @IsString()
   description?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(480)
+  estimatedDurationMinutes?: number | null;
 
   @IsOptional()
   @IsArray()
