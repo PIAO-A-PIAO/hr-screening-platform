@@ -39,6 +39,7 @@ export type QuestionDraftInput = CreateQuestionInput & {
 export type CreateTestInput = {
   name: string;
   description?: string;
+  estimatedDurationMinutes?: number | null;
   tags?: string[];
   status?: TestStatus;
   positionId?: string;
@@ -54,6 +55,7 @@ export type TestResponse = {
   id: string;
   name: string;
   description: string | null;
+  estimatedDurationMinutes?: number | null;
   positionMetadata: Record<string, unknown> | null;
   positionId: string | null;
   tags: string[];

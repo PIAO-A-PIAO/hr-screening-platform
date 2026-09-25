@@ -32,6 +32,7 @@ export function CreateTestPanel({ position, className, onSaved }: Props) {
   const [test, setTest] = useState<TestResponse | null>(null);
   const [name, setName] = useState(position.test?.name ?? position.title);
   const [description, setDescription] = useState(position.test?.description ?? "");
+  const [estimatedMinutes, setEstimatedMinutes] = useState("");
   const [tags, setTags] = useState("");
   const [status, setStatus] = useState<TestStatus>(position.test?.status ?? "DRAFT");
   const [closingTitle, setClosingTitle] = useState("Thank you!");
@@ -60,6 +61,7 @@ export function CreateTestPanel({ position, className, onSaved }: Props) {
     const id = position.test?.id;
     setTestId(id ?? null); setName(position.test?.name ?? position.title);
     setDescription(position.test?.description ?? ""); setStatus(position.test?.status ?? "DRAFT");
+    setEstimatedMinutes("");
     setTest(null); setEntries([]); entriesRef.current = []; setSelectedId(null); setEditingClosing(false); setError(null); setNotice(""); setClosingFile(null);
     if (!id) { setLoading(false); return; }
     let active = true;
@@ -67,6 +69,7 @@ export function CreateTestPanel({ position, className, onSaved }: Props) {
     void getTest(id).then((loaded) => { if (!active) return;
       const next = entriesFromTest(loaded);
       setTest(loaded); setName(loaded.name); setDescription(loaded.description ?? "");
+      setEstimatedMinutes(loaded.estimatedDurationMinutes == null ? "" : String(loaded.estimatedDurationMinutes));
       setClosingTitle(loaded.closing?.title ?? "Thank you!");
       setClosingMessage(loaded.closing?.message ?? "Thank you for completing the interview. We will be in touch soon.");
       setTags(loaded.tags.join(", ")); setStatus(loaded.status); setEntries(next); entriesRef.current = next;
@@ -89,6 +92,7 @@ export function CreateTestPanel({ position, className, onSaved }: Props) {
   const selected = entries.find((entry) => entry.clientId === selectedId) ?? null;
   const payload = (next: Entry[]): CreateTestInput => ({
     name: name.trim(), description: description.trim() || undefined,
+    estimatedDurationMinutes: estimatedMinutes ? Number(estimatedMinutes) : null,
     tags: tags.split(",").map((tag) => tag.trim()).filter(Boolean), status,
     positionId: position.id, questions: next.map((entry, index) => ({ ...entry.draft, order: index + 1 })),
     closing: { title: closingTitle.trim() || "Thank you!", message: closingMessage.trim() },
@@ -199,6 +203,7 @@ export function CreateTestPanel({ position, className, onSaved }: Props) {
         <details className="testBuilderSettings"><summary><span><strong>Test settings</strong><small>{name || position.title} · {status.toLowerCase()}{tags.trim() ? ` · ${tags}` : ""}</small></span><span className="testBuilderDisclosure"><span className="testBuilderExpandLabel">Expand</span><span className="testBuilderCollapseLabel">Collapse</span><span className="testBuilderChevron" aria-hidden="true">⌄</span></span></summary><form className="formGrid" onSubmit={(event) => void saveMetadata(event)}>
           <label className="field"><span>Test title</span><input required value={name} onChange={(event) => setName(event.target.value)} /></label>
           <label className="field fieldWide"><span>Description</span><textarea rows={2} value={description} onChange={(event) => setDescription(event.target.value)} /></label>
+          <label className="field"><span>Estimated total time (minutes)</span><input type="number" min={1} max={480} step={1} value={estimatedMinutes} onChange={(event) => setEstimatedMinutes(event.target.value)} /><small>Shown to candidates before they start. Leave blank to use a question-based estimate.</small></label>
           <label className="field"><span>Status</span><select value={status} onChange={(event) => setStatus(event.target.value as TestStatus)}><option value="DRAFT">Draft</option><option value="PUBLISHED">Published</option><option value="ARCHIVED">Archived</option></select></label>
           <label className="field"><span>Tags</span><input value={tags} onChange={(event) => setTags(event.target.value)} /></label>
           <div className="fieldWide actionsRow"><button className="primaryButton" type="submit" disabled={saving}>{saving ? "Saving..." : "Save settings"}</button></div>
