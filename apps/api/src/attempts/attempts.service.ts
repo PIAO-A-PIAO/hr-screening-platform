@@ -154,13 +154,21 @@ export class AttemptsService {
       include: {
         candidate: { select: { name: true } },
         test: { include: { position: true, questions: { select: { id: true } } } },
-        attempt: { include: { responses: { select: { questionId: true } } } },
+        attempt: { include: { responses: { select: {
+          questionId: true,
+          type: true,
+          videoItem: { select: { assetId: true } },
+        } } } },
       },
     });
     if (!interview) throw new NotFoundException("This invitation link is invalid.");
     this.assertInvitationNotExpired(interview.inviteExpiresAt);
+    const questionIds = new Set(interview.test.questions.map((question) => question.id));
     const submittedQuestionIds = new Set(
-      interview.attempt?.responses.map((response) => response.questionId) ?? [],
+      interview.attempt?.responses
+        .filter((response) => questionIds.has(response.questionId) &&
+          (response.type !== "VIDEO" || Boolean(response.videoItem?.assetId)))
+        .map((response) => response.questionId) ?? [],
     );
     return {
       candidateName: interview.candidate.name,
@@ -168,6 +176,7 @@ export class AttemptsService {
       testName: interview.test.name,
       totalQuestions: interview.test.questions.length,
       submittedQuestions: submittedQuestionIds.size,
+      submitted: interview.attempt?.status === "SUBMITTED",
     };
   }
 
@@ -320,15 +329,19 @@ export class AttemptsService {
 
     const responseRows =
       await this.prisma.$queryRaw<
-        Array<{ questionId: string; score: number | null }>
+        Array<{ questionId: string; score: number | null; type: string; videoAssetId: string | null }>
       >(Prisma.sql`
-        SELECT "questionId", "score"
-        FROM "Response"
-        WHERE "attemptId" = ${attemptId}
+        SELECT r."questionId", r."score", r."type"::text AS "type",
+          v."assetId" AS "videoAssetId"
+        FROM "Response" r
+        LEFT JOIN "VideoResponseItem" v ON v."responseId" = r."id"
+        WHERE r."attemptId" = ${attemptId}
       `);
 
     const respondedIds = new Set(
-      responseRows.map((row) => row.questionId),
+      responseRows
+        .filter((row) => row.type !== "VIDEO" || Boolean(row.videoAssetId))
+        .map((row) => row.questionId),
     );
 
     const missing = questionRows
