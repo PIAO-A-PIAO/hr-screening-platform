@@ -1,0 +1,61 @@
+.onairShell { min-height: 100vh; background: #f6f8fa; color: #17242c; padding: 28px max(20px, calc((100vw - 880px) / 2)); }
+.onairHeader { display: flex; justify-content: space-between; gap: 16px; align-items: center; padding-bottom: 24px; border-bottom: 1px solid #dce4e8; font-size: 14px; }
+.onairHeader strong { font-size: 16px; }
+.onairProgress { display: grid; gap: 9px; margin: 28px 0; color: #4c626c; font-size: 13px; }
+.onairProgress progress { width: 100%; height: 7px; accent-color: #267c77; }
+.onairCard { background: #fff; border: 1px solid #dce4e8; border-radius: 18px; padding: clamp(22px, 5vw, 44px); display: grid; gap: 20px; box-shadow: 0 12px 32px #10232d0a; }
+.onairCard h1 { margin: 0; font-size: clamp(24px, 3vw, 32px); line-height: 1.2; }
+.onairCard p { margin: 0; line-height: 1.55; color: #4c626c; }
+.onairEyebrow { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: #267c77; }
+.onairChoiceHeading { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.onairChoiceHeading h2 { margin: 0; color: #17242c; font-family: inherit; font-size: 16px; font-weight: 700; letter-spacing: normal; }
+.onairChoiceHeading span { color: #637680; font-size: 13px; }
+.onairOptions { display: grid; gap: 10px; }
+.onairOption { position: relative; display: grid; grid-template-columns: 38px minmax(0, 1fr) 22px; align-items: center; gap: 16px; min-height: 72px; width: 100%; border: 1px solid #d5e0e5; border-radius: 12px; padding: 14px 18px; background: #fff; cursor: pointer; transition: background .15s, border-color .15s, box-shadow .15s; }
+.onairOption:hover { border-color: #8cbfba; background: #f8fcfb; }
+.onairOption:focus-within { outline: 3px solid #9ed9d1; outline-offset: 2px; }
+.onairOption.chosen { border-color: #267c77; background: #eff8f7; box-shadow: 0 0 0 1px #267c77; }
+.onairOption input[type="radio"] { position: absolute; width: 1px; height: 1px; padding: 0; margin: 0; border: 0; opacity: 0; }
+.onairOptionLetter { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 9px; background: #eef3f5; color: #516773; font-size: 14px; font-weight: 700; }
+.onairOption.chosen .onairOptionLetter { background: #d7eeea; color: #166b66; }
+.onairOptionText { min-width: 0; color: #243640; font-size: 16px; line-height: 1.45; text-align: left; overflow-wrap: anywhere; }
+.onairOptionMark { display: block; width: 20px; height: 20px; border: 2px solid #a8bac1; border-radius: 50%; }
+.onairOption.chosen .onairOptionMark { border: 6px solid #267c77; background: #fff; }
+.onairCard textarea { width: 100%; border: 1px solid #cbd8dd; border-radius: 10px; padding: 14px; font: inherit; resize: vertical; }
+.onairCard .primaryButton { justify-self: start; }
+.onairVideo { display: grid; gap: 16px; }
+.onairVideo video { width: 100%; max-height: 490px; aspect-ratio: 16 / 9; background: #111c22; border-radius: 12px; object-fit: contain; }
+.onairVideo .ghostButton { justify-self: start; }
+.onairAnswerPlayer { position: relative; overflow: hidden; border-radius: 12px; background: #101f27; }
+.onairAnswerPlayer video { display: block; border-radius: 0; }
+.onairCountdown { position: absolute; inset: 0; display: grid; place-items: center; background: #101f2780; color: white; font-size: clamp(32px, 6vw, 56px); font-weight: 700; }
+.onairTimer { color: #b93030; font-weight: 700; }
+.onairError { padding: 14px; border-radius: 10px; color: #912c2c; background: #fff0ee; }
+.onairIntroduction { margin-top: 32px; }
+.onairIntroduction h1 { max-width: 620px; }
+.onairIntroStats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.onairIntroStats > div { display: grid; gap: 4px; border: 1px solid #dce4e8; border-radius: 12px; padding: 18px; background: #f7faf9; }
+.onairIntroStats strong { color: #17242c; font-size: 25px; }
+.onairIntroStats span { color: #4c626c; font-size: 13px; }
+.onairRuleGrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.onairRuleGrid article { border: 1px solid #dce4e8; border-radius: 14px; padding: 20px; background: #fbfcfd; }
+.onairRuleGrid article > span { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; color: #166b66; background: #e6f4f2; font-weight: 700; }
+.onairRuleGrid h2 { font-size: 17px; margin: 16px 0 8px; }
+.onairRuleGrid p { font-size: 14px; }
+.onairIntroNote { border-left: 3px solid #267c77; padding: 8px 14px; background: #f1f8f7; }
+.onairFallback { display: grid; gap: 14px; padding: 22px; border: 1px solid #c8e1dd; border-radius: 12px; background: #f1f8f7; }
+.onairFallback .primaryButton { justify-self: start; }
+.onairRetry { display: grid; gap: 12px; }
+.onairTextButton { width: fit-content; padding: 4px 0; border: 0; background: transparent; color: #166b66; text-decoration: underline; font: inherit; cursor: pointer; }
+.onairQuestionTitle { padding-bottom: 14px; border-bottom: 1px solid #e3e9ed; }
+.onairMainQuestion { display: grid; gap: 8px; padding: 22px; background: #f1f8f7; border-left: 4px solid #267c77; border-radius: 0 12px 12px 0; }
+.onairMainQuestion > span { color: #166b66; font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.onairMainQuestion p { color: #17242c; font-size: clamp(17px, 2.3vw, 21px); line-height: 1.45; font-weight: 600; }
+.onairSavedStep { display: grid; gap: 12px; padding: 20px; border: 1px solid #c8e1dd; border-radius: 12px; background: #f1f8f7; }
+.onairSavedStep .primaryButton { justify-self: start; }
+.onairPromptPlayer { position: relative; overflow: hidden; border-radius: 12px; background: #101f27; }
+.onairPromptPlayer video { display: block; border-radius: 0; }
+.onairPlaybackFallback { position: absolute; inset: 35% auto auto 50%; transform: translateX(-50%); padding: 12px 18px; border: 0; border-radius: 9px; background: white; color: #17242c; font: inherit; cursor: pointer; }
+@media (max-width: 600px) { .onairHeader { align-items: flex-start; flex-direction: column; } .onairShell { padding: 20px 16px; } }
+@media (max-width: 720px) { .onairRuleGrid { grid-template-columns: 1fr; } }
+@media (max-width: 460px) { .onairIntroStats { grid-template-columns: 1fr; } .onairChoiceHeading { align-items: flex-start; flex-direction: column; gap: 3px; } .onairOption { grid-template-columns: 32px minmax(0, 1fr) 20px; gap: 11px; min-height: 68px; padding: 12px; } .onairOptionLetter { width: 32px; height: 32px; } .onairOptionText { font-size: 15px; } }

@@ -1,4 +1,4 @@
-import { Injectable, ServiceUnavailableException } from "@nestjs/common";
+import { BadRequestException, Injectable, ServiceUnavailableException } from "@nestjs/common";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -67,6 +67,28 @@ export class VideoTranscodingService {
     mimeType: string;
     originalName: string;
   }): Promise<VideoTranscodeResult> {
+    if (!(await this.isAvailable())) {
+      // Candidate MediaRecorder uploads must remain savable on hosts without FFmpeg.
+      // Keep the original container and MIME type so browsers can play it correctly.
+      const webm = input.mimeType === "video/webm" &&
+        input.buffer.subarray(0, 4).equals(Buffer.from([0x1a, 0x45, 0xdf, 0xa3]));
+      const mp4 = input.mimeType === "video/mp4" &&
+        input.buffer.toString("ascii", 4, 8) === "ftyp";
+      if (!webm && !mp4) {
+        throw new BadRequestException("A WebM or MP4 browser recording is required when video processing is unavailable");
+      }
+      return {
+        preparedBuffer: input.buffer,
+        preparedMimeType: input.mimeType,
+        preparedSize: input.buffer.byteLength,
+        sourceMimeType: input.mimeType,
+        sourceSize: input.buffer.byteLength,
+        sourceCodec: "unprocessed",
+        preparedCodec: "unprocessed",
+        sourceDurationSeconds: null,
+        preparedDurationSeconds: null,
+      };
+    }
     return this.transcodeBuffer(input);
   }
 

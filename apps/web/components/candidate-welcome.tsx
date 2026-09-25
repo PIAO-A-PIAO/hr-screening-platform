@@ -9,6 +9,7 @@ type Summary = {
   testName: string;
   totalQuestions: number;
   submittedQuestions: number;
+  submitted: boolean;
 };
 
 export function CandidateWelcome({
@@ -64,9 +65,7 @@ export function CandidateWelcome({
     );
   }
 
-  const completed =
-    data.totalQuestions > 0 &&
-    data.submittedQuestions >= data.totalQuestions;
+  const completed = data.submitted;
 
   const inProgress =
     data.submittedQuestions > 0 && !completed;

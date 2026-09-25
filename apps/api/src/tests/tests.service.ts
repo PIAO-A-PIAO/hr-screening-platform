@@ -15,6 +15,7 @@ export type TestResponse = {
   id: string;
   name: string;
   description: string | null;
+  estimatedDurationMinutes: number | null;
   tags: string[];
   status: TestStatus;
   positionId: string | null;
@@ -110,7 +111,8 @@ export class TestsService {
           tags: dto.tags ?? [],
           status: dto.status ?? TestStatus.DRAFT,
           positionId: dto.positionId ?? null,
-          configuration: { closing: { title: dto.closing?.title ?? "Thank you!", message: dto.closing?.message ?? "Thank you for completing the interview. We will be in touch soon." } },
+          configuration: { estimatedDurationMinutes: dto.estimatedDurationMinutes ?? null,
+            closing: { title: dto.closing?.title ?? "Thank you!", message: dto.closing?.message ?? "Thank you for completing the interview. We will be in touch soon." } },
         },
       });
 
@@ -175,9 +177,12 @@ export class TestsService {
           description: dto.description ?? null,
           tags: dto.tags ?? [],
           status: dto.status ?? TestStatus.DRAFT,
-          ...(dto.closing ? { configuration: { ...this.closingFrom(existingTest.configuration).root,
-            closing: { title: dto.closing.title, message: dto.closing.message,
-              videoAssetId: this.closingFrom(existingTest.configuration).videoAssetId } } as Prisma.InputJsonValue } : {}),
+          ...(dto.closing || dto.estimatedDurationMinutes !== undefined ? { configuration: {
+            ...this.closingFrom(existingTest.configuration).root,
+            ...(dto.estimatedDurationMinutes !== undefined ? { estimatedDurationMinutes: dto.estimatedDurationMinutes } : {}),
+            ...(dto.closing ? { closing: { title: dto.closing.title, message: dto.closing.message,
+              videoAssetId: this.closingFrom(existingTest.configuration).videoAssetId } } : {}),
+          } as Prisma.InputJsonValue } : {}),
         },
       });
 
@@ -342,6 +347,8 @@ export class TestsService {
       status: test.status,
       positionId: test.positionId,
       closing: { title: closing.title, message: closing.message, videoAvailable: Boolean(closing.videoAssetId) },
+      estimatedDurationMinutes: typeof closing.root.estimatedDurationMinutes === "number"
+        ? closing.root.estimatedDurationMinutes : null,
       createdAt: test.createdAt,
       updatedAt: test.updatedAt,
       questions: orderedQuestions,
