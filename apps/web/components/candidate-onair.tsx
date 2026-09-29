@@ -2,15 +2,16 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getQuestionVideoBlob, getTest, type TestQuestionResponse, type TestResponse } from "../lib/question-api";
+import { getCandidateQuestionVideoBlob, getCandidateTest, type TestQuestionResponse, type TestResponse } from "../lib/question-api";
 import { AttemptApiError, getAttempt, resolveInviteToken, saveAttemptResponse, startAttempt, submitAttempt, type AttemptDetailResponse } from "../lib/attempt-api";
 import { uploadResponseVideo } from "../lib/response-api";
 import "../styles/candidate-onair.css";
 
 type Phase = "prompt" | "countdown" | "recording" | "uploading" | "retry";
 
-function VideoAnswer({ question, busy, onSubmit }: {
+function VideoAnswer({ question, inviteToken, busy, onSubmit }: {
   question: TestQuestionResponse;
+  inviteToken: string;
   busy: boolean;
   onSubmit: (file: File) => Promise<void>;
 }) {
@@ -54,7 +55,7 @@ function VideoAnswer({ question, busy, onSubmit }: {
     if (!hasVideo) {
       setPromptUnavailable(true);
     } else {
-      getQuestionVideoBlob(question.id).then((blob) => {
+      getCandidateQuestionVideoBlob(inviteToken, question.id).then((blob) => {
         if (cancelled) return;
         url = URL.createObjectURL(blob);
         setPromptUrl(url);
@@ -71,7 +72,7 @@ function VideoAnswer({ question, busy, onSubmit }: {
       if (recorderRef.current?.state === "recording") recorderRef.current.stop();
       stopStream();
     };
-  }, [question.id, question.item]);
+  }, [question.id, question.item, inviteToken]);
 
   async function send(file: File) {
     if (!activeRef.current || sendingRef.current) return;
@@ -217,7 +218,7 @@ export function CandidateOnAir({ testId, inviteToken }: { testId: string; invite
     (async () => {
       const invitation = await resolveInviteToken(inviteToken);
       if (invitation.testId !== testId) throw new Error("This invitation does not belong to this interview.");
-      const loadedTest = await getTest(testId);
+      const loadedTest = await getCandidateTest(inviteToken);
       let detail: AttemptDetailResponse;
       try {
         const started = await startAttempt({ userId: invitation.userId, testId }, inviteToken);
@@ -319,7 +320,7 @@ export function CandidateOnAir({ testId, inviteToken }: { testId: string; invite
         if (nextIndex >= 0) { setIndex(nextIndex); setSelected([]); setText(""); setError(null); }
         else { setBusy(true); void finish(attempt.id).catch((caught: unknown) => { setError(caught instanceof Error ? caught.message : "Unable to submit interview."); setBusy(false); }); }
       }}>{nextIndex >= 0 ? "Next question" : busy ? "Submitting…" : "Finish interview"}</button></div> : <>
-      {question.type === "VIDEO" && <VideoAnswer question={question} busy={busy} onSubmit={(file) => save(question, {}, file)} />}
+      {question.type === "VIDEO" && <VideoAnswer question={question} inviteToken={inviteToken} busy={busy} onSubmit={(file) => save(question, {}, file)} />}
       {question.type === "MULTIPLE_CHOICE" && <>
         {(options?.options?.length ?? 0) !== 4 && <p className="onairError" role="alert">This question is not configured with four options. Please contact the interview organizer.</p>}
         <div className="onairChoiceHeading"><h2>Choose one answer</h2><span>Select the best option below.</span></div>

@@ -27,6 +27,7 @@ services:
       NODE_ENV: production
       DATABASE_URL: ${DATABASE_URL}
       API_PORT: 4000
+      AUTH_SECRET: ${AUTH_SECRET:?Set AUTH_SECRET in staging environment}
       WEB_ORIGIN: ${WEB_ORIGIN}
       PUBLIC_WEB_URL: ${PUBLIC_WEB_URL}
 
@@ -37,6 +38,7 @@ services:
       SMTP_USER: ${SMTP_USER}
       SMTP_PASSWORD: ${SMTP_PASSWORD}
       EMAIL_FROM: ${EMAIL_FROM}
+      EMAIL_SETTINGS_ENCRYPTION_KEY: ${EMAIL_SETTINGS_ENCRYPTION_KEY:-}
 
       STORAGE_DRIVER: s3
       STORAGE_DIR: /app/var/private-storage
@@ -75,6 +77,7 @@ services:
       SMTP_USER: ${SMTP_USER}
       SMTP_PASSWORD: ${SMTP_PASSWORD}
       EMAIL_FROM: ${EMAIL_FROM}
+      EMAIL_SETTINGS_ENCRYPTION_KEY: ${EMAIL_SETTINGS_ENCRYPTION_KEY:-}
 
       STORAGE_DRIVER: s3
       STORAGE_DIR: /app/var/private-storage

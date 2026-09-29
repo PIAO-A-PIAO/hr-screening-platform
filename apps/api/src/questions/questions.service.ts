@@ -2,6 +2,8 @@ import { createHash, randomUUID } from "node:crypto";
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma, QuestionAssetKind, QuestionType } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
+import type { Principal } from "../auth/auth.service";
+import { UserRole } from "@prisma/client";
 import {
   QUESTION_THUMBNAIL_MAX_BYTES,
   QUESTION_THUMBNAIL_MIME_TYPES,
@@ -56,8 +58,9 @@ export class QuestionsService {
     private readonly transcoder: VideoTranscodingService,
   ) {}
 
-  async listQuestions(): Promise<QuestionResponse[]> {
+  async listQuestions(user?: Principal): Promise<QuestionResponse[]> {
     const questions = await this.prisma.question.findMany({
+      where: user?.role === UserRole.RECRUITER ? { test: { position: { departments: { some: { id: { in: user.departments.map(d => d.id) } } } } } } : {},
       orderBy: { createdAt: "desc" },
       include: {
         videoItem: {

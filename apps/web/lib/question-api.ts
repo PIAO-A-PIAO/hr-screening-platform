@@ -210,6 +210,10 @@ export function getTest(testId: string) {
   return requestJson<TestResponse>(`/tests/${encodeURIComponent(testId)}`);
 }
 
+export function getCandidateTest(inviteToken: string) {
+  return requestJson<TestResponse>(`/attempts/invite/${encodeURIComponent(inviteToken)}/test`);
+}
+
 export async function uploadTestClosingVideo(testId: string, file: File) {
   const data = new FormData();
   data.append("file", normalizeVideoFile(file));
@@ -275,6 +279,10 @@ export async function uploadQuestionThumbnail(
 
 export function getQuestionVideoBlob(questionId: string) {
   return requestBlob(`/questions/${encodeURIComponent(questionId)}/video`);
+}
+
+export function getCandidateQuestionVideoBlob(inviteToken: string, questionId: string) {
+  return requestBlob(`/attempts/invite/${encodeURIComponent(inviteToken)}/questions/${encodeURIComponent(questionId)}/video`);
 }
 
 export function getQuestionThumbnailBlob(questionId: string) {

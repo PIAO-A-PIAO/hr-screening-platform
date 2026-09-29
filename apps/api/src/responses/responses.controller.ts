@@ -14,6 +14,7 @@ import { ApiConsumes, ApiHeader, ApiOperation, ApiParam, ApiTags } from "@nestjs
 import { QUESTION_VIDEO_MAX_BYTES } from "../questions/question.constants";
 import { CreateResponseDto, UploadResponseVideoDto } from "./responses.dto";
 import { ResponsesService } from "./responses.service";
+import { Public } from "../auth/access.decorator";
 
 type UploadFile = {
   buffer: Buffer;
@@ -25,6 +26,7 @@ type UploadFile = {
 @ApiTags("responses")
 @ApiHeader({ name: "x-invite-token", required: true })
 @Controller("responses")
+@Public()
 export class ResponsesController {
   constructor(private readonly responses: ResponsesService) {}
 

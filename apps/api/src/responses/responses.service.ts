@@ -228,7 +228,12 @@ export class ResponsesService {
   async getResponse(responseId: string, inviteToken?: string) {
     const response = await this.loadResponse(responseId);
     await this.authorizeAssignment(response.candidateId, response.testId, inviteToken);
-    return this.toResponse(response);
+    const candidateResponse: Record<string, unknown> = { ...this.toResponse(response) };
+    delete candidateResponse.score;
+    delete candidateResponse.evaluatorComment;
+    delete candidateResponse.evaluatorUserId;
+    delete candidateResponse.evaluatedAt;
+    return candidateResponse;
   }
 
   async uploadVideo(
@@ -364,13 +369,13 @@ export class ResponsesService {
   private async authorizeAssignment(userId: string, testId: string, inviteToken?: string) {
     const assignment = await this.prisma.interview.findFirst({
       where: { candidateId: userId, testId },
-      select: { inviteToken: true },
+      select: { inviteToken: true, inviteExpiresAt: true },
     });
 
     if (!assignment) {
       throw new ForbiddenException("Candidate is not assigned to this test");
     }
-    if (!inviteToken || assignment.inviteToken !== inviteToken.trim()) {
+    if (!inviteToken || assignment.inviteToken !== inviteToken.trim() || (assignment.inviteExpiresAt && assignment.inviteExpiresAt < new Date())) {
       throw new ForbiddenException("A valid invite token is required");
     }
   }

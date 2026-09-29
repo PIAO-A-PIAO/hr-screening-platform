@@ -9,6 +9,8 @@ import {
   TestStatus,
 } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
+import type { Principal } from "../auth/auth.service";
+import { UserRole } from "@prisma/client";
 import {
   CreatePositionDto,
   ListPositionsQueryDto,
@@ -190,13 +192,14 @@ function toSummary(position: PositionWithSummary): PositionSummaryResponse {
 export class PositionsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async listPositions(query: ListPositionsQueryDto = {}) {
+  async listPositions(query: ListPositionsQueryDto = {}, user?: Principal) {
     const page = query.page ?? 1;
     const pageSize = query.pageSize ?? 10;
     const selectedTags = normalizeTags((query.tags ?? "").split(","));
     const search = query.search?.trim();
     const status = query.status as PositionStatus | undefined;
     const where: Prisma.PositionWhereInput = {
+      ...(user?.role === UserRole.RECRUITER ? { departments: { some: { id: { in: user.departments.map(d => d.id) } } } } : {}),
       ...(status ? { status } : {}),
       ...(search ? { title: { contains: search, mode: "insensitive" } } : {}),
       ...(selectedTags.length > 0 ? { tags: { hasEvery: selectedTags } } : {}),
@@ -217,7 +220,7 @@ export class PositionsService {
       }),
       this.prisma.position.count({ where }),
       this.prisma.position.findMany({
-        where: status ? { status } : {},
+        where: { ...where, ...(status ? { status } : {}) },
         select: { tags: true },
       }),
     ]);
@@ -263,10 +266,11 @@ export class PositionsService {
     return this.getPosition(created.id);
   }
 
-  async getOptions() {
+  async getOptions(user?: Principal) {
+    const ids = user?.role === UserRole.RECRUITER ? user.departments.map(d => d.id) : null;
     const [positions, departments] = await Promise.all([
-      this.prisma.position.findMany({ select: { tags: true } }),
-      this.prisma.department.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } }),
+      this.prisma.position.findMany({ where: ids ? { departments: { some: { id: { in: ids } } } } : {}, select: { tags: true } }),
+      this.prisma.department.findMany({ where: ids ? { id: { in: ids } } : {}, select: { id: true, name: true }, orderBy: { name: "asc" } }),
     ]);
     return {
       tags: normalizeTags(positions.flatMap((position) => position.tags)).sort((left, right) => left.localeCompare(right)),
