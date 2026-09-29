@@ -401,7 +401,24 @@ export class AttemptsService {
   }
 
   async getAttempt(attemptId: string, inviteToken?: string) {
-    return this.readAttemptDetail(attemptId, inviteToken);
+    const attempt = await this.readAttemptDetail(attemptId, inviteToken);
+    const candidateAttempt: Record<string, unknown> = { ...attempt };
+    delete candidateAttempt.scoreSum;
+    delete candidateAttempt.scoreState;
+    candidateAttempt.responses = attempt.responses.map(response => {
+      const safe: Record<string, unknown> = { ...response };
+      delete safe.score;
+      delete safe.evaluatorComment;
+      if (response.type === 'MULTIPLE_CHOICE' && 'options' in response.item && Array.isArray(response.item.options)) {
+        safe.item = { ...response.item, options: response.item.options.map(option => {
+          const safeOption: Record<string, unknown> = { ...option };
+          delete safeOption.isCorrect;
+          return safeOption;
+        }) };
+      }
+      return safe;
+    });
+    return candidateAttempt;
   }
 
   async getReviewerAttempt(positionId: string, interviewId: string) {

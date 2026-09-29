@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { RecruiterShell } from "./recruiter-shell";
+import { InternalAccess } from "./internal-access";
 
 type ApplicationFrameProps = {
   children: React.ReactNode;
@@ -12,15 +12,11 @@ type PageContext = {
   eyebrow?: string;
 };
 
-function isCandidateRoute(pathname: string) {
-  if (pathname === "/tests/take" || pathname.startsWith("/interview/")) return true;
-
-  const segments = pathname.split("/").filter(Boolean);
-  return segments.length === 2 && segments[0] === "tests" && segments[1] !== "create";
-}
+function isCandidateRoute(pathname: string) { return pathname.startsWith('/interview/'); }
 
 function getPageContext(pathname: string): PageContext {
   if (pathname === "/") return { title: "Dashboard" };
+  if (pathname === '/admin') return { title: 'Administration' };
   if (pathname === "/dev") return { title: "Development", eyebrow: "Internal tools" };
   if (pathname === "/dev/ui") return { title: "UI foundations", eyebrow: "Development" };
   if (pathname.startsWith("/email")) return { title: "Email", eyebrow: "Recruiting" };
@@ -43,12 +39,12 @@ function getPageContext(pathname: string): PageContext {
 export function ApplicationFrame({ children }: ApplicationFrameProps) {
   const pathname = usePathname();
 
-  if (isCandidateRoute(pathname)) return children;
+  if (isCandidateRoute(pathname) || pathname === '/login' || pathname === '/register') return children;
 
   const context = getPageContext(pathname);
   return (
-    <RecruiterShell title={context.title} eyebrow={context.eyebrow}>
+    <InternalAccess title={context.title} eyebrow={context.eyebrow}>
       {children}
-    </RecruiterShell>
+    </InternalAccess>
   );
 }

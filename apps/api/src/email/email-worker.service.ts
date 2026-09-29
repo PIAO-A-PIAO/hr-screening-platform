@@ -83,6 +83,10 @@ export class EmailWorkerService implements OnModuleInit, OnModuleDestroy {
 
     while (!this.stopped) {
       try {
+        if (!this.environment.EMAIL_ENABLED) {
+          await delay(this.environment.EMAIL_WORKER_POLL_INTERVAL_MS);
+          continue;
+        }
         const processed = await this.runOnce();
         if (processed > 0) {
           this.logger.log(`Worker cycle processed ${processed} task(s)`);
@@ -123,6 +127,7 @@ export class EmailWorkerService implements OnModuleInit, OnModuleDestroy {
   }
 
   async runOnce() {
+    if (!this.environment.EMAIL_ENABLED) return 0;
     const tasks = await this.claimDueTasks(this.environment.EMAIL_WORKER_BATCH_SIZE);
     for (const task of tasks) {
       await this.processTask(task);

@@ -1,4 +1,5 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req } from "@nestjs/common";
+import type { InternalRequest } from "../auth/auth.guard";
 import { ApiBody, ApiOperation, ApiParam, ApiTags } from "@nestjs/swagger";
 import { CreateDepartmentDto, CreatePositionDto, ListPositionsQueryDto, UpdatePositionDto, UpdatePositionEmailSequenceDto, UpdatePositionStatusDto } from "./positions.dto";
 import { PositionsService } from "./positions.service";
@@ -10,8 +11,8 @@ export class PositionsController {
 
   @Get()
   @ApiOperation({ summary: "List all positions" })
-  getPositions(@Query() query: ListPositionsQueryDto) {
-    return this.positions.listPositions(query);
+  getPositions(@Query() query: ListPositionsQueryDto, @Req() req: InternalRequest) {
+    return this.positions.listPositions(query, req.internalUser);
   }
 
   @Post()
@@ -34,8 +35,8 @@ export class PositionsController {
 
   @Get("options")
   @ApiOperation({ summary: "List position tag and department options" })
-  getOptions() {
-    return this.positions.getOptions();
+  getOptions(@Req() req: InternalRequest) {
+    return this.positions.getOptions(req.internalUser);
   }
 
   @Post("departments")

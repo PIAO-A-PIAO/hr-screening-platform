@@ -2,6 +2,8 @@ import { createHash, randomUUID } from "node:crypto";
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma, QuestionAssetKind, TestStatus } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
+import type { Principal } from "../auth/auth.service";
+import { UserRole } from "@prisma/client";
 import { QUESTION_VIDEO_MAX_BYTES, QUESTION_VIDEO_MIME_TYPES } from "../questions/question.constants";
 import { QuestionStorageService } from "../questions/question-storage.service";
 import { QuestionsService } from "../questions/questions.service";
@@ -53,8 +55,9 @@ export class TestsService {
       videoAssetId: typeof closing.videoAssetId === "string" ? closing.videoAssetId : null };
   }
 
-  async listTests(): Promise<TestSummaryResponse[]> {
+  async listTests(user?: Principal): Promise<TestSummaryResponse[]> {
     const tests = await this.prisma.test.findMany({
+      where: user?.role === UserRole.RECRUITER ? { position: { departments: { some: { id: { in: user.departments.map(d => d.id) } } } } } : {},
       orderBy: { createdAt: "desc" },
       include: {
         _count: {

@@ -9,5 +9,6 @@ import { TestsService } from "./tests.service";
   imports: [PrismaModule, QuestionsModule],
   controllers: [TestsController],
   providers: [TestsService, QuestionStorageService],
+  exports: [TestsService],
 })
 export class TestsModule {}
