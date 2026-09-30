@@ -9,14 +9,16 @@ const parseError = async (response: Response) => { const data = await response.j
 export default function AdminPage() {
   const [users, setUsers] = useState<InternalUser[]>([]);
   const [departments, setDepartments] = useState<{ id: string; name: string }[]>([]);
+  const [selfId, setSelfId] = useState<string | null>(null);
   const [editor, setEditor] = useState<Editor | null>(null);
   const [search, setSearch] = useState('');
   const [busy, setBusy] = useState(false); const [error, setError] = useState(''); const [message, setMessage] = useState('');
   const load = useCallback(async () => {
-    const [userResponse, optionResponse] = await Promise.all([fetch('/api/admin/users', { cache: 'no-store' }), fetch('/api/positions/options', { cache: 'no-store' })]);
-    if (!userResponse.ok || !optionResponse.ok) throw new Error('Could not load administration data');
+    const [userResponse, optionResponse, meResponse] = await Promise.all([fetch('/api/admin/users', { cache: 'no-store' }), fetch('/api/positions/options', { cache: 'no-store' }), fetch('/api/auth/me', { cache: 'no-store' })]);
+    if (!userResponse.ok || !optionResponse.ok || !meResponse.ok) throw new Error('Could not load administration data');
     setUsers(await userResponse.json() as InternalUser[]);
     setDepartments((await optionResponse.json() as { departments: { id: string; name: string }[] }).departments);
+    setSelfId((await meResponse.json() as InternalUser).id);
   }, []);
   useEffect(() => { void load().catch(caught => setError(caught instanceof Error ? caught.message : 'Could not load users')); }, [load]);
   const filtered = useMemo(() => users.filter(user => `${user.name} ${user.email} ${user.role}`.toLowerCase().includes(search.toLowerCase())), [users, search]);
@@ -24,14 +26,10 @@ export default function AdminPage() {
     event.preventDefault(); if (!editor) return;
     setBusy(true); setError(''); setMessage('');
     try {
-      const input = editor.id ? { name: editor.name, role: editor.role, isActive: editor.isActive, ...(editor.password ? { password: editor.password } : {}) } : { name: editor.name, email: editor.email, role: editor.role, password: editor.password, departmentIds: editor.role === 'RECRUITER' ? editor.departmentIds : [] };
+      const input = editor.id ? { name: editor.name, role: editor.role, isActive: editor.isActive, departmentIds: editor.role === 'RECRUITER' ? editor.departmentIds : [], ...(editor.password ? { password: editor.password } : {}) } : { name: editor.name, email: editor.email, role: editor.role, password: editor.password, departmentIds: editor.role === 'RECRUITER' ? editor.departmentIds : [] };
       const response = await fetch(editor.id ? `/api/admin/users/${encodeURIComponent(editor.id)}` : '/api/admin/users', { method: editor.id ? 'PATCH' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) });
       if (!response.ok) throw new Error(await parseError(response));
-      const saved = await response.json() as InternalUser;
-      if (editor.id && editor.role === 'RECRUITER') {
-        const assigned = await fetch(`/api/admin/users/${encodeURIComponent(saved.id)}/departments`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ departmentIds: editor.departmentIds }) });
-        if (!assigned.ok) throw new Error(await parseError(assigned));
-      }
+      if (editor.id === selfId && editor.password) { window.location.assign('/login'); return; }
       await load(); setEditor(null); setMessage('User saved.');
     } catch (caught) { setError(caught instanceof Error ? caught.message : 'Could not save user'); }
     finally { setBusy(false); }

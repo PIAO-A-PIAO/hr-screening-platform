@@ -17,9 +17,16 @@ type RecruiterShellProps = {
 export function RecruiterShell({ title, eyebrow = "Recruiting", children, user }: RecruiterShellProps) {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [logoutError, setLogoutError] = useState(false);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const initials = user.name.split(/\s+/).map(part => part[0] ?? '').slice(0, 2).join('').toUpperCase();
-  async function logout() { await fetch('/api/auth/logout', { method: 'POST' }); window.location.assign('/login'); }
+  async function logout() {
+    try {
+      const response = await fetch('/api/auth/logout', { method: 'POST' });
+      if (!response.ok) throw new Error('Sign out failed');
+      window.location.assign('/login');
+    } catch { setLogoutError(true); }
+  }
 
   useEffect(() => {
     setMenuOpen(false);
@@ -74,6 +81,7 @@ export function RecruiterShell({ title, eyebrow = "Recruiting", children, user }
           <AppIcon name="logout" />
           <span>Logout</span>
         </button>
+        {logoutError && <p role="alert">Could not sign out. Please try again.</p>}
       </aside>
       <div className="recruiterWorkspace">
         <header className="recruiterTopbar">
