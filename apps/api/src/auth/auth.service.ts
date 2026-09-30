@@ -106,7 +106,16 @@ export class AuthService {
   }
   async logout(req: Request, res: Response) {
     const refresh = cookie(req, 'ds_hr_refresh');
-    if (refresh) await this.prisma.authSession.updateMany({ where: { refreshTokenHash: digest(refresh) }, data: { revokedAt: new Date() } });
+    const revoked = refresh ? await this.prisma.authSession.updateMany({ where: { refreshTokenHash: digest(refresh) }, data: { revokedAt: new Date() } }) : null;
+    if (!revoked?.count) {
+      const access = cookie(req, 'ds_hr_access');
+      if (access) {
+        let sessionId: string | undefined;
+        try { sessionId = this.verify(access).sessionId; }
+        catch { /* An invalid or expired access cookie has no session authority. */ }
+        if (sessionId) await this.prisma.authSession.updateMany({ where: { id: sessionId }, data: { revokedAt: new Date() } });
+      }
+    }
     res.clearCookie('ds_hr_access', { path: '/' }); res.clearCookie('ds_hr_refresh', { path: '/api/auth' });
     return { ok: true };
   }
@@ -115,33 +124,70 @@ export class AuthService {
     if (dto.role === UserRole.CANDIDATE) throw new BadRequestException('Candidates use invitations');
     const ids = [...new Set(dto.departmentIds ?? [])];
     if (dto.role === UserRole.RECRUITER) await this.verifyDepartments(ids);
-    const user = await this.prisma.user.create({ data: { name: dto.name.trim(), email: dto.email.trim().toLowerCase(), role: dto.role, passwordHash: await hash(dto.password, 12), departments: { connect: dto.role === UserRole.RECRUITER ? ids.map(id => ({ id })) : [] } }, include: { departments: { select: { id: true, name: true } } } }).catch(error => { if (error?.code === 'P2002') throw new ConflictException('Email already in use'); throw error; });
-    await this.audit(actor, 'CREATE_USER', user.id);
-    return this.publicUser(user);
+    const passwordHash = await hash(dto.password, 12);
+    return this.prisma.$transaction(async tx => {
+      const user = await tx.user.create({ data: { name: dto.name.trim(), email: dto.email.trim().toLowerCase(), role: dto.role, passwordHash, departments: { connect: dto.role === UserRole.RECRUITER ? ids.map(id => ({ id })) : [] } }, include: { departments: { select: { id: true, name: true } } } }).catch(error => { if (error?.code === 'P2002') throw new ConflictException('Email already in use'); throw error; });
+      await tx.adminAudit.create({ data: { actorId: actor.id, action: 'CREATE_USER', subjectId: user.id } });
+      return this.publicUser(user);
+    });
   }
   async updateUser(id: string, dto: UpdateInternalUserDto, actor: Principal) {
     if (dto.role === UserRole.CANDIDATE) throw new BadRequestException('Candidates use invitations');
-    const existing = await this.prisma.user.findUnique({ where: { id } });
-    if (!existing || existing.role === UserRole.CANDIDATE) throw new BadRequestException('Internal user not found');
-    if (existing.role === UserRole.ADMIN && (dto.role === UserRole.RECRUITER || dto.isActive === false) && await this.prisma.user.count({ where: { role: UserRole.ADMIN, isActive: true } }) <= 1) throw new BadRequestException('Cannot disable the last active admin');
-    const user = await this.prisma.user.update({ where: { id }, data: { name: dto.name?.trim(), role: dto.role, isActive: dto.isActive, passwordHash: dto.password ? await hash(dto.password, 12) : undefined, departments: dto.role === UserRole.ADMIN ? { set: [] } : undefined }, include: { departments: { select: { id: true, name: true } } } });
-    if (dto.isActive === false || dto.password || dto.role) await this.prisma.authSession.updateMany({ where: { userId: id }, data: { revokedAt: new Date() } });
-    await this.audit(actor, 'UPDATE_USER', id);
-    return this.publicUser(user);
+    const passwordHash = dto.password ? await hash(dto.password, 12) : undefined;
+    return this.prisma.$transaction(async tx => {
+      // Serialize role changes so two admins cannot both remove the last active admin.
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(809292)`;
+      const existing = await tx.user.findUnique({ where: { id } });
+      if (!existing || existing.role === UserRole.CANDIDATE) throw new BadRequestException('Internal user not found');
+      const nextRole = dto.role ?? existing.role;
+      const roleChanged = nextRole !== existing.role;
+      if (id === actor.id && (roleChanged || dto.isActive === false)) {
+        throw new BadRequestException('You cannot change your own role or deactivate your account');
+      }
+      if (existing.role === UserRole.ADMIN && existing.isActive &&
+          ((roleChanged && nextRole !== UserRole.ADMIN) || dto.isActive === false) &&
+          await tx.user.count({ where: { role: UserRole.ADMIN, isActive: true } }) <= 1) {
+        throw new BadRequestException('Cannot disable the last active admin');
+      }
+      const departmentIds = dto.departmentIds === undefined ? undefined : [...new Set(dto.departmentIds)];
+      if (departmentIds !== undefined) {
+        if (nextRole !== UserRole.RECRUITER && departmentIds.length) throw new BadRequestException('Only recruiters can have departments');
+        if (nextRole === UserRole.RECRUITER && await tx.department.count({ where: { id: { in: departmentIds } } }) !== departmentIds.length) {
+          throw new BadRequestException('Unknown department');
+        }
+      }
+      const user = await tx.user.update({
+        where: { id },
+        data: {
+          name: dto.name?.trim(), role: dto.role, isActive: dto.isActive, passwordHash,
+          departments: nextRole === UserRole.ADMIN ? { set: [] } : departmentIds !== undefined
+            ? { set: departmentIds.map(departmentId => ({ id: departmentId })) } : undefined,
+        },
+        include: { departments: { select: { id: true, name: true } } },
+      });
+      if (roleChanged || (dto.isActive !== undefined && dto.isActive !== existing.isActive) || passwordHash) {
+        await tx.authSession.updateMany({ where: { userId: id }, data: { revokedAt: new Date() } });
+      }
+      await tx.adminAudit.create({ data: { actorId: actor.id, action: 'UPDATE_USER', subjectId: id } });
+      if (departmentIds !== undefined) {
+        await tx.adminAudit.create({ data: { actorId: actor.id, action: 'ASSIGN_DEPARTMENTS', subjectId: id } });
+      }
+      return this.publicUser(user);
+    });
   }
   async assignDepartments(id: string, idsInput: string[], actor: Principal) {
-    const ids = [...new Set(idsInput)]; await this.verifyDepartments(ids);
-    const user = await this.prisma.user.findUnique({ where: { id } });
-    if (!user || user.role !== UserRole.RECRUITER) throw new BadRequestException('Only recruiters can have departments');
-    const updated = await this.prisma.user.update({ where: { id }, data: { departments: { set: ids.map(id => ({ id })) } }, include: { departments: { select: { id: true, name: true } } } });
-    await this.audit(actor, 'ASSIGN_DEPARTMENTS', id);
-    return this.publicUser(updated);
+    const ids = [...new Set(idsInput)];
+    return this.prisma.$transaction(async tx => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(809292)`;
+      if (await tx.department.count({ where: { id: { in: ids } } }) !== ids.length) throw new BadRequestException('Unknown department');
+      const user = await tx.user.findUnique({ where: { id } });
+      if (!user || user.role !== UserRole.RECRUITER) throw new BadRequestException('Only recruiters can have departments');
+      const updated = await tx.user.update({ where: { id }, data: { departments: { set: ids.map(departmentId => ({ id: departmentId })) } }, include: { departments: { select: { id: true, name: true } } } });
+      await tx.adminAudit.create({ data: { actorId: actor.id, action: 'ASSIGN_DEPARTMENTS', subjectId: id } });
+      return this.publicUser(updated);
+    });
   }
   private async verifyDepartments(ids: string[]) {
     if (await this.prisma.department.count({ where: { id: { in: ids } } }) !== ids.length) throw new BadRequestException('Unknown department');
-  }
-  private async audit(actor: Principal, action: string, subjectId: string) {
-    // Restricted operational event; the audit table is added in this migration.
-    await this.prisma.adminAudit.create({ data: { actorId: actor.id, action, subjectId } });
   }
 }

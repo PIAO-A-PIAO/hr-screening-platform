@@ -19,6 +19,7 @@ export class UpdateInternalUserDto {
   @IsOptional() @IsEnum(UserRole) role?: UserRole;
   @IsOptional() @IsBoolean() isActive?: boolean;
   @IsOptional() @IsString() @MinLength(12) password?: string;
+  @IsOptional() @IsArray() @IsString({ each: true }) departmentIds?: string[];
 }
 export class AssignDepartmentsDto {
   @IsArray() @IsString({ each: true }) departmentIds!: string[];
