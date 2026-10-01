@@ -6,6 +6,7 @@ import {
   Param,
   ParseFilePipeBuilder,
   Post,
+  Req,
   StreamableFile,
   UploadedFile,
   UseInterceptors,
@@ -15,6 +16,7 @@ import { QUESTION_THUMBNAIL_MAX_BYTES, QUESTION_THUMBNAIL_MIME_TYPES, QUESTION_V
 import { CreateQuestionDto } from "./create-question.dto";
 import { QuestionsService } from "./questions.service";
 import { UploadQuestionAssetDto } from "./upload-question-asset.dto";
+import type { InternalRequest } from "../auth/auth.guard";
 
 function mimePattern(values: Set<string>) {
   return new RegExp(`^(${Array.from(values).map((value) => value.replaceAll("/", "\\/")).join("|")})$`);
@@ -34,8 +36,8 @@ export class QuestionsController {
 
   @Get()
   @ApiOperation({ summary: "List all questions" })
-  getQuestions() {
-    return this.questions.listQuestions();
+  getQuestions(@Req() req: InternalRequest) {
+    return this.questions.listQuestions(req.internalUser);
   }
 
   @Post()
@@ -85,7 +87,10 @@ export class QuestionsController {
     @Param("questionId") questionId: string,
     @UploadedFile(
       new ParseFilePipeBuilder()
-        .addFileTypeValidator({ fileType: mimePattern(QUESTION_VIDEO_MIME_TYPES) })
+        .addFileTypeValidator({
+          fileType: mimePattern(QUESTION_VIDEO_MIME_TYPES),
+          skipMagicNumbersValidation: true,
+        })
         .build({
           errorHttpStatusCode: 400,
           fileIsRequired: true,

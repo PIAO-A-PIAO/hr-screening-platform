@@ -5,17 +5,28 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { AppIcon } from "../ui/app-icon";
 import { RecruiterNav } from "./recruiter-nav";
+import type { InternalUser } from "../../lib/internal-auth";
 
 type RecruiterShellProps = {
   title: string;
   eyebrow?: string;
   children: React.ReactNode;
+  user: InternalUser;
 };
 
-export function RecruiterShell({ title, eyebrow = "Recruiting", children }: RecruiterShellProps) {
+export function RecruiterShell({ title, eyebrow = "Recruiting", children, user }: RecruiterShellProps) {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [logoutError, setLogoutError] = useState(false);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const initials = user.name.split(/\s+/).map(part => part[0] ?? '').slice(0, 2).join('').toUpperCase();
+  async function logout() {
+    try {
+      const response = await fetch('/api/auth/logout', { method: 'POST' });
+      if (!response.ok) throw new Error('Sign out failed');
+      window.location.assign('/login');
+    } catch { setLogoutError(true); }
+  }
 
   useEffect(() => {
     setMenuOpen(false);
@@ -60,17 +71,17 @@ export function RecruiterShell({ title, eyebrow = "Recruiting", children }: Recr
         </div>
 
         <div className="recruiterUser" aria-label="Current user">
-          <span className="recruiterUserAvatar" aria-hidden="true">TR</span>
-          <span className="recruiterUserMeta"><strong>Temporary reviewer</strong><small>Recruiter access</small></span>
+          <span className="recruiterUserAvatar" aria-hidden="true">{initials}</span>
+          <span className="recruiterUserMeta"><strong>{user.name}</strong><small>{user.role === 'ADMIN' ? 'Admin' : 'Recruiter'}</small></span>
         </div>
 
-        <RecruiterNav onNavigate={() => setMenuOpen(false)} />
+        <RecruiterNav user={user} onNavigate={() => setMenuOpen(false)} />
 
-        <button className="recruiterLogout" type="button" disabled title="Authentication will be added in a later milestone">
+        <button className="recruiterLogout" type="button" onClick={() => void logout()}>
           <AppIcon name="logout" />
           <span>Logout</span>
-          <small>Coming soon</small>
         </button>
+        {logoutError && <p role="alert">Could not sign out. Please try again.</p>}
       </aside>
       <div className="recruiterWorkspace">
         <header className="recruiterTopbar">
@@ -89,7 +100,7 @@ export function RecruiterShell({ title, eyebrow = "Recruiting", children }: Recr
           </div>
           <div className="recruiterTopbarIdentity">
             <div className="recruiterEnvironment">Internal workspace</div>
-            <span className="recruiterTopbarAvatar" aria-hidden="true">TR</span>
+            <span className="recruiterTopbarAvatar" aria-hidden="true">{initials}</span>
           </div>
         </header>
         <div className="recruiterMain">{children}</div>

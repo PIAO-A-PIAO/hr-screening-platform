@@ -39,10 +39,12 @@ export type QuestionDraftInput = CreateQuestionInput & {
 export type CreateTestInput = {
   name: string;
   description?: string;
+  estimatedDurationMinutes?: number | null;
   tags?: string[];
   status?: TestStatus;
   positionId?: string;
   questions: QuestionDraftInput[];
+  closing?: { title: string; message: string };
 };
 
 export type TestQuestionResponse = QuestionResponse & {
@@ -53,6 +55,7 @@ export type TestResponse = {
   id: string;
   name: string;
   description: string | null;
+  estimatedDurationMinutes?: number | null;
   positionMetadata: Record<string, unknown> | null;
   positionId: string | null;
   tags: string[];
@@ -60,6 +63,7 @@ export type TestResponse = {
   creatorId: string | null;
   creatorName: string | null;
   configuration: Record<string, unknown> | null;
+  closing?: { title: string; message: string; videoAvailable: boolean };
   createdAt: string;
   updatedAt: string;
   questions: TestQuestionResponse[];
@@ -206,6 +210,22 @@ export function getTest(testId: string) {
   return requestJson<TestResponse>(`/tests/${encodeURIComponent(testId)}`);
 }
 
+export function getCandidateTest(inviteToken: string) {
+  return requestJson<TestResponse>(`/attempts/invite/${encodeURIComponent(inviteToken)}/test`);
+}
+
+export async function uploadTestClosingVideo(testId: string, file: File) {
+  const data = new FormData();
+  data.append("file", normalizeVideoFile(file));
+  return requestJson<TestResponse>(`/tests/${encodeURIComponent(testId)}/closing-video`, { method: "POST", body: data });
+}
+
+export function removeTestClosingVideo(testId: string) {
+  return requestJson<TestResponse>(`/tests/${encodeURIComponent(testId)}/closing-video`, { method: "DELETE" });
+}
+
+export function testClosingVideoUrl(testId: string) { return `/api/tests/${encodeURIComponent(testId)}/closing-video`; }
+
 export function listTests() {
   return requestJson<TestSummaryResponse[]>("/tests");
 }
@@ -259,6 +279,10 @@ export async function uploadQuestionThumbnail(
 
 export function getQuestionVideoBlob(questionId: string) {
   return requestBlob(`/questions/${encodeURIComponent(questionId)}/video`);
+}
+
+export function getCandidateQuestionVideoBlob(inviteToken: string, questionId: string) {
+  return requestBlob(`/attempts/invite/${encodeURIComponent(inviteToken)}/questions/${encodeURIComponent(questionId)}/video`);
 }
 
 export function getQuestionThumbnailBlob(questionId: string) {

@@ -6,8 +6,8 @@
 .recruiterBrand strong { font-size: 18px; }
 .recruiterBrand small { color: rgba(255,255,255,.58); font-size: 11px; font-weight: 650; letter-spacing: .06em; text-transform: uppercase; }
 .recruiterNavList { display: grid; gap: var(--ds-space-1); margin-top: var(--ds-space-10); }
-.recruiterNavList a { display: flex; align-items: center; gap: var(--ds-space-3); min-height: 44px; padding: 0 var(--ds-space-3); border-radius: var(--ds-radius-sm); color: rgba(255,255,255,.67); font-size: 14px; font-weight: 650; text-decoration: none; transition: 150ms ease; }
-.recruiterNavList a:hover { color: #fff; background: rgba(255,255,255,.07); }
+.recruiterNavList a,.recruiterLogout { display: flex; align-items: center; gap: var(--ds-space-3); min-height: 44px; padding: 0 var(--ds-space-3); border-radius: var(--ds-radius-sm); color: rgba(255,255,255,.67); font-size: 14px; font-weight: 650; text-decoration: none; transition: 150ms ease; }
+.recruiterNavList a:hover,.recruiterLogout:hover { color: #fff; background: rgba(255,255,255,.07); }
 .recruiterNavList a.active { color: #fff; background: var(--ds-blue-600); box-shadow: 0 5px 14px rgba(0,34,79,.22); }
 .recruiterUtilityNav { margin-top: auto; padding-top: var(--ds-space-4); border-top: 1px solid rgba(255,255,255,.1); }
 .recruiterUtilityNav .recruiterNavList { margin-top: 0; }
@@ -95,8 +95,9 @@
 .recruiterUserMeta small { color: rgba(255,255,255,.55); font-size: 11px; }
 .recruiterNavList { margin-top: var(--ds-space-6); }
 .recruiterUtilityNav { margin-top: auto; }
-.recruiterLogout { display: grid; grid-template-columns: 20px minmax(0,1fr) auto; gap: var(--ds-space-3); align-items: center; min-height: 44px; margin-top: var(--ds-space-2); padding: 0 var(--ds-space-3); border: 0; border-radius: var(--ds-radius-sm); color: rgba(255,255,255,.38); background: transparent; font: inherit; font-size: 14px; font-weight: 650; text-align: left; }
-.recruiterLogout small { font-size: 10px; font-weight: 650; }
+.recruiterLogout { width: 100%; margin-top: var(--ds-space-2); border: 0; background: transparent; font-family: inherit; text-align: left; cursor: pointer; }
+.recruiterLogout:focus-visible { outline: 2px solid var(--ds-blue-500); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .recruiterLogout { transition: none; } }
 .recruiterTopbarContext { display: flex !important; grid: none !important; align-items: center; gap: var(--ds-space-3); }
 .recruiterTopbarContext > div { display: grid; gap: 2px; }
 .recruiterTopbarIdentity { display: flex; align-items: center; gap: var(--ds-space-3); }

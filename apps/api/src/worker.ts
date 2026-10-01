@@ -3,6 +3,7 @@ import { Logger, LogLevel } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
 import { WorkerModule } from "./worker.module";
 import { EmailWorkerService } from "./email/email-worker.service";
+import { VideoProcessingWorkerService } from "./questions/video-processing-worker.service";
 import { getEnvironment } from "./config/environment";
 
 const logLevels: Record<string, LogLevel[]> = {
@@ -20,8 +21,10 @@ async function bootstrap() {
   });
 
   const worker = app.get(EmailWorkerService);
+  const videoWorker = app.get(VideoProcessingWorkerService);
   const shutdown = async () => {
     worker.stop();
+    videoWorker.stop();
     await app.close();
   };
 
@@ -33,7 +36,7 @@ async function bootstrap() {
   });
 
   try {
-    await worker.run();
+    await Promise.all([worker.run(), videoWorker.run()]);
   } finally {
     await app.close();
   }

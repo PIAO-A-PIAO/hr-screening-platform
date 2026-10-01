@@ -2,6 +2,8 @@ import { createHash, randomUUID } from "node:crypto";
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma, QuestionAssetKind, QuestionType } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
+import type { Principal } from "../auth/auth.service";
+import { UserRole } from "@prisma/client";
 import {
   QUESTION_THUMBNAIL_MAX_BYTES,
   QUESTION_THUMBNAIL_MIME_TYPES,
@@ -56,14 +58,16 @@ export class QuestionsService {
     private readonly transcoder: VideoTranscodingService,
   ) {}
 
-  async listQuestions(): Promise<QuestionResponse[]> {
+  async listQuestions(user?: Principal): Promise<QuestionResponse[]> {
     const questions = await this.prisma.question.findMany({
+      where: user?.role === UserRole.RECRUITER ? { test: { position: { departments: { some: { id: { in: user.departments.map(d => d.id) } } } } } } : {},
       orderBy: { createdAt: "desc" },
       include: {
         videoItem: {
           include: {
             videoAsset: true,
             thumbnailAsset: true,
+            processingJobs: { orderBy: { createdAt: "desc" }, take: 1 },
           },
         },
         multipleChoiceItem: {
@@ -105,6 +109,8 @@ export class QuestionsService {
       select: {
         id: true,
         testId: true,
+        type: true,
+        _count: { select: { responses: true } },
       },
     });
 
@@ -114,6 +120,10 @@ export class QuestionsService {
 
     if (existing.testId !== testId) {
       throw new BadRequestException("Question does not belong to this test");
+    }
+
+    if (existing.type !== dto.type && existing._count.responses > 0) {
+      throw new BadRequestException("Question type cannot change after candidates have answered it");
     }
 
     const item = this.validateQuestionItem(dto.type, dto.item) as {
@@ -130,6 +140,7 @@ export class QuestionsService {
       data: {
         title: dto.title,
         description: dto.description ?? null,
+        type: dto.type,
         order,
       },
     });
@@ -264,6 +275,7 @@ export class QuestionsService {
           include: {
             videoAsset: true,
             thumbnailAsset: true,
+            processingJobs: { orderBy: { createdAt: "desc" }, take: 1 },
           },
         },
         multipleChoiceItem: {
@@ -331,17 +343,9 @@ export class QuestionsService {
       update: {},
     });
 
-    const preparedFile = kind === QuestionAssetKind.VIDEO
-      ? await this.transcoder.transcodeUpload({
-          buffer: file.buffer,
-          mimeType: file.mimetype,
-          originalName: file.originalname,
-        })
-      : null;
-
-    const storedBuffer = preparedFile?.preparedBuffer ?? file.buffer;
-    const storedMimeType = preparedFile?.preparedMimeType ?? file.mimetype;
-    const storedSize = preparedFile?.preparedSize ?? file.size;
+    const storedBuffer = file.buffer;
+    const storedMimeType = file.mimetype;
+    const storedSize = file.size;
     const checksum = createHash("sha256").update(storedBuffer).digest("hex");
     const assetId = randomUUID();
     const storageKey = `questions/${questionId}/${kind.toLowerCase()}/${assetId}`;
@@ -356,9 +360,7 @@ export class QuestionsService {
         storageKey,
         mimeType: storedMimeType,
         size: storedSize,
-        durationSeconds: kind === QuestionAssetKind.VIDEO
-          ? preparedFile?.preparedDurationSeconds ?? dto.durationSeconds ?? null
-          : null,
+        durationSeconds: kind === QuestionAssetKind.VIDEO ? dto.durationSeconds ?? null : null,
         checksum,
         ownerId: dto.ownerId ?? null,
         originalName: file.originalname,
@@ -372,14 +374,24 @@ export class QuestionsService {
       throw error;
     }
 
-    await this.prisma.videoQuestionItem.update({
-      where: { questionId },
-      data: kind === QuestionAssetKind.VIDEO
-        ? { videoAssetId: asset.id }
-        : { thumbnailAssetId: asset.id },
-    });
+    try {
+      if (kind === QuestionAssetKind.VIDEO) {
+        await this.prisma.$transaction(async (tx) => {
+          await tx.videoQuestionItem.update({ where: { questionId }, data: { videoAssetId: asset.id } });
+          await tx.videoProcessingJob.create({ data: {
+            questionId, sourceAssetId: asset.id, previousAssetId: existingAssetId,
+          } });
+        });
+      } else {
+        await this.prisma.videoQuestionItem.update({ where: { questionId }, data: { thumbnailAssetId: asset.id } });
+      }
+    } catch (error) {
+      await this.storage.deleteObject(storageKey).catch(() => undefined);
+      await this.prisma.questionAsset.delete({ where: { id: asset.id } }).catch(() => undefined);
+      throw error;
+    }
 
-    if (existingAssetId && existingAssetId !== asset.id) {
+    if (kind === QuestionAssetKind.THUMBNAIL && existingAssetId && existingAssetId !== asset.id) {
       const previousAsset = await this.prisma.questionAsset.findUnique({
         where: { id: existingAssetId },
       });
@@ -389,7 +401,7 @@ export class QuestionsService {
       }
     }
 
-    return this.toAssetResponse(asset, preparedFile ?? undefined);
+    return this.toAssetResponse(asset);
   }
 
   private async openAsset(questionId: string, kind: QuestionAssetKind) {
@@ -588,6 +600,7 @@ export class QuestionsService {
     createdAt: Date;
     updatedAt: Date;
     videoItem: {
+      processingJobs: Array<{ status: string }>;
       videoAsset: {
         id: string;
         mimeType: string;
@@ -642,6 +655,13 @@ export class QuestionsService {
           thumbnail: question.videoItem?.thumbnailAsset
             ? this.toPublicAsset(question.videoItem.thumbnailAsset)
             : null,
+          processing: question.videoItem?.processingJobs[0]?.status ??
+            (question.videoItem?.videoAsset ? "DONE" : null),
+          thumbnailStatus: question.videoItem?.processingJobs[0]?.status ??
+            (question.videoItem?.thumbnailAsset ? "DONE" : null),
+          transcodingStatus: question.videoItem?.processingJobs[0]?.status ??
+            (question.videoItem?.videoAsset ? "DONE" : null),
+          transcription: "DONE",
         },
       };
     }

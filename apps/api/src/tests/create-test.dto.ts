@@ -7,6 +7,8 @@ import {
   IsObject,
   IsOptional,
   IsString,
+  Max,
+  MaxLength,
   Min,
   ValidateNested,
 } from "class-validator";
@@ -35,6 +37,16 @@ export class CreateTestQuestionDto {
   item!: Record<string, unknown>;
 }
 
+export class TestClosingDto {
+  @IsString()
+  @MaxLength(120)
+  title!: string;
+
+  @IsString()
+  @MaxLength(1000)
+  message!: string;
+}
+
 export class CreateTestDto {
   @IsString()
   name!: string;
@@ -42,6 +54,12 @@ export class CreateTestDto {
   @IsOptional()
   @IsString()
   description?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(480)
+  estimatedDurationMinutes?: number | null;
 
   @IsOptional()
   @IsArray()
@@ -55,6 +73,11 @@ export class CreateTestDto {
   @IsOptional()
   @IsString()
   positionId?: string;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => TestClosingDto)
+  closing?: TestClosingDto;
 
   @ValidateNested({ each: true })
   @Type(() => CreateTestQuestionDto)

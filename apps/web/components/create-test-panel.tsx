@@ -1,519 +1,242 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { QuestionCreator } from "./question-creator";
-import {
-  createTest,
-  getTest,
-  updateTest,
-  type CreateTestInput,
-  type QuestionDraftInput,
-  type TestResponse,
-  type TestStatus,
-  uploadQuestionThumbnail,
-  uploadQuestionVideo,
-} from "../lib/question-api";
+import { useEffect, useRef, useState } from "react";
+import { PositionQuestionEditor, type PositionQuestionEditorHandle } from "./position-question-editor";
+import { AppIcon } from "./ui/app-icon";
+import { createTest, getTest, removeTestClosingVideo, testClosingVideoUrl, updateTest, uploadQuestionVideo, uploadTestClosingVideo, type CreateTestInput, type QuestionDraftInput, type TestResponse, type TestStatus } from "../lib/question-api";
 import type { PositionResponse } from "../lib/position-api";
 
-type DraftQuestionEntry = {
-  clientId: string;
-  draft: QuestionDraftInput;
-  videoFile?: File | null;
-  thumbnailFile?: File | null;
-};
-
-type CreateTestPanelProps = {
-  position: PositionResponse;
-  className?: string;
-  onSaved?: () => void;
-};
-
-function normalizeTags(input: string) {
-  return input
-    .split(",")
-    .map((tag) => tag.trim())
-    .filter(Boolean);
-}
-
-function makeClientId() {
-  return globalThis.crypto?.randomUUID?.() ?? `draft_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-}
-
-function toDraftEntry(question: TestResponse["questions"][number]): DraftQuestionEntry {
-  if (question.type === "VIDEO") {
-    return {
-      clientId: question.id,
-      draft: {
-        questionId: question.id,
-        order: question.order,
-        title: question.title,
-        description: question.description ?? undefined,
-        type: question.type,
-        item: { type: "VIDEO" },
-      },
-      videoFile: null,
-      thumbnailFile: null,
-    };
-  }
-
-  if (question.type === "MULTIPLE_CHOICE") {
-    const item = question.item as {
-      allowMultipleSelection?: boolean;
-      shuffleOptions?: boolean;
-      options?: Array<{
-        label?: string;
-        value?: string;
-        order?: number;
-        isCorrect?: boolean;
-      }>;
-    };
-
-    return {
-      clientId: question.id,
-      draft: {
-        questionId: question.id,
-        order: question.order,
-        title: question.title,
-        description: question.description ?? undefined,
-        type: question.type,
-        item: {
-          type: "MULTIPLE_CHOICE",
-          allowMultipleSelection: item.allowMultipleSelection === true,
-          shuffleOptions: item.shuffleOptions === true,
-          options: (item.options ?? []).map((option, index) => ({
-            label: option.label ?? "",
-            value: option.value ?? `option_${index + 1}`,
-            order: typeof option.order === "number" ? option.order : index,
-            isCorrect: option.isCorrect === true,
-          })),
-        },
-      },
-      videoFile: null,
-      thumbnailFile: null,
-    };
-  }
-
+type Entry = { clientId: string; draft: QuestionDraftInput };
+type Props = { position: PositionResponse; className?: string; onSaved?: () => void };
+const clientId = () => globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
+const entriesFromTest = (test: TestResponse): Entry[] => test.questions.map((question) => {
   const item = question.item as {
-    placeholder?: string | null;
+    options?: Array<{ label: string; value: string; order: number; isCorrect: boolean }>;
     maxLength?: number | null;
-    answerHint?: string | null;
   };
+  return { clientId: question.id, draft: {
+    questionId: question.id, order: question.order, title: question.title, description: question.description ?? undefined,
+    type: question.type,
+    item: question.type === "VIDEO" ? { type: "VIDEO" }
+      : question.type === "SHORT_ANSWER" ? { type: "SHORT_ANSWER", maxLength: item.maxLength ?? undefined }
+      : { type: "MULTIPLE_CHOICE", allowMultipleSelection: false, shuffleOptions: false,
+          options: (item.options ?? []).slice(0, 4).map((option, index) => ({
+            label: option.label, value: `option_${index + 1}`, order: index,
+            isCorrect: index === Math.max(0, (item.options ?? []).slice(0, 4).findIndex((entry) => entry.isCorrect)),
+          })) },
+  } };
+});
 
-  return {
-    clientId: question.id,
-    draft: {
-      questionId: question.id,
-      order: question.order,
-      title: question.title,
-      description: question.description ?? undefined,
-      type: question.type,
-      item: {
-        type: "SHORT_ANSWER",
-        placeholder: item.placeholder ?? "",
-        maxLength: item.maxLength ?? undefined,
-        answerHint: item.answerHint ?? "",
-      },
-    },
-    videoFile: null,
-    thumbnailFile: null,
-  };
-}
-
-export function CreateTestPanel({ position, className, onSaved }: CreateTestPanelProps) {
-  const [attachedTestId, setAttachedTestId] = useState<string | null>(position.test?.id ?? null);
-  const [attachedTest, setAttachedTest] = useState<TestResponse | null>(null);
-  const [attachedLoading, setAttachedLoading] = useState(false);
-  const [attachedError, setAttachedError] = useState<string | null>(null);
-  const [testName, setTestName] = useState(position.test?.name ?? position.title);
-  const [testDescription, setTestDescription] = useState(position.test?.description ?? "");
+export function CreateTestPanel({ position, className, onSaved }: Props) {
+  const [testId, setTestId] = useState<string | null>(position.test?.id ?? null);
+  const [test, setTest] = useState<TestResponse | null>(null);
+  const [name, setName] = useState(position.test?.name ?? position.title);
+  const [description, setDescription] = useState(position.test?.description ?? "");
+  const [estimatedMinutes, setEstimatedMinutes] = useState("");
   const [tags, setTags] = useState("");
   const [status, setStatus] = useState<TestStatus>(position.test?.status ?? "DRAFT");
-  const [draftQuestions, setDraftQuestions] = useState<DraftQuestionEntry[]>([]);
-  const [selectedDraftId, setSelectedDraftId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [closingTitle, setClosingTitle] = useState("Thank you!");
+  const [closingMessage, setClosingMessage] = useState("Thank you for completing the interview. We will be in touch soon.");
+  const [closingFile, setClosingFile] = useState<File | null>(null);
+  const [closingBusy, setClosingBusy] = useState(false);
+  const [entries, setEntries] = useState<Entry[]>([]);
+  const entriesRef = useRef<Entry[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [editingClosing, setEditingClosing] = useState(false);
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const [loading, setLoading] = useState(Boolean(position.test));
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<TestResponse | null>(null);
+  const [notice, setNotice] = useState("");
+  const editor = useRef<PositionQuestionEditorHandle>(null);
 
   useEffect(() => {
-    setAttachedTestId(position.test?.id ?? null);
-    setAttachedTest(null);
-    setAttachedError(null);
-    setTestName(position.test?.name ?? position.title);
-    setTestDescription(position.test?.description ?? "");
-    setTags("");
-    setStatus(position.test?.status ?? "DRAFT");
-    setDraftQuestions([]);
-    setSelectedDraftId(null);
-    setSuccess(null);
-    setError(null);
-  }, [position.id, position.title, position.test?.id, position.test?.name, position.test?.description, position.test?.status, position.test?.questionCount]);
+    if (!notice) return;
+    const timer = setTimeout(() => setNotice(""), 3000);
+    return () => clearTimeout(timer);
+  }, [notice]);
 
   useEffect(() => {
-    const testId = attachedTestId ?? "";
-    if (testId.length === 0) {
-      setAttachedTest(null);
-      setAttachedLoading(false);
-      return;
-    }
-
-    let cancelled = false;
-
-    async function load() {
-      setAttachedLoading(true);
-      setAttachedError(null);
-
-      try {
-        const loaded = await getTest(testId);
-        if (cancelled) {
-          return;
-        }
-
-        const entries = loaded.questions.map(toDraftEntry);
-        setAttachedTest(loaded);
-        setTestName(loaded.name);
-        setTestDescription(loaded.description ?? "");
-        setTags(loaded.tags.join(", "));
-        setStatus(loaded.status);
-        setDraftQuestions(entries);
-        setSelectedDraftId(entries[0]?.clientId ?? null);
-      } catch (caught) {
-        if (!cancelled) {
-          setAttachedError(caught instanceof Error ? caught.message : "Failed to load attached test");
-          setAttachedTest(null);
-        }
-      } finally {
-        if (!cancelled) {
-          setAttachedLoading(false);
-        }
-      }
-    }
-
-    void load();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [attachedTestId]);
-
-  const selectedDraft = selectedDraftId
-    ? draftQuestions.find((entry) => entry.clientId === selectedDraftId) ?? null
-    : null;
-
-  function saveDraftQuestion(
-    draft: QuestionDraftInput,
-    media?: { videoFile?: File | null; thumbnailFile?: File | null },
-  ) {
-    setDraftQuestions((current) => {
-      const targetIndex = selectedDraftId
-        ? current.findIndex((entry) => entry.clientId === selectedDraftId)
-        : -1;
-      const clientId = targetIndex >= 0 ? current[targetIndex].clientId : makeClientId();
-      const nextDraft: DraftQuestionEntry = {
-        clientId,
-        draft: {
-          ...draft,
-          order: targetIndex >= 0 ? current[targetIndex].draft.order : current.length + 1,
-        },
-        videoFile: media?.videoFile ?? null,
-        thumbnailFile: media?.thumbnailFile ?? null,
-      };
-
-      if (targetIndex >= 0) {
-        const updated = [...current];
-        updated[targetIndex] = nextDraft;
-        return updated;
-      }
-
-      return [...current, nextDraft];
-    });
-    setSuccess(null);
-  }
-
-  function moveDraftQuestion(index: number, direction: -1 | 1) {
-    setDraftQuestions((current) => {
-      const targetIndex = index + direction;
-      if (targetIndex < 0 || targetIndex >= current.length) {
-        return current;
-      }
-
-      const reordered = [...current];
-      [reordered[index], reordered[targetIndex]] = [reordered[targetIndex], reordered[index]];
-
-      return reordered.map((entry, currentIndex) => ({
-        ...entry,
-        draft: {
-          ...entry.draft,
-          order: currentIndex + 1,
-        },
-      }));
-    });
-
-    setSuccess(null);
-  }
-
-  function removeDraftQuestion(index: number) {
-    setDraftQuestions((current) => {
-      const removed = current[index];
-      const next = current
-        .filter((_, currentIndex) => currentIndex !== index)
-        .map((entry, currentIndex) => ({
-          ...entry,
-          draft: { ...entry.draft, order: currentIndex + 1 },
-        }));
-
-      if (removed?.clientId === selectedDraftId) {
-        setSelectedDraftId(next[index]?.clientId ?? next[next.length - 1]?.clientId ?? null);
-      }
-
-      return next;
-    });
-    setSuccess(null);
-  }
-
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+    const id = position.test?.id;
+    setTestId(id ?? null); setName(position.test?.name ?? position.title);
+    setDescription(position.test?.description ?? ""); setStatus(position.test?.status ?? "DRAFT");
+    setEstimatedMinutes("");
+    setTest(null); setEntries([]); entriesRef.current = []; setSelectedId(null); setEditingClosing(false); setError(null); setNotice(""); setClosingFile(null);
+    if (!id) { setLoading(false); return; }
+    let active = true;
     setLoading(true);
-    setError(null);
-    setSuccess(null);
+    void getTest(id).then((loaded) => { if (!active) return;
+      const next = entriesFromTest(loaded);
+      setTest(loaded); setName(loaded.name); setDescription(loaded.description ?? "");
+      setEstimatedMinutes(loaded.estimatedDurationMinutes == null ? "" : String(loaded.estimatedDurationMinutes));
+      setClosingTitle(loaded.closing?.title ?? "Thank you!");
+      setClosingMessage(loaded.closing?.message ?? "Thank you for completing the interview. We will be in touch soon.");
+      setTags(loaded.tags.join(", ")); setStatus(loaded.status); setEntries(next); entriesRef.current = next;
+      setSelectedId(next[0]?.clientId ?? null);
+    }).catch((caught) => { if (active) setError(caught instanceof Error ? caught.message : "Failed to load test"); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [position.id, position.title, position.test?.id, position.test?.name, position.test?.description, position.test?.status]);
 
+  useEffect(() => {
+    if (!testId || !test?.questions.some((question) => ["PENDING", "PROCESSING"].includes(
+      String((question.item as { processing?: string }).processing ?? ""),
+    ))) return;
+    const timer = setInterval(() => {
+      void getTest(testId).then(setTest).catch(() => undefined);
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [testId, test]);
+
+  const selected = entries.find((entry) => entry.clientId === selectedId) ?? null;
+  const payload = (next: Entry[]): CreateTestInput => ({
+    name: name.trim(), description: description.trim() || undefined,
+    estimatedDurationMinutes: estimatedMinutes ? Number(estimatedMinutes) : null,
+    tags: tags.split(",").map((tag) => tag.trim()).filter(Boolean), status,
+    positionId: position.id, questions: next.map((entry, index) => ({ ...entry.draft, order: index + 1 })),
+    closing: { title: closingTitle.trim() || "Thank you!", message: closingMessage.trim() },
+  });
+
+  async function persist(next: Entry[], preferredId: string | null, media?: { order: number; file: File | null }) {
+    if (!name.trim()) throw new Error("Enter a test title before saving a question.");
+    setSaving(true); setError(null); setNotice("");
     try {
-      const payload: CreateTestInput = {
-        name: testName.trim(),
-        description: testDescription.trim() || undefined,
-        tags: normalizeTags(tags),
-        status,
-        positionId: position.id,
-        questions: draftQuestions.map((entry) => entry.draft),
-      };
-
-      const saved = attachedTestId
-        ? await updateTest(attachedTestId, payload)
-        : await createTest(payload);
-
-      for (const entry of draftQuestions) {
-        if (entry.draft.type !== "VIDEO") {
-          continue;
-        }
-
-        const savedQuestion = saved.questions.find((question) => question.order === entry.draft.order);
-        if (!savedQuestion) {
-          continue;
-        }
-
-        if (entry.videoFile) {
-          await uploadQuestionVideo(savedQuestion.id, entry.videoFile);
-        }
-        if (entry.thumbnailFile) {
-          await uploadQuestionThumbnail(savedQuestion.id, entry.thumbnailFile);
-        }
+      const saved = testId ? await updateTest(testId, payload(next)) : await createTest(payload(next));
+      setTestId(saved.id);
+      if (media?.file) {
+        const savedQuestion = saved.questions.find((question) => question.order === media.order);
+        if (!savedQuestion) throw new Error("Saved question was not found for video upload.");
+        await uploadQuestionVideo(savedQuestion.id, media.file);
       }
-
-      setSuccess(saved);
-      setAttachedTestId(saved.id);
-      setAttachedTest(saved);
-      setTestName(saved.name);
-      setTestDescription(saved.description ?? "");
-      setTags(saved.tags.join(", "));
-      setStatus(saved.status);
-
-      const refreshedEntries = saved.questions.map(toDraftEntry);
-      setDraftQuestions(refreshedEntries);
-
-      if (selectedDraft?.draft.questionId) {
-        setSelectedDraftId(selectedDraft.draft.questionId);
-      } else {
-        setSelectedDraftId(null);
-      }
-
-      onSaved?.();
+      const refreshed = media?.file ? await getTest(saved.id) : saved;
+      const normalized = entriesFromTest(refreshed);
+      setTest(refreshed); setEntries(normalized); entriesRef.current = normalized;
+      const preferredOrder = next.findIndex((entry) => entry.clientId === preferredId);
+      setSelectedId(preferredId === null ? null : normalized[preferredOrder]?.clientId ?? null);
+      setNotice("Saved."); onSaved?.();
+      return refreshed;
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Failed to save test");
-    } finally {
-      setLoading(false);
-    }
+      const message = caught instanceof Error ? caught.message : "Unable to save test";
+      setError(message);
+      throw caught;
+    } finally { setSaving(false); }
   }
 
-  const isEditingAttachedTest = attachedTestId !== null;
-  const submitLabel = isEditingAttachedTest ? "Save test" : "Create test";
-  const helperText = isEditingAttachedTest
-    ? "Edit the attached test in place. Existing questions are loaded into the builder."
-    : "The position is already chosen. Add ordered question drafts to create the screening test.";
+  async function saveQuestion(question: QuestionDraftInput, media: { videoFile: File | null }, startNew: boolean) {
+    const id = selected?.clientId ?? clientId();
+    const index = selected ? entries.findIndex((entry) => entry.clientId === id) : entries.length;
+    const next = [...entries];
+    next[index] = { clientId: id, draft: { ...question, order: index + 1 } };
+    await persist(next, startNew ? null : id, { order: index + 1, file: media.videoFile });
+  }
 
-  return (
-    <details className={`detailCard attachedTestAccordion ${className ?? ""}`} open>
-      <summary className="attachedTestSummary">
-        <div>
-          <span className="sectionLabel">Attached test</span>
-          <h3>{attachedTest?.name ?? position.test?.name ?? position.title}</h3>
-          <small>{attachedTestId}</small>
-        </div>
-        <div className="attachedTestSummaryMeta">
-          <span className="pill">{attachedTest?.status ?? position.test?.status ?? "Draft"}</span>
-          <span className="pill">{attachedTest?.questions.length ?? position.test?.questionCount ?? 0} questions</span>
-        </div>
-      </summary>
+  async function addNew() {
+    if (saving) return;
+    if (editingClosing) { setEditingClosing(false); setSelectedId(null); return; }
+    const saved = await editor.current?.saveAndStartNew();
+    if (saved) setSelectedId(null);
+  }
+  async function selectQuestion(id: string) {
+    if ((id === selectedId && !editingClosing) || saving) return;
+    if (editingClosing) { setEditingClosing(false); setSelectedId(id); return; }
+    const saved = await editor.current?.saveAndStartNew();
+    if (saved) setSelectedId(id);
+  }
+  async function selectClosing() {
+    if (editingClosing || saving) return;
+    const saved = await editor.current?.saveAndStartNew();
+    if (saved === false) return;
+    setSelectedId(null);
+    setEditingClosing(true);
+  }
+  async function moveQuestion(index: number, target: number) {
+    if (target < 0 || target >= entries.length || target === index || saving) return;
+    const next = [...entries];
+    const [moved] = next.splice(index, 1);
+    next.splice(target, 0, moved);
+    try { await persist(next, selectedId); } catch { /* Error is displayed without changing the order. */ }
+  }
+  async function reorder(index: number, direction: -1 | 1) { await moveQuestion(index, index + direction); }
+  async function remove(index: number) {
+    if (saving) return;
+    const next = entries.filter((_, at) => at !== index);
+    const nextSelection = selectedId === entries[index].clientId ? next[Math.min(index, next.length - 1)]?.clientId ?? null : selectedId;
+    try { await persist(next, nextSelection); } catch { /* Keep the current list. */ }
+  }
+  async function saveMetadata(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const editorSaved = await editor.current?.saveAndStartNew();
+    if (editorSaved === false) return;
+    try { await persist(entriesRef.current, null); } catch { /* Error is displayed. */ }
+  }
 
-      <div className="attachedTestBody">
-        {attachedLoading && <div className="stateCard">Loading attached test...</div>}
-        {attachedError && <div className="stateCard errorState">Error: {attachedError}</div>}
+  async function saveClosing(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (closingBusy || saving) return;
+    setClosingBusy(true);
+    try {
+      const editorSaved = await editor.current?.saveAndStartNew();
+      if (editorSaved === false) return;
+      const saved = await persist(entriesRef.current, null);
+      if (closingFile) {
+        const uploaded = await uploadTestClosingVideo(saved.id, closingFile);
+        setTest(uploaded); setClosingFile(null);
+      }
+      setNotice("Closing screen saved.");
+    } catch (caught) { setError(caught instanceof Error ? caught.message : "Closing screen could not be saved"); }
+    finally { setClosingBusy(false); }
+  }
 
-        {!attachedLoading && !attachedError && !attachedTest && (
-          <div className="stateCard emptyStateInline">
-            This position does not have a test yet. The panel is open so you can create one immediately.
-          </div>
-        )}
+  async function removeClosing() {
+    if (!testId || closingBusy) return;
+    setClosingBusy(true); setError(null);
+    try { setTest(await removeTestClosingVideo(testId)); setClosingFile(null); setNotice("Closing video removed."); }
+    catch (caught) { setError(caught instanceof Error ? caught.message : "Closing video could not be removed"); }
+    finally { setClosingBusy(false); }
+  }
 
-        <form id={`create-test-form-${position.id}`} className="formGrid" onSubmit={handleSubmit}>
-          <label className="field">
-            <span>Title</span>
-            <input
-              value={testName}
-              onChange={(event) => setTestName(event.target.value)}
-              placeholder="Screening test title"
-              required
-            />
-          </label>
-
-          <label className="field fieldWide">
-            <span>Description</span>
-            <textarea
-              value={testDescription}
-              onChange={(event) => setTestDescription(event.target.value)}
-              placeholder="Optional notes for recruiters."
-              rows={3}
-            />
-          </label>
-
-          <label className="field">
-            <span>Status</span>
-            <select value={status} onChange={(event) => setStatus(event.target.value as TestStatus)}>
-              <option value="DRAFT">Draft</option>
-              <option value="PUBLISHED">Published</option>
-              <option value="ARCHIVED">Archived</option>
-            </select>
-          </label>
-
-          <label className="field">
-            <span>Tags</span>
-            <input
-              value={tags}
-              onChange={(event) => setTags(event.target.value)}
-              placeholder="engineering, senior, async"
-            />
-          </label>
-        </form>
-
+  return <section className={`testBuilderPage ${className ?? ""}`}>
+    <header className="testBuilderHero"><div><span className="sectionLabel">Test builder</span><h1>{position.title}</h1><p>Build the candidate experience, then finish with a closing message.</p></div><div className="testBuilderHeroStats"><strong>{entries.length}</strong><span>{entries.length === 1 ? "question" : "questions"}</span><span className="testBuilderStatus">{status.toLowerCase()}</span>{notice && <span className="testBuilderNotice" role="status">{notice}</span>}</div></header>
+      {loading ? <div className="stateCard">Loading test...</div> : <>
+        {error && <div className="stateCard errorState" role="alert">{error}</div>}
+        <details className="testBuilderSettings"><summary><span><strong>Test settings</strong><small>{name || position.title} · {status.toLowerCase()}{tags.trim() ? ` · ${tags}` : ""}</small></span><span className="testBuilderDisclosure"><span className="testBuilderExpandLabel">Expand</span><span className="testBuilderCollapseLabel">Collapse</span><span className="testBuilderChevron" aria-hidden="true">⌄</span></span></summary><form className="formGrid" onSubmit={(event) => void saveMetadata(event)}>
+          <label className="field"><span>Test title</span><input required value={name} onChange={(event) => setName(event.target.value)} /></label>
+          <label className="field fieldWide"><span>Description</span><textarea rows={2} value={description} onChange={(event) => setDescription(event.target.value)} /></label>
+          <label className="field"><span>Estimated total time (minutes)</span><input type="number" min={1} max={480} step={1} value={estimatedMinutes} onChange={(event) => setEstimatedMinutes(event.target.value)} /><small>Shown to candidates before they start. Leave blank to use a question-based estimate.</small></label>
+          <label className="field"><span>Status</span><select value={status} onChange={(event) => setStatus(event.target.value as TestStatus)}><option value="DRAFT">Draft</option><option value="PUBLISHED">Published</option><option value="ARCHIVED">Archived</option></select></label>
+          <label className="field"><span>Tags</span><input value={tags} onChange={(event) => setTags(event.target.value)} /></label>
+          <div className="fieldWide actionsRow"><button className="primaryButton" type="submit" disabled={saving}>{saving ? "Saving..." : "Save settings"}</button></div>
+        </form></details>
         <div className="testBuilderGrid">
-          <QuestionCreator
-            mode="draft"
-            draftOrder={selectedDraft?.draft.order ?? draftQuestions.length + 1}
-            initialDraft={selectedDraft?.draft ?? null}
-            onDraftAdded={saveDraftQuestion}
-          />
-
-          <aside className="detailCard draftSidebar">
-            <strong>Draft order</strong>
-            <ul className="dataList draftOrderList">
-              {draftQuestions.map((draft, index) => (
-                <li
-                  key={draft.clientId}
-                  className={`draftCard ${selectedDraftId === draft.clientId ? "selected" : ""}`}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => setSelectedDraftId(draft.clientId)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" || event.key === " ") {
-                      event.preventDefault();
-                      setSelectedDraftId(draft.clientId);
-                    }
-                  }}
-                >
-                  <strong>
-                    {draft.draft.order}. {draft.draft.title || "Untitled question"}
-                  </strong>
-                  <small>{draft.clientId}</small>
-                  <span>
-                    {draft.draft.type}
-                    {draft.draft.questionId ? " . existing" : " . new"}
-                  </span>
-                  <div className="draftActions" onClick={(event) => event.stopPropagation()}>
-                    <button
-                      type="button"
-                      className="ghostButton compactButton"
-                      onClick={() => moveDraftQuestion(index, -1)}
-                      disabled={index === 0}
-                    >
-                      Up
-                    </button>
-
-                    <button
-                      type="button"
-                      className="ghostButton compactButton"
-                      onClick={() => moveDraftQuestion(index, 1)}
-                      disabled={index === draftQuestions.length - 1}
-                    >
-                      Down
-                    </button>
-
-                    <button
-                      type="button"
-                      className="ghostButton compactButton"
-                      onClick={() => removeDraftQuestion(index)}
-                    >
-                      Remove
-                    </button>
-                  </div>
-                </li>
-              ))}
-
-              <li
-                className={`draftCard draftCardEmpty ${selectedDraftId === null ? "selected" : ""}`}
-                role="button"
-                tabIndex={0}
-                onClick={() => setSelectedDraftId(null)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" || event.key === " ") {
-                    event.preventDefault();
-                    setSelectedDraftId(null);
-                  }
-                }}
-              >
-                <strong>Add a new question</strong>
-                <span>Click to open a blank draft</span>
-              </li>
-            </ul>
+          {editingClosing ? <section className="panel testBuilderClosingEditor" aria-label="Thank-you screen editor">
+            <div className="panelHeader"><div><span className="sectionLabel">After the final answer</span><h2>Thank-you screen</h2><p>The candidate sees this after submitting. This screen is not scored.</p></div></div>
+            <form onSubmit={(event) => void saveClosing(event)}>
+              <div className="testBuilderClosingFields">
+                <label className="field"><span>Heading</span><input maxLength={120} value={closingTitle} onChange={(event) => setClosingTitle(event.target.value)} /></label>
+                <label className="field"><span>Message</span><textarea rows={3} maxLength={1000} value={closingMessage} onChange={(event) => setClosingMessage(event.target.value)} /></label>
+                <label className="field"><span>Optional thank-you video</span><input type="file" accept="video/mp4,video/webm,video/quicktime,video/x-msvideo" onChange={(event) => setClosingFile(event.target.files?.[0] ?? null)} /><small>MP4, WebM, MOV, or AVI · up to 100 MB</small></label>
+                {test?.closing?.videoAvailable && testId && <div className="testBuilderClosingVideo"><video controls playsInline src={testClosingVideoUrl(testId)} /><button className="ghostButton compactButton" type="button" disabled={closingBusy} onClick={() => void removeClosing()}>Remove video</button></div>}
+              </div>
+              <div className="testBuilderClosingFooter"><span>Final step of the interview</span><button className="primaryButton" type="submit" disabled={saving || closingBusy}>{saving || closingBusy ? "Saving..." : "Save closing screen"}</button></div>
+            </form>
+          </section> : <PositionQuestionEditor ref={editor} question={selected?.draft ?? null} order={selected?.draft.order ?? entries.length + 1} saving={saving} videoAvailable={Boolean((test?.questions.find((question) => question.id === selected?.draft.questionId)?.item as { video?: unknown } | undefined)?.video)} thumbnailAvailable={Boolean((test?.questions.find((question) => question.id === selected?.draft.questionId)?.item as { thumbnail?: unknown } | undefined)?.thumbnail)} onSave={saveQuestion} />}
+          <aside className="draftSidebar" aria-label="Interview flow"><div className="testBuilderOutlineHeader"><div><span className="sectionLabel">Interview flow</span><h2>Questions</h2></div><span>{entries.length}</span></div>
+            <ol className="draftOrderList">{entries.map((entry, index) => {
+              const video = test?.questions.find((question) => question.id === entry.draft.questionId);
+              const videoItem = video?.item as { processing?: string; thumbnail?: { assetId?: string; id?: string } } | undefined;
+              return <li className={`draftCard ${!editingClosing && selectedId === entry.clientId ? "selected" : ""} ${dragOverIndex === index && draggedIndex !== index ? "dragOver" : ""}`} key={entry.clientId} onDragOver={(event) => { if (draggedIndex === null) return; event.preventDefault(); setDragOverIndex(index); }} onDrop={(event) => { event.preventDefault(); if (draggedIndex !== null) void moveQuestion(draggedIndex, index); setDraggedIndex(null); setDragOverIndex(null); }}>
+                <button type="button" className="draftSelect" onClick={() => void selectQuestion(entry.clientId)} disabled={saving} aria-current={!editingClosing && selectedId === entry.clientId ? "step" : undefined}>
+                  <span className="draftNumber">{index + 1}</span>
+                  <span className="draftIdentity"><strong>{entry.draft.title}</strong><small>{entry.draft.type.replaceAll("_", " ").toLowerCase()}{entry.draft.type === "VIDEO" ? ` · ${String(videoItem?.processing ?? "no video").toLowerCase()}` : ""}</small></span>
+                </button>
+                <div className="draftActions"><button type="button" className="draftDrag" draggable={!saving} disabled={saving} aria-label={`Drag ${entry.draft.title} to reorder`} title="Drag to reorder" onDragStart={(event) => { setDraggedIndex(index); event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/plain", String(index)); }} onDragEnd={() => { setDraggedIndex(null); setDragOverIndex(null); }}><AppIcon name="drag" size={17} /></button><span className="draftActionsSpacer" /><button type="button" disabled={saving || index === 0} aria-label={`Move ${entry.draft.title} up`} title="Move up" onClick={() => void reorder(index, -1)}><AppIcon name="moveUp" size={17} /></button><button type="button" disabled={saving || index === entries.length - 1} aria-label={`Move ${entry.draft.title} down`} title="Move down" onClick={() => void reorder(index, 1)}><AppIcon name="moveDown" size={17} /></button><button type="button" className="draftRemove" disabled={saving} aria-label={`Delete ${entry.draft.title}`} title="Delete question" onClick={() => void remove(index)}><AppIcon name="delete" size={17} /></button></div>
+              </li>;
+            })}</ol>
+            <button type="button" className="testBuilderAdd" disabled={saving} onClick={() => void addNew()}><span aria-hidden="true">＋</span> Add question</button>
+            <button type="button" className={`testBuilderOutlineEnd ${editingClosing ? "selected" : ""}`} onClick={() => void selectClosing()} disabled={saving} aria-current={editingClosing ? "step" : undefined}><span aria-hidden="true">✓</span><span><strong>Thank-you screen</strong><small>{closingTitle || "Thank you!"} · {test?.closing?.videoAvailable ? "Video added" : "No video"}</small></span><span className="testBuilderOutlineArrow" aria-hidden="true">›</span></button>
           </aside>
         </div>
-
-        <div className="feedbackArea">
-          {error && <div className="stateCard errorState">Error: {error}</div>}
-          {success && (
-            <div className="stateCard successState">
-              <strong>Test saved.</strong>
-              <span>
-                {success.name} . {success.questions.length} questions
-              </span>
-            </div>
-          )}
-          {!error && !success && !loading && (
-            <div className="stateCard emptyStateInline">
-              {helperText}
-            </div>
-          )}
-        </div>
-
-        <div className="actionsRow">
-          <button
-            className="primaryButton"
-            type="submit"
-            form={`create-test-form-${position.id}`}
-            disabled={loading || draftQuestions.length === 0 || (isEditingAttachedTest && !attachedTest)}
-          >
-            {loading ? "Saving..." : submitLabel}
-          </button>
-          <span className="helperText">{helperText}</span>
-        </div>
-      </div>
-    </details>
-  );
+      </>}
+  </section>;
 }

@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { QuestionsModule } from "../questions/questions.module";
+import { QuestionStorageService } from "../questions/question-storage.service";
 import { PrismaModule } from "../prisma/prisma.module";
 import { TestsController } from "./tests.controller";
 import { TestsService } from "./tests.service";
@@ -7,6 +8,7 @@ import { TestsService } from "./tests.service";
 @Module({
   imports: [PrismaModule, QuestionsModule],
   controllers: [TestsController],
-  providers: [TestsService],
+  providers: [TestsService, QuestionStorageService],
+  exports: [TestsService],
 })
 export class TestsModule {}

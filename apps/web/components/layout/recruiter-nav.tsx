@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { recruiterNavigation, recruiterUtilityNavigation, type RecruiterNavItem } from "../../lib/recruiter-navigation";
 import { AppIcon } from "../ui/app-icon";
+import type { InternalUser } from "../../lib/internal-auth";
 
 function NavList({ items, label, onNavigate }: { items: RecruiterNavItem[]; label: string; onNavigate?: () => void }) {
   const pathname = usePathname();
@@ -22,10 +23,11 @@ function NavList({ items, label, onNavigate }: { items: RecruiterNavItem[]; labe
   );
 }
 
-export function RecruiterNav({ onNavigate }: { onNavigate?: () => void }) {
+export function RecruiterNav({ onNavigate, user }: { onNavigate?: () => void; user: InternalUser }) {
   return (
     <>
       <NavList items={recruiterNavigation} label="Primary navigation" onNavigate={onNavigate} />
+      {user.role === 'ADMIN' && <nav className="recruiterNavList" aria-label="Administration"><Link href="/admin" onClick={onNavigate}>Administration</Link></nav>}
       <div className="recruiterUtilityNav"><NavList items={recruiterUtilityNavigation} label="Utility navigation" onNavigate={onNavigate} /></div>
     </>
   );

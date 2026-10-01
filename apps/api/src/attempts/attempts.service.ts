@@ -147,6 +147,39 @@ export class AttemptsService {
     };
   }
 
+  async getInvitationWelcome(inviteToken: string) {
+    const token = inviteToken.trim();
+    const interview = await this.prisma.interview.findFirst({
+      where: { inviteToken: token },
+      include: {
+        candidate: { select: { name: true } },
+        test: { include: { position: true, questions: { select: { id: true } } } },
+        attempt: { include: { responses: { select: {
+          questionId: true,
+          type: true,
+          videoItem: { select: { assetId: true } },
+        } } } },
+      },
+    });
+    if (!interview) throw new NotFoundException("This invitation link is invalid.");
+    this.assertInvitationNotExpired(interview.inviteExpiresAt);
+    const questionIds = new Set(interview.test.questions.map((question) => question.id));
+    const submittedQuestionIds = new Set(
+      interview.attempt?.responses
+        .filter((response) => questionIds.has(response.questionId) &&
+          (response.type !== "VIDEO" || Boolean(response.videoItem?.assetId)))
+        .map((response) => response.questionId) ?? [],
+    );
+    return {
+      candidateName: interview.candidate.name,
+      roleName: interview.test.position?.title ?? interview.test.name,
+      testName: interview.test.name,
+      totalQuestions: interview.test.questions.length,
+      submittedQuestions: submittedQuestionIds.size,
+      submitted: interview.attempt?.status === "SUBMITTED",
+    };
+  }
+
   async startAttempt(dto: StartAttemptDto, inviteToken?: string) {
     const normalizedToken = this.requireInviteToken(inviteToken);
 
@@ -296,15 +329,19 @@ export class AttemptsService {
 
     const responseRows =
       await this.prisma.$queryRaw<
-        Array<{ questionId: string; score: number | null }>
+        Array<{ questionId: string; score: number | null; type: string; videoAssetId: string | null }>
       >(Prisma.sql`
-        SELECT "questionId", "score"
-        FROM "Response"
-        WHERE "attemptId" = ${attemptId}
+        SELECT r."questionId", r."score", r."type"::text AS "type",
+          v."assetId" AS "videoAssetId"
+        FROM "Response" r
+        LEFT JOIN "VideoResponseItem" v ON v."responseId" = r."id"
+        WHERE r."attemptId" = ${attemptId}
       `);
 
     const respondedIds = new Set(
-      responseRows.map((row) => row.questionId),
+      responseRows
+        .filter((row) => row.type !== "VIDEO" || Boolean(row.videoAssetId))
+        .map((row) => row.questionId),
     );
 
     const missing = questionRows
@@ -364,9 +401,45 @@ export class AttemptsService {
   }
 
   async getAttempt(attemptId: string, inviteToken?: string) {
+    const attempt = await this.readAttemptDetail(attemptId, inviteToken);
+    const candidateAttempt: Record<string, unknown> = { ...attempt };
+    delete candidateAttempt.scoreSum;
+    delete candidateAttempt.scoreState;
+    candidateAttempt.responses = attempt.responses.map(response => {
+      const safe: Record<string, unknown> = { ...response };
+      delete safe.score;
+      delete safe.evaluatorComment;
+      if (response.type === 'MULTIPLE_CHOICE' && 'options' in response.item && Array.isArray(response.item.options)) {
+        safe.item = { ...response.item, options: response.item.options.map(option => {
+          const safeOption: Record<string, unknown> = { ...option };
+          delete safeOption.isCorrect;
+          return safeOption;
+        }) };
+      }
+      return safe;
+    });
+    return candidateAttempt;
+  }
+
+  async getReviewerAttempt(positionId: string, interviewId: string) {
+    const interview = await this.prisma.interview.findFirst({
+      where: { id: interviewId, positionId },
+      select: { attempt: { select: { id: true } } },
+    });
+    if (!interview) throw new NotFoundException("Candidate interview not found in this position");
+    if (!interview.attempt) throw new NotFoundException("This interview has no attempt to review");
+    return this.readAttemptDetail(interview.attempt.id, undefined, { positionId, interviewId });
+  }
+
+  private async readAttemptDetail(
+    attemptId: string,
+    inviteToken?: string,
+    reviewerScope?: { positionId: string; interviewId: string },
+  ) {
     const attempt = await this.loadAttemptWithAssignment(
       attemptId,
       inviteToken,
+      reviewerScope,
     );
 
     const responses = await this.prisma.response.findMany({
@@ -617,8 +690,9 @@ export class AttemptsService {
   private async loadAttemptWithAssignment(
     attemptId: string,
     inviteToken?: string,
+    reviewerScope?: { positionId: string; interviewId: string },
   ) {
-    const normalizedToken = this.requireInviteToken(inviteToken);
+    const normalizedToken = reviewerScope ? null : this.requireInviteToken(inviteToken);
 
     const [attempt] =
       await this.prisma.$queryRaw<
@@ -666,6 +740,7 @@ export class AttemptsService {
           ON r."attemptId" = a."id"
 
         WHERE a."id" = ${attemptId}
+          ${reviewerScope ? Prisma.sql`AND ua."id" = ${reviewerScope.interviewId} AND ua."positionId" = ${reviewerScope.positionId}` : Prisma.empty}
 
         GROUP BY
           a."id",
@@ -699,21 +774,13 @@ export class AttemptsService {
       throw new NotFoundException("Attempt not found");
     }
 
-    const authorization =
-      attempt as unknown as AttemptAuthorizationFields;
-
-    if (
-      authorization.assignmentInviteToken !==
-      normalizedToken
-    ) {
-      throw new ForbiddenException(
-        "A valid invite token is required",
-      );
+    if (!reviewerScope) {
+      const authorization = attempt as unknown as AttemptAuthorizationFields;
+      if (authorization.assignmentInviteToken !== normalizedToken) {
+        throw new ForbiddenException("A valid invite token is required");
+      }
+      this.assertInvitationNotExpired(authorization.assignmentInviteExpiresAt ?? null);
     }
-
-    this.assertInvitationNotExpired(
-      authorization.assignmentInviteExpiresAt ?? null,
-    );
 
     return {
       id: attempt.id,

@@ -5,6 +5,8 @@ import "../styles/ui-components.css";
 import "../styles/recruiter-shell.css";
 import "../styles/positions-dashboard.css";
 import "../styles/candidate-pipeline.css";
+import "../styles/interview-review.css";
+import "../styles/access.css";
 import "./globals.css";
 
 export const metadata: Metadata = {

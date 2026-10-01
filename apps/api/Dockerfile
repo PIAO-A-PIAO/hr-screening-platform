@@ -11,6 +11,7 @@ RUN npm run db:generate && npm run build -w @ds-hr/api
 FROM node:24-alpine
 WORKDIR /app
 ENV NODE_ENV=production
+RUN apk add --no-cache ffmpeg
 COPY --from=build /app/package*.json ./
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/apps/api/dist ./apps/api/dist

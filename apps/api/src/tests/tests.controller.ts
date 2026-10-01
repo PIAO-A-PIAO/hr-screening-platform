@@ -1,4 +1,7 @@
-import { Body, Controller, Get, Param, Patch, Post } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Patch, Post, Req, StreamableFile, UploadedFile, UseInterceptors } from "@nestjs/common";
+import type { InternalRequest } from "../auth/auth.guard";
+import { FileInterceptor } from "@nestjs/platform-express";
+import { QUESTION_VIDEO_MAX_BYTES } from "../questions/question.constants";
 import { ApiBody, ApiOperation, ApiParam, ApiTags } from "@nestjs/swagger";
 import { AppendTestQuestionsDto, CreateTestDto, ReorderTestQuestionsDto } from "./create-test.dto";
 import { TestsService } from "./tests.service";
@@ -10,8 +13,8 @@ export class TestsController {
 
   @Get()
   @ApiOperation({ summary: "List all tests" })
-  getTests() {
-    return this.tests.listTests();
+  getTests(@Req() req: InternalRequest) {
+    return this.tests.listTests(req.internalUser);
   }
 
   @Post()
@@ -125,5 +128,22 @@ export class TestsController {
   @ApiParam({ name: "testId" })
   getTest(@Param("testId") testId: string) {
     return this.tests.getTest(testId);
+  }
+
+  @Post(":testId/closing-video")
+  @UseInterceptors(FileInterceptor("file", { limits: { fileSize: QUESTION_VIDEO_MAX_BYTES } }))
+  uploadClosingVideo(@Param("testId") testId: string, @UploadedFile() file: { buffer: Buffer; size: number; mimetype: string; originalname: string }) {
+    return this.tests.uploadClosingVideo(testId, file);
+  }
+
+  @Get(":testId/closing-video")
+  async getClosingVideo(@Param("testId") testId: string) {
+    const { asset, file } = await this.tests.getClosingVideo(testId);
+    return new StreamableFile(file.stream, { type: asset.mimeType, disposition: "inline", length: file.contentLength });
+  }
+
+  @Delete(":testId/closing-video")
+  removeClosingVideo(@Param("testId") testId: string) {
+    return this.tests.removeClosingVideo(testId);
   }
 }

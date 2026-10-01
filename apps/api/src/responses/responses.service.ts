@@ -228,7 +228,12 @@ export class ResponsesService {
   async getResponse(responseId: string, inviteToken?: string) {
     const response = await this.loadResponse(responseId);
     await this.authorizeAssignment(response.candidateId, response.testId, inviteToken);
-    return this.toResponse(response);
+    const candidateResponse: Record<string, unknown> = { ...this.toResponse(response) };
+    delete candidateResponse.score;
+    delete candidateResponse.evaluatorComment;
+    delete candidateResponse.evaluatorUserId;
+    delete candidateResponse.evaluatedAt;
+    return candidateResponse;
   }
 
   async uploadVideo(
@@ -340,16 +345,37 @@ export class ResponsesService {
     }
   }
 
+  async openReviewerVideo(positionId: string, interviewId: string, responseId: string) {
+    const match = await this.prisma.response.findFirst({
+      where: {
+        id: responseId,
+        attempt: { interviewId, interview: { positionId } },
+      },
+      select: { id: true },
+    });
+    if (!match) throw new NotFoundException("Response video not found in this interview");
+    const response = await this.loadResponse(responseId);
+    const asset = response.videoItem?.asset;
+    if (response.type !== ResponseType.VIDEO || !asset) {
+      throw new NotFoundException("Response video not found");
+    }
+    try {
+      return { asset, file: await this.storage.openObject(asset.storageKey) };
+    } catch {
+      throw new NotFoundException("Response video not found");
+    }
+  }
+
   private async authorizeAssignment(userId: string, testId: string, inviteToken?: string) {
     const assignment = await this.prisma.interview.findFirst({
       where: { candidateId: userId, testId },
-      select: { inviteToken: true },
+      select: { inviteToken: true, inviteExpiresAt: true },
     });
 
     if (!assignment) {
       throw new ForbiddenException("Candidate is not assigned to this test");
     }
-    if (!inviteToken || assignment.inviteToken !== inviteToken.trim()) {
+    if (!inviteToken || assignment.inviteToken !== inviteToken.trim() || (assignment.inviteExpiresAt && assignment.inviteExpiresAt < new Date())) {
       throw new ForbiddenException("A valid invite token is required");
     }
   }
